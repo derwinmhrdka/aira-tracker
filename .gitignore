@@ -20,7 +20,8 @@ uploads/*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-logs/
+# Application log output (root logs/ dir only — not app/api/logs)
+/logs/
 
 # OS
 .DS_Store
