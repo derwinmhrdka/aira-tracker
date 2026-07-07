@@ -38,7 +38,8 @@ $COMPOSE exec -T -u root app npx tsx prisma/seed.ts || true
 echo "==> Waiting for app health..."
 APP_READY=false
 for i in $(seq 1 30); do
-  if curl -fsS -o /dev/null http://127.0.0.1:13082/manifest.json 2>/dev/null; then
+  if curl -fsS -o /dev/null http://127.0.0.1:13082/login 2>/dev/null \
+    || wget -qO- http://127.0.0.1:13082/login >/dev/null 2>&1; then
     echo "==> App OK on 127.0.0.1:13082"
     APP_READY=true
     break
