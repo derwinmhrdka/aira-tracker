@@ -22,6 +22,22 @@ if [[ "$APP_URL" != https://* ]]; then
   exit 1
 fi
 
+if [ -z "${SESSION_SECRET:-}" ] || [ "${#SESSION_SECRET}" -lt 32 ]; then
+  echo "ERROR: SESSION_SECRET must be at least 32 characters in .env" >&2
+  exit 1
+fi
+
+if [ -z "${POSTGRES_PASSWORD:-}" ] || [ "$POSTGRES_PASSWORD" = "change-me-strong-password" ]; then
+  echo "WARNING: Change POSTGRES_PASSWORD from the default in .env" >&2
+fi
+
+PG_USER="${POSTGRES_USER:-baby_tracker}"
+PG_DB="${POSTGRES_DB:-baby_tracker}"
+if [ -n "${DATABASE_URL:-}" ] && ! echo "$DATABASE_URL" | grep -q "@db:5432/${PG_DB}"; then
+  echo "WARNING: DATABASE_URL may not match Docker (expected host db, db ${PG_DB})" >&2
+  echo "         Docker uses: postgresql://${PG_USER}:****@db:5432/${PG_DB}" >&2
+fi
+
 echo "==> Building and starting containers (db, app)..."
 echo "    HTTPS is handled by host nginx — see deploy/nginx-aira.conf.example"
 $COMPOSE up -d --build --remove-orphans
