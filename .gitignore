@@ -1,0 +1,63 @@
+# Dependencies & build
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment & secrets (never commit to VPS/git)
+.env
+.env.*
+!.env.example
+
+# Runtime uploads — user photos live on VPS disk only
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / editor
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+
+# v0 sandbox (legacy)
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+
+# Prisma local sqlite
+prisma/*.db
+prisma/*.db-journal
+
+# Test / coverage
+coverage/
+
+# TLS / keys
+*.pem
+*.key
+secrets/
+
+# PM2 runtime
+.pm2/
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Optional local lock (project uses npm)
+pnpm-lock.yaml

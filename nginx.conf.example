@@ -1,0 +1,46 @@
+# Nginx config for Baby Tracker
+# Prefer deploy/aira.conf for production (aira.teknodika.com)
+# This file is a minimal reference for PM2 setup on port 3000
+
+server {
+    listen 80;
+    server_name aira.teknodika.com;
+
+    # Redirect HTTP to HTTPS (after certbot setup)
+    # return 301 https://$server_name$request_uri;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        # Optional: Basic auth layer (recommended for private app)
+        # auth_basic "Private Baby Tracker";
+        # auth_basic_user_file /etc/nginx/.htpasswd;
+    }
+
+    # Increase upload size for photos (max 2MB in app, but allow buffer)
+    client_max_body_size 3M;
+}
+
+# After running certbot, it will add SSL server block automatically.
+# Example HTTPS block:
+#
+# server {
+#     listen 443 ssl http2;
+#     server_name tracker.example.com;
+#
+#     ssl_certificate /etc/letsencrypt/live/tracker.example.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/tracker.example.com/privkey.pem;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:3000;
+#         ...
+#     }
+# }

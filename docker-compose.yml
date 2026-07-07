@@ -1,0 +1,52 @@
+# Production stack for VPS — use with deploy/docker-deploy.sh
+# Host nginx proxies https://aira.teknodika.com → 127.0.0.1:13082
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-baby_tracker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-baby_tracker}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-baby_tracker}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-baby_tracker}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-baby_tracker}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      INITIAL_PIN: ${INITIAL_PIN:-1234}
+      APP_PIN: ${APP_PIN:-1234}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@teknodika.com}
+      CRON_SECRET: ${CRON_SECRET:-}
+      FEEDING_REMINDER_HOURS: ${FEEDING_REMINDER_HOURS:-3}
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - '127.0.0.1:13082:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/manifest.json >/dev/null 2>&1 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+
+volumes:
+  pgdata:
+  uploads_data:

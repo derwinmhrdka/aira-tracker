@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.github
+.env
+.env.*
+uploads
+*.md
+!DEPLOYMENT.md
+.cursor
+.vscode
+.idea
+coverage
+.DS_Store
+docker-compose.dev.yml
+docker-compose.override.yml
+terminals

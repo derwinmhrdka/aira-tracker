@@ -1,0 +1,17 @@
+# Local dev — PostgreSQL only (app runs via npm run dev)
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: baby-tracker-db
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: baby_tracker
+      POSTGRES_PASSWORD: baby_tracker
+      POSTGRES_DB: baby_tracker
+    volumes:
+      - baby_tracker_pgdata:/var/lib/postgresql/data
+
+volumes:
+  baby_tracker_pgdata:

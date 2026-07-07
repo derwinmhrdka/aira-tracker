@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  pinHash   String   @map("pin_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model BabyProfile {
+  id            String   @id @default(cuid())
+  name          String
+  birthDate     DateTime @map("birth_date") @db.Date
+  birthWeightKg Float    @map("birth_weight_kg")
+  birthHeightCm Float    @map("birth_height_cm")
+  bloodType     String?  @map("blood_type")
+  parentNames   String?  @map("parent_names")
+  photoUrl      String?  @map("photo_url")
+  gender        Gender?  @default(MALE)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("baby_profile")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum DiaperType {
+  PUP
+  PIPIS
+  KEDUANYA
+}
+
+enum LoggedBy {
+  AYAH
+  IBU
+  PENGASUH
+}
+
+enum FeedSide {
+  LEFT
+  RIGHT
+  BOTH
+}
+
+enum FeedType {
+  DIRECT
+  PUMPED
+  FORMULA
+}
+
+model FeedingLog {
+  id             String    @id @default(cuid())
+  timestampStart DateTime  @map("timestamp_start")
+  timestampEnd   DateTime? @map("timestamp_end")
+  side           FeedSide?
+  feedType       FeedType? @default(DIRECT) @map("feed_type")
+  amountMl       Int?      @map("amount_ml")
+  loggedBy       LoggedBy? @map("logged_by")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@map("feeding_logs")
+}
+
+model SleepLog {
+  id             String    @id @default(cuid())
+  timestampStart DateTime  @map("timestamp_start")
+  timestampEnd   DateTime? @map("timestamp_end")
+  loggedBy       LoggedBy? @map("logged_by")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@map("sleep_logs")
+}
+
+model DiaperLog {
+  id               String     @id @default(cuid())
+  timestamp        DateTime   @default(now())
+  type             DiaperType @default(PIPIS)
+  diaperSizeOrType String?    @map("diaper_size_or_type")
+  notes            String?
+  loggedBy         LoggedBy?  @map("logged_by")
+  createdAt        DateTime   @default(now()) @map("created_at")
+
+  @@map("diaper_logs")
+}
+
+model GrowthLog {
+  id             String   @id @default(cuid())
+  date           DateTime @db.Date
+  weightKg       Float    @map("weight_kg")
+  heightCm       Float    @map("height_cm")
+  isJaundice     Boolean  @default(false) @map("is_jaundice")
+  bilirubinLevel Float?   @map("bilirubin_level")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("growth_logs")
+}
+
+model DailyNote {
+  id        String    @id @default(cuid())
+  timestamp DateTime  @default(now())
+  content   String
+  photoUrl  String?   @map("photo_url")
+  loggedBy  LoggedBy? @map("logged_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("daily_notes")
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  title       String
+  description String?
+  photoUrl    String?  @map("photo_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("milestones")
+}
+
+model Immunization {
+  id                 String    @id @default(cuid())
+  vaccineName        String    @map("vaccine_name")
+  scheduledAgeMonths Int       @map("scheduled_age_months")
+  isDone             Boolean   @default(false) @map("is_done")
+  dateGiven          DateTime? @map("date_given") @db.Date
+  notes              String?
+  isCustom           Boolean   @default(false) @map("is_custom")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@map("immunizations")
+}
+
+model DevelopmentChecklist {
+  id             String    @id @default(cuid())
+  ageGroupMonths Int       @map("age_group_months")
+  question       String
+  isChecked      Boolean   @default(false) @map("is_checked")
+  dateChecked    DateTime? @map("date_checked") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("development_checklist")
+}
+
+model PushSubscription {
+  id             String    @id @default(cuid())
+  endpoint       String    @unique
+  p256dh         String
+  auth           String
+  lastNotifiedAt DateTime? @map("last_notified_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@map("push_subscriptions")
+}
