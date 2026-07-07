@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { PwaRegister } from '@/components/pwa-register'
 import { Providers } from '@/components/providers'
+import { SnowDecor } from '@/components/snow-decor'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -53,8 +54,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
-        <Providers>{children}</Providers>
-        <PwaRegister />
+        <SnowDecor />
+        <div className="relative z-10">
+          <Providers>{children}</Providers>
+          <PwaRegister />
+        </div>
       </body>
     </html>
   )

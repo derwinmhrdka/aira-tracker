@@ -171,3 +171,81 @@
     @apply font-heading tracking-tight;
   }
 }
+
+/* ── Subtle winter decor (snowflakes + snowmen) ── */
+.snow-decor {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  color: oklch(0.68 0.12 260);
+}
+
+.dark .snow-decor {
+  color: oklch(0.85 0.06 260);
+}
+
+.snow-decor-gradient {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.92 0.04 260 / 35%), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, oklch(0.88 0.05 260 / 20%), transparent);
+}
+
+.dark .snow-decor-gradient {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.35 0.04 260 / 25%), transparent),
+    radial-gradient(ellipse 60% 40% at 0% 100%, oklch(0.30 0.03 260 / 15%), transparent);
+}
+
+.snowflake {
+  position: absolute;
+  opacity: 0.07;
+  animation: snow-drift ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.dark .snowflake {
+  opacity: 0.1;
+}
+
+.snowman {
+  position: absolute;
+  width: 72px;
+  height: 90px;
+  opacity: 0.055;
+  transform-origin: center bottom;
+}
+
+.dark .snowman {
+  opacity: 0.08;
+}
+
+.snowman--tl {
+  top: 8%;
+  left: -8px;
+  transform: rotate(-8deg);
+}
+
+.snowman--br {
+  right: -4px;
+  bottom: 72px;
+  transform: rotate(6deg);
+}
+
+@keyframes snow-drift {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+  }
+  100% {
+    transform: translateY(12px) translateX(6px) rotate(25deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snowflake {
+    animation: none;
+  }
+}
