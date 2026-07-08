@@ -1,4 +1,4 @@
-const CACHE_NAME = 'baby-tracker-v4'
+const CACHE_NAME = 'baby-tracker-v5'
 const STATIC_ASSETS = ['/', '/manifest.json', '/icon.svg']
 
 let reminderSettings = { enabled: false, feedingIntervalHours: 3 }
@@ -52,8 +52,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/icon.svg',
-      badge: '/icon.svg',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
       tag: 'feeding-reminder',
       vibrate: [200, 100, 200],
       data: { url: data.url || '/' },
@@ -71,8 +71,8 @@ self.addEventListener('message', (event) => {
     const { title, body, tag } = event.data
     self.registration.showNotification(title || 'Waktunya menyusui 🍼', {
       body: body || 'Sudah waktunya cek jadwal menyusui',
-      icon: '/icon.svg',
-      badge: '/icon.svg',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
       tag: tag || 'feeding-reminder',
       vibrate: [200, 100, 200],
       data: { url: '/' },

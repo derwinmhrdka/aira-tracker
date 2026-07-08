@@ -3,6 +3,11 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { CreateGrowthInput, GrowthLog } from '@/lib/api-client'
+import {
+  isValidDecimal,
+  parseDecimal,
+  sanitizeDecimalInput,
+} from '@/lib/decimal-input'
 
 function todayStr() {
   return new Date().toISOString().split('T')[0]
@@ -58,18 +63,20 @@ export function GrowthSheet({
   }, [open, initial, mode])
 
   const handleSave = async () => {
-    if (!weight || !height) return
+    const weightKg = parseDecimal(weight)
+    const heightCm = parseDecimal(height)
+    if (weightKg == null || heightCm == null) return
     setSaving(true)
     try {
       await onSave({
         date,
-        weight_kg: parseFloat(weight),
-        height_cm: parseFloat(height),
+        weight_kg: weightKg,
+        height_cm: heightCm,
         head_circumference_cm: headCircumference
-          ? parseFloat(headCircumference)
+          ? (parseDecimal(headCircumference) ?? undefined)
           : undefined,
         is_jaundice: isJaundice,
-        bilirubin_level: bilirubin ? parseFloat(bilirubin) : undefined,
+        bilirubin_level: bilirubin ? (parseDecimal(bilirubin) ?? undefined) : undefined,
         notes: notes.trim() || undefined,
       })
       onClose()
@@ -124,12 +131,11 @@ export function GrowthSheet({
                     Berat (kg)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    step="0.01"
-                    placeholder="5.2"
+                    placeholder="5,2"
                     value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
+                    onChange={(e) => setWeight(sanitizeDecimalInput(e.target.value))}
                     className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground"
                   />
                 </div>
@@ -138,12 +144,11 @@ export function GrowthSheet({
                     Panjang (cm)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    step="0.1"
-                    placeholder="58.5"
+                    placeholder="58,5"
                     value={height}
-                    onChange={(e) => setHeight(e.target.value)}
+                    onChange={(e) => setHeight(sanitizeDecimalInput(e.target.value))}
                     className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground"
                   />
                 </div>
@@ -154,12 +159,13 @@ export function GrowthSheet({
                   Lingkar kepala (cm) — opsional
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  step="0.1"
-                  placeholder="38.5"
+                  placeholder="38,5"
                   value={headCircumference}
-                  onChange={(e) => setHeadCircumference(e.target.value)}
+                  onChange={(e) =>
+                    setHeadCircumference(sanitizeDecimalInput(e.target.value))
+                  }
                   className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground"
                 />
               </div>
@@ -180,12 +186,11 @@ export function GrowthSheet({
                     Bilirubin (mg/dL) — opsional
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    step="0.1"
-                    placeholder="12.5"
+                    placeholder="12,5"
                     value={bilirubin}
-                    onChange={(e) => setBilirubin(e.target.value)}
+                    onChange={(e) => setBilirubin(sanitizeDecimalInput(e.target.value))}
                     className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground"
                   />
                 </div>
@@ -216,7 +221,7 @@ export function GrowthSheet({
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!weight || !height || saving}
+                disabled={!isValidDecimal(weight) || !isValidDecimal(height) || saving}
                 className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
                 {saving ? '...' : 'Save'}

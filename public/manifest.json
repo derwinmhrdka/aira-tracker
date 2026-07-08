@@ -1,16 +1,22 @@
 {
-  "name": "Baby Tracker",
-  "short_name": "Baby",
+  "name": "Aira Tracker",
+  "short_name": "Aira",
   "description": "Private baby tracking for feeding, sleep, and growth",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafd",
+  "background_color": "#a8d4f0",
   "theme_color": "#7eb0d4",
   "orientation": "portrait",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
@@ -25,12 +31,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "/icon-app.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }
