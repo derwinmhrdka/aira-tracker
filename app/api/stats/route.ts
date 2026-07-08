@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
+import { dayKeyWib, periodStartWib } from '@/lib/day-boundary'
 import { diaperEventCounts } from '@/lib/log-parsers'
 
 function hoursBetween(start: Date, end: Date) {
   return (end.getTime() - start.getTime()) / (1000 * 60 * 60)
-}
-
-function periodStart(days: number) {
-  const d = new Date()
-  d.setDate(d.getDate() - days + 1)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function dayKey(date: Date) {
-  return date.toISOString().split('T')[0]
 }
 
 export async function GET(request: NextRequest) {
@@ -24,7 +14,7 @@ export async function GET(request: NextRequest) {
       90,
       Math.max(7, Number(request.nextUrl.searchParams.get('days') || '7'))
     )
-    const since = periodStart(days)
+    const since = periodStartWib(days)
 
     const [diaperLogs, feedingLogs, sleepLogs, growthLogs] = await Promise.all([
       prisma.diaperLog.findMany({
@@ -48,13 +38,12 @@ export async function GET(request: NextRequest) {
     >()
 
     for (let i = 0; i < days; i++) {
-      const d = new Date(since)
-      d.setDate(d.getDate() + i)
-      dailyMap.set(dayKey(d), { pup: 0, pee: 0, feed: 0, sleepHours: 0 })
+      const d = new Date(since.getTime() + i * 24 * 60 * 60 * 1000)
+      dailyMap.set(dayKeyWib(d), { pup: 0, pee: 0, feed: 0, sleepHours: 0 })
     }
 
     for (const log of diaperLogs) {
-      const key = dayKey(log.timestamp)
+      const key = dayKeyWib(log.timestamp)
       const bucket = dailyMap.get(key)
       if (!bucket) continue
       const counts = diaperEventCounts(log.type)
@@ -63,14 +52,14 @@ export async function GET(request: NextRequest) {
     }
 
     for (const log of feedingLogs) {
-      const key = dayKey(log.timestampStart)
+      const key = dayKeyWib(log.timestampStart)
       const bucket = dailyMap.get(key)
       if (bucket) bucket.feed++
     }
 
     for (const log of sleepLogs) {
       if (!log.timestampEnd) continue
-      const key = dayKey(log.timestampStart)
+      const key = dayKeyWib(log.timestampStart)
       const bucket = dailyMap.get(key)
       if (bucket) {
         bucket.sleepHours += hoursBetween(log.timestampStart, log.timestampEnd)

@@ -23,8 +23,12 @@ export function diaperTypeToClient(type: DiaperType): 'pup' | 'pee' | 'both' {
   return 'both'
 }
 
-export function diaperEventCounts(type: DiaperType): { pup: number; pee: number } {
-  if (type === 'PUP') return { pup: 1, pee: 0 }
-  if (type === 'PIPIS') return { pup: 0, pee: 1 }
-  return { pup: 1, pee: 1 }
+export function diaperEventCounts(type: DiaperType | string): { pup: number; pee: number } {
+  const normalized = String(type).toUpperCase()
+  if (normalized === 'PUP') return { pup: 1, pee: 0 }
+  if (normalized === 'PIPIS' || normalized === 'PEE') return { pup: 0, pee: 1 }
+  if (normalized === 'KEDUANYA' || normalized === 'BOTH' || normalized === 'PUPEE') {
+    return { pup: 1, pee: 1 }
+  }
+  return { pup: 0, pee: 0 }
 }

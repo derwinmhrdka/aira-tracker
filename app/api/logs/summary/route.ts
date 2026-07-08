@@ -4,13 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
 import { formatAge } from '@/lib/baby-utils'
 import { getNextVaccine } from '@/lib/immunization-utils'
+import { startOfTodayWib } from '@/lib/day-boundary'
 import { diaperEventCounts } from '@/lib/log-parsers'
-
-function todayStart() {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
-}
 
 function lastTimestamp(
   logs: { timestamp: Date; type: DiaperType }[],
@@ -25,7 +20,7 @@ function lastTimestamp(
 export async function GET() {
   return withAuth(async () => {
     try {
-      const since = todayStart()
+      const since = startOfTodayWib()
 
       const [
         diaperLogs,
