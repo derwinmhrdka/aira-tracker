@@ -7,6 +7,7 @@ import {
   Syringe,
   ListChecks,
   Trophy,
+  CalendarDays,
   Settings,
   Heart,
   type LucideIcon,
@@ -21,6 +22,7 @@ export type SubPage =
   | 'development'
   | 'profile'
   | 'milestones'
+  | 'events'
   | 'settings'
 
 interface MorePageProps {
@@ -74,6 +76,14 @@ const MENU_ITEMS: {
     desc: 'Pencapaian bayi',
     color: 'bg-amber-100 border-amber-200/80 dark:bg-amber-950/60 dark:border-amber-800/60',
     iconColor: 'text-amber-600 dark:text-amber-300',
+  },
+  {
+    id: 'events',
+    icon: CalendarDays,
+    label: 'Event',
+    desc: 'Jadwal & pertemuan',
+    color: 'bg-indigo-100 border-indigo-200/80 dark:bg-indigo-950/60 dark:border-indigo-800/60',
+    iconColor: 'text-indigo-600 dark:text-indigo-300',
   },
   {
     id: 'settings',

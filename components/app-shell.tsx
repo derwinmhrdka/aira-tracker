@@ -18,6 +18,7 @@ import { ImmunizationsPage } from '@/components/immunizations-page'
 import { DevelopmentPage } from '@/components/development-page'
 import { ProfilePage } from '@/components/profile-page'
 import { MilestonesPage } from '@/components/milestones-page'
+import { EventsPage } from '@/components/events-page'
 import { SettingsPage } from '@/components/settings-page'
 import { BottomNav } from '@/components/bottom-nav'
 import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
@@ -81,6 +82,7 @@ export function AppShell() {
         )}
         {currentPage === 'profile' && <ProfilePage onBack={goBack} />}
         {currentPage === 'milestones' && <MilestonesPage onBack={goBack} />}
+        {currentPage === 'events' && <EventsPage onBack={goBack} />}
         {currentPage === 'settings' && <SettingsPage onBack={goBack} />}
       </div>
 

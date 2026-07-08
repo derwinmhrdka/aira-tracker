@@ -141,6 +141,21 @@ model Milestone {
   @@map("milestones")
 }
 
+model CalendarEvent {
+  id        String   @id @default(cuid())
+  title     String
+  location  String?
+  meetWith  String?  @map("meet_with")
+  startAt   DateTime @map("start_at")
+  endAt     DateTime @map("end_at")
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([startAt])
+  @@map("calendar_events")
+}
+
 model Immunization {
   id                 String    @id @default(cuid())
   vaccineName        String    @map("vaccine_name")

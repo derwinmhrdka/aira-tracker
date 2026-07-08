@@ -248,6 +248,32 @@ export const api = {
       return res.json()
     }),
 
+  getEvents: (upcomingOnly = false) =>
+    apiFetch<CalendarEvent[]>(
+      `/api/events${upcomingOnly ? '?upcoming=1' : ''}`
+    ),
+
+  createEvent: (data: CreateEventInput) =>
+    apiFetch<CalendarEvent>('/api/events', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateEvent: (id: string, data: Partial<CreateEventInput>) =>
+    apiFetch<CalendarEvent>(`/api/events/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteEvent: (id: string) =>
+    fetch(`/api/events/${id}`, { method: 'DELETE' }).then(async (res) => {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Delete failed')
+      }
+      return res.json()
+    }),
+
   changePin: (oldPin: string, newPin: string) =>
     apiFetch('/api/auth/change-pin', {
       method: 'POST',
@@ -389,6 +415,7 @@ export interface TodaySummary {
     feed: string | null
     sleep: string | null
   }
+  lastFeedingEnd?: string | null
   lastDiaper?: string | null
   lastDurations?: {
     feed: number | null
@@ -530,6 +557,25 @@ export interface CreateMilestoneInput {
   title: string
   description?: string
   photo_url?: string
+}
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  location?: string | null
+  meet_with?: string | null
+  start_at: string
+  end_at: string
+  notes?: string | null
+}
+
+export interface CreateEventInput {
+  title: string
+  location?: string
+  meet_with?: string
+  start_at: string
+  end_at: string
+  notes?: string
 }
 
 export interface Immunization {

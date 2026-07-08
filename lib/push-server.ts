@@ -108,13 +108,24 @@ export async function shouldSendFeedingReminder(intervalMinutes: number) {
   })
   if (!sub) return { shouldSend: false, babyName: null as string | null }
 
-  const lastFeed = await prisma.feedingLog.findFirst({
+  // Do not remind while a feeding session is still active.
+  const activeFeed = await prisma.feedingLog.findFirst({
+    where: { timestampEnd: null },
     orderBy: { timestampStart: 'desc' },
   })
-  if (!lastFeed) return { shouldSend: false, babyName: null as string | null }
+  if (activeFeed) return { shouldSend: false, babyName: null as string | null }
+
+  // Trigger from latest completed feeding action (timestampEnd).
+  const lastCompletedFeed = await prisma.feedingLog.findFirst({
+    where: { timestampEnd: { not: null } },
+    orderBy: { timestampEnd: 'desc' },
+  })
+  if (!lastCompletedFeed?.timestampEnd) {
+    return { shouldSend: false, babyName: null as string | null }
+  }
 
   const minutesSince =
-    (Date.now() - lastFeed.timestampStart.getTime()) / (1000 * 60)
+    (Date.now() - lastCompletedFeed.timestampEnd.getTime()) / (1000 * 60)
   if (minutesSince < intervalMinutes) {
     return { shouldSend: false, babyName: null as string | null }
   }

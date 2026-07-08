@@ -14,6 +14,7 @@ import { ActiveTimer } from './active-timer'
 import { BabyInfoCard } from './baby-info-card'
 import { BabyProfileSheet } from './baby-profile-sheet'
 import { InsightsCard } from './insights-card'
+import { NextEventCard } from './next-event-card'
 import { OnboardingSheet } from './onboarding-sheet'
 import { playSoundEffect } from '@/lib/sounds'
 import { api, isQueuedResponse, type TodaySummary } from '@/lib/api-client'
@@ -316,6 +317,8 @@ export function Dashboard() {
 
       <div className="px-4">
         <BabyInfoCard summary={summary} onClick={() => setProfileOpen(true)} />
+
+        <NextEventCard />
 
         <ActiveTimer
           type="feeding"

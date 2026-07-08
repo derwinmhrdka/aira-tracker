@@ -114,6 +114,12 @@ export async function GET() {
       const astrology = birthDate ? getBabyAstrology(birthDate) : null
       const lastFeed = feedingLogs[0] ?? null
       const lastSleep = sleepLogs[0] ?? null
+      const lastFeedingEnd = feedingLogs
+        .filter((f) => !!f.timestampEnd)
+        .sort(
+          (a, b) =>
+            b.timestampEnd!.getTime() - a.timestampEnd!.getTime()
+        )[0]?.timestampEnd
 
       return NextResponse.json(
         {
@@ -131,6 +137,7 @@ export async function GET() {
             feed: feedingLogs[0]?.timestampStart.toISOString() ?? null,
             sleep: sleepLogs[0]?.timestampStart.toISOString() ?? null,
           },
+          lastFeedingEnd: lastFeedingEnd?.toISOString() ?? null,
           lastDiaper: lastDiaperLog?.timestamp.toISOString() ?? null,
           lastDurations: {
             feed: lastFeed

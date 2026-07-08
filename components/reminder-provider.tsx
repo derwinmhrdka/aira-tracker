@@ -48,11 +48,11 @@ export function ReminderProvider() {
             const now = Date.now()
             lastFeedingNotified.current = now
             writeLastNotify(LAST_FEEDING_NOTIFY_KEY, now)
-          } else {
-            const lastFeed = summary.lastTimes.feed
-            if (lastFeed) {
+          } else if (!summary.activeFeeding) {
+            const lastFeedAction = summary.lastFeedingEnd ?? summary.lastTimes.feed
+            if (lastFeedAction) {
               const minutesSince =
-                (Date.now() - new Date(lastFeed).getTime()) / (1000 * 60)
+                (Date.now() - new Date(lastFeedAction).getTime()) / (1000 * 60)
 
               if (minutesSince >= settings.feedingIntervalMinutes) {
                 const now = Date.now()
