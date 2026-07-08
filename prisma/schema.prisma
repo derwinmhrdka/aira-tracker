@@ -41,6 +41,7 @@ enum DiaperType {
   PUP
   PIPIS
   KEDUANYA
+  GANTI
 }
 
 enum LoggedBy {
@@ -167,13 +168,17 @@ model DevelopmentChecklist {
 }
 
 model PushSubscription {
-  id                   String    @id @default(cuid())
-  endpoint             String    @unique
-  p256dh               String
-  auth                 String
-  feedingReminderHours Float?    @default(3) @map("feeding_reminder_hours")
-  lastNotifiedAt       DateTime? @map("last_notified_at")
-  createdAt            DateTime  @default(now()) @map("created_at")
+  id                    String    @id @default(cuid())
+  endpoint              String    @unique
+  p256dh                String
+  auth                  String
+  feedingReminderHours  Float?    @default(3) @map("feeding_reminder_hours")
+  feedingReminderEnabled Boolean  @default(true) @map("feeding_reminder_enabled")
+  diaperReminderHours   Float?    @default(3) @map("diaper_reminder_hours")
+  diaperReminderEnabled Boolean   @default(false) @map("diaper_reminder_enabled")
+  lastNotifiedAt        DateTime? @map("last_notified_at")
+  lastDiaperNotifiedAt  DateTime? @map("last_diaper_notified_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
 
   @@map("push_subscriptions")
 }

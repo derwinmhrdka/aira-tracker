@@ -10,12 +10,12 @@ import { ErrorBanner } from './error-banner'
 import { ConfirmDeleteSheet } from './confirm-delete-sheet'
 
 const TYPE_EMOJI: Record<string, string> = {
-  pup: '💩', pee: '💧', both: '💩💧', feed: '🍼', 'feed-end': '🍼',
+  pup: '💩', pee: '💧', both: '💩💧', change: '🔄', feed: '🍼', 'feed-end': '🍼',
   sleep: '😴', wake: '☀️', note: '📝',
 }
 
 const TYPE_LABEL: Record<string, string> = {
-  pup: 'Pup', pee: 'Pee', both: 'Pupee', feed: 'Mulai Menyusui',
+  pup: 'Pup', pee: 'Pee', both: 'Pupee', change: 'Popok', feed: 'Mulai Menyusui',
   'feed-end': 'Selesai Menyusui', sleep: 'Mulai Tidur', wake: 'Bangun', note: 'Catatan',
 }
 

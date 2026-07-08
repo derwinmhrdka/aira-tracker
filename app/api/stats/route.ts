@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { FeedSide } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
 import { dayKeyWib, periodStartWib } from '@/lib/day-boundary'
@@ -87,6 +88,7 @@ export async function GET(request: NextRequest) {
 
     const completedFeeds = feedingLogs.filter((f) => f.timestampEnd)
     let avgFeedingInterval: number | null = null
+    let avgFeedingDurationMinutes: number | null = null
     if (completedFeeds.length >= 2) {
       const intervals: number[] = []
       for (let i = 1; i < completedFeeds.length; i++) {
@@ -99,6 +101,14 @@ export async function GET(request: NextRequest) {
       }
       avgFeedingInterval =
         intervals.reduce((a, b) => a + b, 0) / intervals.length
+    }
+    if (completedFeeds.length > 0) {
+      const durations = completedFeeds.map(
+        (f) =>
+          (f.timestampEnd!.getTime() - f.timestampStart.getTime()) / 60000
+      )
+      avgFeedingDurationMinutes =
+        durations.reduce((a, b) => a + b, 0) / durations.length
     }
 
     const completedSleeps = sleepLogs.filter((s) => s.timestampEnd)
@@ -116,6 +126,18 @@ export async function GET(request: NextRequest) {
       const counts = diaperEventCounts(log.type)
       periodPup += counts.pup
       periodPee += counts.pee
+    }
+
+    let feedLeft = 0
+    let feedRight = 0
+    for (const log of feedingLogs) {
+      if (!log.side) continue
+      if (log.side === FeedSide.LEFT) feedLeft++
+      else if (log.side === FeedSide.RIGHT) feedRight++
+      else if (log.side === FeedSide.BOTH) {
+        feedLeft++
+        feedRight++
+      }
     }
 
     return NextResponse.json({
@@ -144,6 +166,13 @@ export async function GET(request: NextRequest) {
         avgFeedingIntervalHours: avgFeedingInterval
           ? Math.round(avgFeedingInterval * 10) / 10
           : null,
+        avgFeedingDurationMinutes: avgFeedingDurationMinutes
+          ? Math.round(avgFeedingDurationMinutes)
+          : null,
+        avgPupPerDay: Math.round((periodPup / days) * 10) / 10,
+        avgPeePerDay: Math.round((periodPee / days) * 10) / 10,
+        feedSideLeft: feedLeft,
+        feedSideRight: feedRight,
       },
     })
   })

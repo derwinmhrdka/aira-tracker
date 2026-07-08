@@ -17,6 +17,18 @@ function lastTimestamp(
   return match?.timestamp.toISOString() ?? null
 }
 
+function sessionDurationMinutes(
+  start: Date,
+  end: Date | null,
+  ongoing: boolean
+): number | null {
+  if (!end && !ongoing) return null
+  const minutes = Math.round(
+    ((end ?? new Date()).getTime() - start.getTime()) / 60000
+  )
+  return minutes >= 0 ? minutes : null
+}
+
 export async function GET() {
   return withAuth(async () => {
     try {
@@ -30,6 +42,7 @@ export async function GET() {
         activeSleep,
         profile,
         immunizations,
+        lastDiaperLog,
       ] = await Promise.all([
         prisma.diaperLog.findMany({
           where: { timestamp: { gte: since } },
@@ -55,14 +68,19 @@ export async function GET() {
         prisma.immunization.findMany({
           orderBy: [{ scheduledAgeMonths: 'asc' }, { vaccineName: 'asc' }],
         }),
+        prisma.diaperLog.findFirst({
+          orderBy: { timestamp: 'desc' },
+        }),
       ])
 
       let pup = 0
       let pee = 0
+      let change = 0
       for (const log of diaperLogs) {
         const counts = diaperEventCounts(log.type)
         pup += counts.pup
         pee += counts.pee
+        if (log.type === 'GANTI' || String(log.type) === 'GANTI') change++
       }
 
       let totalSleepMinutes = 0
@@ -79,20 +97,41 @@ export async function GET() {
       }
 
       const birthDate = profile?.birthDate.toISOString().split('T')[0] ?? null
+      const lastFeed = feedingLogs[0] ?? null
+      const lastSleep = sleepLogs[0] ?? null
 
       return NextResponse.json(
         {
           counts: {
             pup,
             pee,
+            change,
             feed: feedingLogs.length,
             sleep: sleepLogs.length,
           },
           lastTimes: {
             pup: lastTimestamp(diaperLogs, [DiaperType.PUP, DiaperType.KEDUANYA]),
             pee: lastTimestamp(diaperLogs, [DiaperType.PIPIS, DiaperType.KEDUANYA]),
+            change: lastTimestamp(diaperLogs, ['GANTI' as DiaperType]),
             feed: feedingLogs[0]?.timestampStart.toISOString() ?? null,
             sleep: sleepLogs[0]?.timestampStart.toISOString() ?? null,
+          },
+          lastDiaper: lastDiaperLog?.timestamp.toISOString() ?? null,
+          lastDurations: {
+            feed: lastFeed
+              ? sessionDurationMinutes(
+                  lastFeed.timestampStart,
+                  lastFeed.timestampEnd,
+                  !!activeFeeding && !lastFeed.timestampEnd
+                )
+              : null,
+            sleep: lastSleep
+              ? sessionDurationMinutes(
+                  lastSleep.timestampStart,
+                  lastSleep.timestampEnd,
+                  !!activeSleep && !lastSleep.timestampEnd
+                )
+              : null,
           },
           activeFeeding: !!activeFeeding,
           activeSleep: !!activeSleep,

@@ -3,13 +3,64 @@
 import { motion } from 'framer-motion'
 import { useMemo } from 'react'
 import type { TodaySummary } from '@/lib/api-client'
-import { timeAgoId } from '@/lib/baby-utils'
+import { formatDurationLabel, timeAgoId } from '@/lib/baby-utils'
 
 interface DailySummaryProps {
   summary: TodaySummary | null
   loading?: boolean
   error?: boolean
   onRetry?: () => void
+}
+
+type SummaryItem = {
+  emoji: string
+  count: number
+  last: string | null
+  label: string
+  durationMinutes?: number | null
+  durationAction?: string
+}
+
+function SummaryCard({
+  item,
+  wide = false,
+  variants,
+}: {
+  item: SummaryItem
+  wide?: boolean
+  variants: {
+    hidden: { opacity: number; y: number }
+    visible: {
+      opacity: number
+      y: number
+      transition: { type: 'spring'; stiffness: number; damping: number }
+    }
+  }
+}) {
+  return (
+    <motion.div
+      variants={variants}
+      className={`rounded-xl bg-secondary/50 text-center ${
+        wide ? 'px-4 py-3.5' : 'p-3'
+      }`}
+    >
+      <div className={wide ? 'text-2xl' : 'text-xl'}>{item.emoji}</div>
+      <div className={`font-heading font-bold text-foreground ${wide ? 'text-3xl' : 'text-2xl'}`}>
+        {item.count}
+      </div>
+      <div className={`font-medium text-muted-foreground ${wide ? 'text-xs' : 'text-[10px]'}`}>
+        {item.label}
+      </div>
+      <div className={`text-primary ${wide ? 'text-xs' : 'text-[10px]'} mt-0.5`}>
+        {timeAgoId(item.last)}
+      </div>
+      {wide && item.durationMinutes != null && item.durationAction && (
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          Lama {item.durationAction} {formatDurationLabel(item.durationMinutes)}
+        </div>
+      )}
+    </motion.div>
+  )
 }
 
 export function DailySummary({ summary, loading, error, onRetry }: DailySummaryProps) {
@@ -37,10 +88,17 @@ export function DailySummary({ summary, loading, error, onRetry }: DailySummaryP
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="animate-pulse rounded-xl bg-secondary p-4" />
-        ))}
+      <div className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
+        <div className="grid grid-cols-3 gap-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse rounded-xl bg-secondary p-4" />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[4, 5].map((i) => (
+            <div key={i} className="animate-pulse rounded-xl bg-secondary p-5" />
+          ))}
+        </div>
       </div>
     )
   }
@@ -62,11 +120,34 @@ export function DailySummary({ summary, loading, error, onRetry }: DailySummaryP
     )
   }
 
-  const items = [
+  const topRow: SummaryItem[] = [
     { emoji: '💩', count: data.counts.pup, last: data.lastTimes.pup, label: 'Pup' },
     { emoji: '💧', count: data.counts.pee, last: data.lastTimes.pee, label: 'Pee' },
-    { emoji: '🍼', count: data.counts.feed, last: data.lastTimes.feed, label: 'Susu' },
-    { emoji: '😴', count: data.counts.sleep, last: data.lastTimes.sleep, label: 'Tidur' },
+    {
+      emoji: '🔄',
+      count: data.counts.change ?? 0,
+      last: data.lastTimes.change ?? null,
+      label: 'Popok',
+    },
+  ]
+
+  const bottomRow: SummaryItem[] = [
+    {
+      emoji: '🍼',
+      count: data.counts.feed,
+      last: data.lastTimes.feed,
+      label: 'Susu',
+      durationMinutes: data.lastDurations?.feed ?? null,
+      durationAction: 'menyusui',
+    },
+    {
+      emoji: '😴',
+      count: data.counts.sleep,
+      last: data.lastTimes.sleep,
+      label: 'Tidur',
+      durationMinutes: data.lastDurations?.sleep ?? null,
+      durationAction: 'tidur',
+    },
   ]
 
   return (
@@ -74,26 +155,18 @@ export function DailySummary({ summary, loading, error, onRetry }: DailySummaryP
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-card p-3 shadow-sm"
+      className="space-y-2 rounded-2xl border border-border bg-card p-3 shadow-sm"
     >
-      {items.map((item) => (
-        <motion.div
-          key={item.label}
-          variants={itemVariants}
-          className="rounded-xl bg-secondary/50 p-3 text-center"
-        >
-          <div className="text-xl">{item.emoji}</div>
-          <div className="font-heading text-2xl font-bold text-foreground">
-            {item.count}
-          </div>
-          <div className="text-[10px] font-medium text-muted-foreground">
-            {item.label}
-          </div>
-          <div className="mt-0.5 text-[10px] text-primary">
-            {timeAgoId(item.last)}
-          </div>
-        </motion.div>
-      ))}
+      <div className="grid grid-cols-3 gap-2">
+        {topRow.map((item) => (
+          <SummaryCard key={item.label} item={item} variants={itemVariants} />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {bottomRow.map((item) => (
+          <SummaryCard key={item.label} item={item} wide variants={itemVariants} />
+        ))}
+      </div>
     </motion.div>
   )
 }

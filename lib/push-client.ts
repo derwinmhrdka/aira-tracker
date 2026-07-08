@@ -7,7 +7,21 @@ function urlBase64ToUint8Array(base64String: string) {
   return arr
 }
 
-export async function subscribeToPush(intervalHours = 3): Promise<boolean> {
+export type PushSubscribeOptions = {
+  feedingIntervalMinutes?: number
+  feedingReminderEnabled?: boolean
+  diaperIntervalMinutes?: number
+  diaperReminderEnabled?: boolean
+}
+
+export async function subscribeToPush(
+  options: PushSubscribeOptions | number = {}
+): Promise<boolean> {
+  const opts =
+    typeof options === 'number'
+      ? { feedingIntervalMinutes: options }
+      : options
+
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return false
   }
@@ -34,20 +48,28 @@ export async function subscribeToPush(intervalHours = 3): Promise<boolean> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...subscription.toJSON(),
-      feeding_reminder_hours: intervalHours,
+      feeding_reminder_minutes: opts.feedingIntervalMinutes ?? 180,
+      feeding_reminder_enabled: opts.feedingReminderEnabled !== false,
+      diaper_reminder_minutes: opts.diaperIntervalMinutes ?? 180,
+      diaper_reminder_enabled: opts.diaperReminderEnabled ?? false,
     }),
   })
 
   return res.ok
 }
 
-export async function updatePushReminderInterval(
-  intervalHours: number
+export async function updatePushReminderSettings(
+  settings: PushSubscribeOptions
 ): Promise<void> {
   await fetch('/api/push/subscribe', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ feeding_reminder_hours: intervalHours }),
+    body: JSON.stringify({
+      feeding_reminder_minutes: settings.feedingIntervalMinutes,
+      feeding_reminder_enabled: settings.feedingReminderEnabled,
+      diaper_reminder_minutes: settings.diaperIntervalMinutes,
+      diaper_reminder_enabled: settings.diaperReminderEnabled,
+    }),
   })
 }
 
@@ -67,11 +89,14 @@ export async function unsubscribeFromPush(): Promise<void> {
   }
 }
 
-export async function checkServerPushReminder(intervalHours: number): Promise<boolean> {
+export async function checkServerPushReminder(
+  type: 'feeding' | 'diaper',
+  intervalMinutes: number
+): Promise<boolean> {
   const res = await fetch('/api/push/check-reminder', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ interval_hours: intervalHours }),
+    body: JSON.stringify({ type, interval_minutes: intervalMinutes }),
   })
   if (!res.ok) return false
   const data = await res.json()

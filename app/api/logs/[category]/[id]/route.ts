@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (category === 'diaper') {
       const type = body.type != null ? parseDiaperType(body.type) : undefined
       if (body.type != null && !type) {
-        return jsonError('type must be pup, pee, or both')
+        return jsonError('type must be pup, pee, both, or change')
       }
 
       const log = await prisma.diaperLog.update({

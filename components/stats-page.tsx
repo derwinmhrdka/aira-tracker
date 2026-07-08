@@ -131,6 +131,16 @@ export function StatsPage() {
   const birthDate = profile?.birth_date ?? new Date().toISOString().split('T')[0]
   const gender = profile?.gender ?? 'MALE'
 
+  const feedSideLabel = useMemo(() => {
+    const left = stats?.insights.feedSideLeft ?? 0
+    const right = stats?.insights.feedSideRight ?? 0
+    if (left === 0 && right === 0) return null
+    const total = left + right
+    const leftPct = Math.round((left / total) * 100)
+    const rightPct = 100 - leftPct
+    return `Kiri : Kanan = ${left} : ${right} (${leftPct}% : ${rightPct}%)`
+  }, [stats?.insights.feedSideLeft, stats?.insights.feedSideRight])
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -339,6 +349,17 @@ export function StatsPage() {
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-lg bg-secondary p-3">
+            <span className="text-lg">🍼</span>
+            <div className="text-sm">
+              <p className="font-semibold text-foreground">Durasi menyusui</p>
+              <p className="text-muted-foreground">
+                {stats?.insights.avgFeedingDurationMinutes
+                  ? `~${stats.insights.avgFeedingDurationMinutes} menit per sesi`
+                  : 'Belum cukup data'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg bg-secondary p-3">
             <span className="text-lg">📈</span>
             <div className="text-sm">
               <p className="font-semibold text-foreground">Interval menyusui</p>
@@ -346,6 +367,33 @@ export function StatsPage() {
                 {stats?.insights.avgFeedingIntervalHours
                   ? `Setiap ~${stats.insights.avgFeedingIntervalHours} jam`
                   : 'Belum cukup data'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg bg-secondary p-3">
+            <span className="text-lg">↔️</span>
+            <div className="text-sm">
+              <p className="font-semibold text-foreground">Sisi menyusui</p>
+              <p className="text-muted-foreground">
+                {feedSideLabel ?? 'Belum cukup data'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg bg-secondary p-3">
+            <span className="text-lg">💩</span>
+            <div className="text-sm">
+              <p className="font-semibold text-foreground">Rata-rata pup</p>
+              <p className="text-muted-foreground">
+                ~{stats?.insights.avgPupPerDay ?? 0}x per hari
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg bg-secondary p-3">
+            <span className="text-lg">💧</span>
+            <div className="text-sm">
+              <p className="font-semibold text-foreground">Rata-rata pee</p>
+              <p className="text-muted-foreground">
+                ~{stats?.insights.avgPeePerDay ?? 0}x per hari
               </p>
             </div>
           </div>

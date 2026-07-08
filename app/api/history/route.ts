@@ -15,7 +15,7 @@ type HistoryRow = {
   timestampEnd?: string | null
   details?: string | null
   loggedBy?: string | null
-  diaper_type?: 'pup' | 'pee' | 'both'
+  diaper_type?: 'pup' | 'pee' | 'both' | 'change'
   side?: string | null
   feed_type?: string | null
   amount_ml?: number | null
@@ -32,7 +32,14 @@ function mapDiaper(l: {
   notes: string | null
   loggedBy: string | null
 }): HistoryRow {
-  const type = l.type === 'PUP' ? 'pup' : l.type === 'PIPIS' ? 'pee' : 'both'
+  const type =
+    l.type === 'PUP'
+      ? 'pup'
+      : l.type === 'PIPIS'
+        ? 'pee'
+        : l.type === 'GANTI'
+          ? 'change'
+          : 'both'
   return {
     id: l.id,
     category: 'diaper',

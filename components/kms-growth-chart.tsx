@@ -28,6 +28,7 @@ import type { GrowthLog } from '@/lib/api-client'
 
 const MAX_MONTH = 24
 const MIN_MONTH_SPAN = 0
+const MIN_Y_SPAN = { weight: 0.5, height: 5 } as const
 const BABY_DOT_COLOR = '#3b82f6'
 
 function formatDecimal(value: number): string {
@@ -176,7 +177,7 @@ function shiftXRange(range: MonthRange, deltaMonths: number): MonthRange {
 
 type ChartRow = ReturnType<typeof buildDenseChartData>[number]
 
-function computeAutoYDomain(data: ChartRow[]): YDomain {
+function computeAutoYDomain(data: ChartRow[], metric: GrowthMetric): YDomain {
   let min = Infinity
   let max = -Infinity
 
@@ -197,15 +198,78 @@ function computeAutoYDomain(data: ChartRow[]): YDomain {
   }
 
   if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    return { min: 0, max: 1 }
+    return metric === 'weight' ? { min: 0, max: 5 } : { min: 40, max: 90 }
   }
 
-  const pad = Math.max((max - min) * 0.08, 0.2)
-  return { min: min - pad, max: max + pad }
+  const pad = Math.max((max - min) * 0.08, metric === 'weight' ? 0.2 : 2)
+  return clampYDomain(
+    { min: min - pad, max: max + pad },
+    computeYBounds(data, metric),
+    MIN_Y_SPAN[metric]
+  )
 }
 
-function shiftYDomain(domain: YDomain, delta: number): YDomain {
-  return { min: domain.min + delta, max: domain.max + delta }
+function computeYBounds(data: ChartRow[], metric: GrowthMetric): YDomain {
+  let refMin = Infinity
+  let refMax = -Infinity
+
+  for (const row of data) {
+    refMin = Math.min(refMin, row.zoneBahayaLow[0])
+    refMax = Math.max(refMax, row.zoneBahayaHigh[1])
+    if (row.baby != null) {
+      refMin = Math.min(refMin, row.baby)
+      refMax = Math.max(refMax, row.baby)
+    }
+  }
+
+  if (!Number.isFinite(refMin) || !Number.isFinite(refMax)) {
+    return metric === 'weight'
+      ? { min: 0, max: 20 }
+      : { min: 35, max: 100 }
+  }
+
+  const pad = Math.max((refMax - refMin) * 0.2, metric === 'weight' ? 0.5 : 5)
+  const absMin = metric === 'weight' ? 0 : 30
+  const absMax = metric === 'weight' ? 25 : 110
+
+  return {
+    min: Math.max(absMin, refMin - pad),
+    max: Math.min(absMax, refMax + pad * 1.5),
+  }
+}
+
+function clampYDomain(
+  domain: YDomain,
+  bounds: YDomain,
+  minSpan: number
+): YDomain {
+  let { min, max } = domain
+  const span = Math.max(max - min, minSpan)
+
+  if (min < bounds.min) {
+    const shift = bounds.min - min
+    min = bounds.min
+    max += shift
+  }
+  if (max > bounds.max) {
+    const shift = max - bounds.max
+    max = bounds.max
+    min -= shift
+  }
+  if (min < bounds.min) {
+    min = bounds.min
+    max = Math.min(bounds.max, min + span)
+  }
+  if (max - min < minSpan) {
+    const center = (min + max) / 2
+    min = Math.max(bounds.min, center - minSpan / 2)
+    max = Math.min(bounds.max, min + minSpan)
+    if (max - min < minSpan) {
+      min = Math.max(bounds.min, max - minSpan)
+    }
+  }
+
+  return { min, max }
 }
 
 function formatRangeLabel(range: MonthRange): string {
@@ -253,10 +317,15 @@ export function KmsGrowthChart({
     [fullData, viewRange]
   )
 
-  const resolvedYDomain = useMemo(
-    () => yDomain ?? computeAutoYDomain(visibleData),
-    [yDomain, visibleData]
+  const yBounds = useMemo(
+    () => computeYBounds(fullData, metric),
+    [fullData, metric]
   )
+
+  const resolvedYDomain = useMemo(() => {
+    const domain = yDomain ?? computeAutoYDomain(visibleData, metric)
+    return clampYDomain(domain, yBounds, MIN_Y_SPAN[metric])
+  }, [yDomain, visibleData, metric, yBounds])
 
   const xTicks = useMemo(
     () => buildXTicks(viewRange.start, viewRange.end),
@@ -316,14 +385,18 @@ export function KmsGrowthChart({
 
       const ySpan = base.yDomain.max - base.yDomain.min
       const valueShift = -(dy / rect.height) * ySpan
-      const nextY = shiftYDomain(base.yDomain, valueShift)
+      const nextY = clampYDomain(
+        { min: base.yDomain.min + valueShift, max: base.yDomain.max + valueShift },
+        yBounds,
+        MIN_Y_SPAN[metric]
+      )
 
       if (hasVisibleMonths(nextX)) {
         setViewRange(nextX)
         setYDomain(nextY)
       }
     },
-    []
+    [yBounds, metric]
   )
 
   const startPan = useCallback(

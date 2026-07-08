@@ -8,9 +8,10 @@ interface ActiveTimerProps {
   type: 'feeding' | 'sleep'
   startTime: string | null
   active: boolean
+  onClick?: () => void
 }
 
-export function ActiveTimer({ type, startTime, active }: ActiveTimerProps) {
+export function ActiveTimer({ type, startTime, active, onClick }: ActiveTimerProps) {
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
@@ -32,10 +33,13 @@ export function ActiveTimer({ type, startTime, active }: ActiveTimerProps) {
   const isFeed = type === 'feeding'
 
   return (
-    <motion.div
+    <motion.button
+      type="button"
+      onClick={onClick}
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`mb-4 rounded-2xl border p-4 shadow-sm ${
+      whileTap={{ scale: 0.98 }}
+      className={`mb-4 w-full rounded-2xl border p-4 text-left shadow-sm transition-opacity hover:opacity-95 active:opacity-90 ${
         isFeed
           ? 'border-orange-300/50 bg-orange-50/80 dark:bg-orange-950/30'
           : 'border-purple-300/50 bg-purple-50/80 dark:bg-purple-950/30'
@@ -54,13 +58,13 @@ export function ActiveTimer({ type, startTime, active }: ActiveTimerProps) {
             <p className="font-heading text-sm font-semibold text-foreground">
               {isFeed ? 'Sedang menyusui' : 'Sedang tidur'}
             </p>
-            <p className="text-xs text-muted-foreground">Tap button to finish</p>
+            <p className="text-xs text-muted-foreground">Ketuk untuk selesai</p>
           </div>
         </div>
         <div className="font-heading text-3xl font-bold tabular-nums text-foreground">
           {formatDuration(elapsed)}
         </div>
       </div>
-    </motion.div>
+    </motion.button>
   )
 }

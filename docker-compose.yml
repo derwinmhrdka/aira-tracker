@@ -32,7 +32,6 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@teknodika.com}
       CRON_SECRET: ${CRON_SECRET:-}
-      FEEDING_REMINDER_HOURS: ${FEEDING_REMINDER_HOURS:-3}
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0

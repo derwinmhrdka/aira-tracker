@@ -102,15 +102,20 @@ export async function shouldSendVaccineReminder() {
   }
 }
 
-export async function shouldSendFeedingReminder(intervalHours: number) {
+export async function shouldSendFeedingReminder(intervalMinutes: number) {
+  const sub = await prisma.pushSubscription.findFirst({
+    where: { feedingReminderEnabled: true },
+  })
+  if (!sub) return { shouldSend: false, babyName: null as string | null }
+
   const lastFeed = await prisma.feedingLog.findFirst({
     orderBy: { timestampStart: 'desc' },
   })
   if (!lastFeed) return { shouldSend: false, babyName: null as string | null }
 
-  const hoursSince =
-    (Date.now() - lastFeed.timestampStart.getTime()) / (1000 * 60 * 60)
-  if (hoursSince < intervalHours) {
+  const minutesSince =
+    (Date.now() - lastFeed.timestampStart.getTime()) / (1000 * 60)
+  if (minutesSince < intervalMinutes) {
     return { shouldSend: false, babyName: null as string | null }
   }
 
@@ -129,8 +134,46 @@ export async function shouldSendFeedingReminder(intervalHours: number) {
   return { shouldSend: true, babyName: profile?.name ?? null }
 }
 
+export async function shouldSendDiaperReminder(intervalMinutes: number) {
+  const sub = await prisma.pushSubscription.findFirst({
+    where: { diaperReminderEnabled: true },
+  })
+  if (!sub) return { shouldSend: false, babyName: null as string | null }
+
+  const lastDiaper = await prisma.diaperLog.findFirst({
+    orderBy: { timestamp: 'desc' },
+  })
+  if (!lastDiaper) return { shouldSend: false, babyName: null as string | null }
+
+  const minutesSince =
+    (Date.now() - lastDiaper.timestamp.getTime()) / (1000 * 60)
+  if (minutesSince < intervalMinutes) {
+    return { shouldSend: false, babyName: null as string | null }
+  }
+
+  const recentPush = await prisma.pushSubscription.findFirst({
+    where: {
+      lastDiaperNotifiedAt: {
+        gte: new Date(Date.now() - 30 * 60 * 1000),
+      },
+    },
+  })
+  if (recentPush) {
+    return { shouldSend: false, babyName: null as string | null }
+  }
+
+  const profile = await prisma.babyProfile.findFirst()
+  return { shouldSend: true, babyName: profile?.name ?? null }
+}
+
 export async function markPushSent() {
   await prisma.pushSubscription.updateMany({
     data: { lastNotifiedAt: new Date() },
+  })
+}
+
+export async function markDiaperPushSent() {
+  await prisma.pushSubscription.updateMany({
+    data: { lastDiaperNotifiedAt: new Date() },
   })
 }

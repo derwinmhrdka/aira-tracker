@@ -11,18 +11,18 @@ import {
   setReminderSettings,
   requestNotificationPermission,
 } from '@/lib/reminder'
-import { subscribeToPush, unsubscribeFromPush, updatePushReminderInterval } from '@/lib/push-client'
+import { subscribeToPush, unsubscribeFromPush, updatePushReminderSettings } from '@/lib/push-client'
 import { isSoundEnabled, setSoundEnabled } from '@/lib/sound-settings'
 import { api } from '@/lib/api-client'
 import { exportHistoryCsv, exportGrowthCsv, exportFullCsv } from '@/lib/export-csv'
 import { exportHistoryPdf, exportGrowthPdf, exportFullPdf } from '@/lib/export-pdf'
 import { downloadBackupJson, readBackupFile } from '@/lib/backup-client'
+import { ReminderIntervalPicker } from './reminder-interval-picker'
 
 interface SettingsPageProps {
   onBack: () => void
 }
 
-const INTERVALS = [2, 2.5, 3, 4, 5]
 const EXPORT_DAYS = [7, 30, 90]
 
 export function SettingsPage({ onBack }: SettingsPageProps) {
@@ -38,32 +38,85 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [backingUp, setBackingUp] = useState(false)
   const [restoring, setRestoring] = useState(false)
 
-  const toggleReminders = async () => {
-    if (!reminders.enabled) {
+  const pushOptions = () => ({
+    feedingIntervalMinutes: reminders.feedingIntervalMinutes,
+    feedingReminderEnabled: reminders.feedingEnabled,
+    diaperIntervalMinutes: reminders.diaperIntervalMinutes,
+    diaperReminderEnabled: reminders.diaperEnabled,
+  })
+
+  const toggleFeedingReminders = async () => {
+    if (!reminders.feedingEnabled) {
       const ok = await requestNotificationPermission()
       if (!ok) {
         setToast('❌ Izin notifikasi ditolak')
         setTimeout(() => setToast(null), 3000)
         return
       }
-      const subscribed = await subscribeToPush(reminders.feedingIntervalHours)
+      const subscribed = await subscribeToPush({
+        ...pushOptions(),
+        feedingReminderEnabled: true,
+      })
       if (!subscribed) {
         setToast('⚠️ Push server belum dikonfigurasi — notifikasi lokal saja')
         setTimeout(() => setToast(null), 3000)
       }
     } else {
-      await unsubscribeFromPush()
+      await updatePushReminderSettings({
+        ...pushOptions(),
+        feedingReminderEnabled: false,
+      })
+      if (!reminders.diaperEnabled) {
+        await unsubscribeFromPush()
+      }
     }
-    const next = setReminderSettings({ enabled: !reminders.enabled })
+    const next = setReminderSettings({ feedingEnabled: !reminders.feedingEnabled })
     setReminders(next)
-    setToast(next.enabled ? '🔔 Pengingat aktif' : '🔕 Pengingat dimatikan')
+    setToast(next.feedingEnabled ? '🔔 Pengingat menyusui aktif' : '🔕 Pengingat menyusui dimatikan')
     setTimeout(() => setToast(null), 2000)
   }
 
-  const setInterval = (hours: number) => {
-    const next = setReminderSettings({ feedingIntervalHours: hours })
+  const toggleDiaperReminders = async () => {
+    if (!reminders.diaperEnabled) {
+      const ok = await requestNotificationPermission()
+      if (!ok) {
+        setToast('❌ Izin notifikasi ditolak')
+        setTimeout(() => setToast(null), 3000)
+        return
+      }
+      const subscribed = await subscribeToPush({
+        ...pushOptions(),
+        diaperReminderEnabled: true,
+      })
+      if (!subscribed) {
+        setToast('⚠️ Push server belum dikonfigurasi — notifikasi lokal saja')
+        setTimeout(() => setToast(null), 3000)
+      }
+    } else {
+      await updatePushReminderSettings({
+        ...pushOptions(),
+        diaperReminderEnabled: false,
+      })
+      if (!reminders.feedingEnabled) {
+        await unsubscribeFromPush()
+      }
+    }
+    const next = setReminderSettings({ diaperEnabled: !reminders.diaperEnabled })
     setReminders(next)
-    void updatePushReminderInterval(hours)
+    setToast(next.diaperEnabled ? '🔔 Pengingat popok aktif' : '🔕 Pengingat popok dimatikan')
+    setTimeout(() => setToast(null), 2000)
+  }
+
+  const setFeedingInterval = (minutes: number) => {
+    const next = setReminderSettings({ feedingIntervalMinutes: minutes })
+    setReminders(next)
+    void updatePushReminderSettings({ ...pushOptions(), feedingIntervalMinutes: minutes })
+  }
+
+  const setDiaperInterval = (minutes: number) => {
+    const next = setReminderSettings({ diaperIntervalMinutes: minutes })
+    setReminders(next)
+    void updatePushReminderSettings({ ...pushOptions(), diaperIntervalMinutes: minutes })
   }
 
   const toggleSound = () => {
@@ -229,32 +282,43 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         </h2>
         <button
           type="button"
-          onClick={toggleReminders}
+          onClick={toggleFeedingReminders}
           className={`mb-3 w-full rounded-xl py-3 text-sm font-semibold ${
-            reminders.enabled
+            reminders.feedingEnabled
               ? 'bg-primary text-primary-foreground'
               : 'bg-secondary text-foreground'
           }`}
         >
-          {reminders.enabled ? '🔔 On' : '🔕 Off'}
+          {reminders.feedingEnabled ? '🔔 On' : '🔕 Off'}
         </button>
-        {reminders.enabled && (
-          <div className="flex flex-wrap gap-2">
-            {INTERVALS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() => setInterval(h)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-                  reminders.feedingIntervalHours === h
-                    ? 'bg-accent text-accent-foreground'
-                    : 'bg-secondary text-muted-foreground'
-                }`}
-              >
-                Every {h}h
-              </button>
-            ))}
-          </div>
+        {reminders.feedingEnabled && (
+          <ReminderIntervalPicker
+            totalMinutes={reminders.feedingIntervalMinutes}
+            onChange={setFeedingInterval}
+          />
+        )}
+      </div>
+
+      <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <h2 className="font-heading mb-3 font-semibold text-foreground">
+          Pengingat Popok
+        </h2>
+        <button
+          type="button"
+          onClick={toggleDiaperReminders}
+          className={`mb-3 w-full rounded-xl py-3 text-sm font-semibold ${
+            reminders.diaperEnabled
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-foreground'
+          }`}
+        >
+          {reminders.diaperEnabled ? '🔔 On' : '🔕 Off'}
+        </button>
+        {reminders.diaperEnabled && (
+          <ReminderIntervalPicker
+            totalMinutes={reminders.diaperIntervalMinutes}
+            onChange={setDiaperInterval}
+          />
         )}
       </div>
 

@@ -25,7 +25,7 @@ interface EditLogSheetProps {
 export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps) {
   const [timestamp, setTimestamp] = useState('')
   const [timestampEnd, setTimestampEnd] = useState('')
-  const [diaperType, setDiaperType] = useState<'pup' | 'pee' | 'both'>('pee')
+  const [diaperType, setDiaperType] = useState<'pup' | 'pee' | 'both' | 'change'>('pee')
   const [side, setSide] = useState('LEFT')
   const [feedType, setFeedType] = useState<FeedTypeValue>('DIRECT')
   const [amountMl, setAmountMl] = useState('')
@@ -37,7 +37,7 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
     if (!item) return
     setTimestamp(toDatetimeLocal(item.timestamp))
     setTimestampEnd(item.timestampEnd ? toDatetimeLocal(item.timestampEnd) : '')
-    setDiaperType(item.diaper_type ?? (item.type as 'pup' | 'pee' | 'both') ?? 'pee')
+    setDiaperType(item.diaper_type ?? (item.type as 'pup' | 'pee' | 'both' | 'change') ?? 'pee')
     setSide(item.side ?? 'LEFT')
     setFeedType((item.feed_type as FeedTypeValue) ?? 'DIRECT')
     setAmountMl(item.amount_ml != null ? String(item.amount_ml) : '')
@@ -131,19 +131,25 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
                       Jenis
                     </label>
-                    <div className="flex gap-2">
-                      {(['pup', 'pee', 'both'] as const).map((t) => (
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['pup', 'pee', 'both', 'change'] as const).map((t) => (
                         <button
                           key={t}
                           type="button"
                           onClick={() => setDiaperType(t)}
-                          className={`flex-1 rounded-xl py-2.5 text-sm font-medium ${
+                          className={`rounded-xl py-2.5 text-sm font-medium ${
                             diaperType === t
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-secondary text-foreground'
                           }`}
                         >
-                          {t === 'pup' ? '💩 Pup' : t === 'pee' ? '💧 Pee' : 'Pupee'}
+                          {t === 'pup'
+                            ? '💩 Pup'
+                            : t === 'pee'
+                              ? '💧 Pee'
+                              : t === 'both'
+                                ? 'Pupee'
+                                : '🔄 Popok'}
                         </button>
                       ))}
                     </div>

@@ -94,7 +94,8 @@ function isTodaySummary(data: unknown): data is TodaySummary {
     typeof counts.pup === 'number' &&
     typeof counts.pee === 'number' &&
     typeof counts.feed === 'number' &&
-    typeof counts.sleep === 'number'
+    typeof counts.sleep === 'number' &&
+    (typeof counts.change === 'number' || counts.change === undefined)
   )
 }
 
@@ -115,7 +116,7 @@ export const api = {
   logout: () =>
     fetch('/api/auth/logout', { method: 'POST' }),
 
-  logDiaper: (type: 'pup' | 'pee' | 'both', notes?: string) =>
+  logDiaper: (type: 'pup' | 'pee' | 'both' | 'change', notes?: string) =>
     apiFetch('/api/logs/diaper', {
       method: 'POST',
       body: JSON.stringify({ type, notes }),
@@ -380,12 +381,18 @@ export async function cleanupDraftUploads(
 }
 
 export interface TodaySummary {
-  counts: { pup: number; pee: number; feed: number; sleep: number }
+  counts: { pup: number; pee: number; change: number; feed: number; sleep: number }
   lastTimes: {
     pup: string | null
     pee: string | null
+    change: string | null
     feed: string | null
     sleep: string | null
+  }
+  lastDiaper?: string | null
+  lastDurations?: {
+    feed: number | null
+    sleep: number | null
   }
   activeFeeding: boolean
   activeSleep: boolean
@@ -413,7 +420,7 @@ export interface HistoryItem {
   timestampEnd?: string | null
   details?: string | null
   loggedBy?: string | null
-  diaper_type?: 'pup' | 'pee' | 'both'
+  diaper_type?: 'pup' | 'pee' | 'both' | 'change'
   side?: string | null
   feed_type?: string | null
   amount_ml?: number | null
@@ -426,7 +433,7 @@ export interface HistoryItem {
 export interface UpdateLogInput {
   timestamp?: string
   timestamp_end?: string | null
-  type?: 'pup' | 'pee' | 'both'
+  type?: 'pup' | 'pee' | 'both' | 'change'
   side?: string
   feed_type?: string
   amount_ml?: number | null
@@ -462,6 +469,11 @@ export interface StatsResponse {
   insights: {
     avgSleepHours: number | null
     avgFeedingIntervalHours: number | null
+    avgFeedingDurationMinutes: number | null
+    avgPupPerDay: number
+    avgPeePerDay: number
+    feedSideLeft: number
+    feedSideRight: number
   }
 }
 

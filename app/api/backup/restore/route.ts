@@ -7,6 +7,7 @@ import type { DiaperType, FeedSide, FeedType, LoggedBy, Gender } from '@prisma/c
 function parseDiaperType(v: string): DiaperType {
   if (v === 'PUP' || v === 'pup') return 'PUP'
   if (v === 'KEDUANYA' || v === 'both') return 'KEDUANYA'
+  if (v === 'GANTI' || v === 'change' || v === 'ganti') return 'GANTI'
   return 'PIPIS'
 }
 

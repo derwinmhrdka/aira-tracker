@@ -1,7 +1,12 @@
-const CACHE_NAME = 'baby-tracker-v6'
+const CACHE_NAME = 'baby-tracker-v7'
 const STATIC_ASSETS = ['/', '/manifest.json', '/icon.svg']
 
-let reminderSettings = { enabled: false, feedingIntervalHours: 3 }
+let reminderSettings = {
+  feedingEnabled: false,
+  feedingIntervalMinutes: 180,
+  diaperEnabled: false,
+  diaperIntervalMinutes: 180,
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -49,12 +54,13 @@ self.addEventListener('push', (event) => {
     // use defaults
   }
 
+  const isDiaper = data.title?.includes('popok')
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: 'feeding-reminder',
+      tag: isDiaper ? 'diaper-reminder' : 'feeding-reminder',
       vibrate: [200, 100, 200],
       data: { url: data.url || '/' },
     })
@@ -63,7 +69,22 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SYNC_REMINDER_SETTINGS') {
-    reminderSettings = event.data.settings || reminderSettings
+    const incoming = event.data.settings || {}
+    reminderSettings = {
+      feedingEnabled:
+        incoming.feedingEnabled ?? incoming.enabled ?? reminderSettings.feedingEnabled,
+      feedingIntervalMinutes:
+        incoming.feedingIntervalMinutes ??
+        (incoming.feedingIntervalHours != null
+          ? Math.round(incoming.feedingIntervalHours * 60)
+          : reminderSettings.feedingIntervalMinutes),
+      diaperEnabled: incoming.diaperEnabled ?? reminderSettings.diaperEnabled,
+      diaperIntervalMinutes:
+        incoming.diaperIntervalMinutes ??
+        (incoming.diaperIntervalHours != null
+          ? Math.round(incoming.diaperIntervalHours * 60)
+          : reminderSettings.diaperIntervalMinutes),
+    }
     return
   }
 
@@ -74,6 +95,19 @@ self.addEventListener('message', (event) => {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       tag: tag || 'feeding-reminder',
+      vibrate: [200, 100, 200],
+      data: { url: '/' },
+    })
+    return
+  }
+
+  if (event.data?.type === 'SHOW_DIAPER_REMINDER') {
+    const { title, body, tag } = event.data
+    self.registration.showNotification(title || 'Waktunya popok 🔄', {
+      body: body || 'Sudah waktunya cek popok',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: tag || 'diaper-reminder',
       vibrate: [200, 100, 200],
       data: { url: '/' },
     })

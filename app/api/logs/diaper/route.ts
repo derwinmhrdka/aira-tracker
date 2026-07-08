@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const type = parseDiaperType(body.type)
 
     if (!type) {
-      return jsonError('type must be pup, pee, or both')
+      return jsonError('type must be pup, pee, both, or change')
     }
 
     const loggedBy = parseLoggedBy(body.logged_by) ?? sessionLoggedBy

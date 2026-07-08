@@ -119,8 +119,7 @@ Isi variabel:
 - `INITIAL_PIN` — PIN login awal (4-6 digit)
 - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — untuk push notification (lihat §11)
 - `VAPID_SUBJECT` — email kontak, mis. `mailto:admin@domain.com`
-- `CRON_SECRET` — string acak untuk endpoint cron push
-- `FEEDING_REMINDER_HOURS` — interval pengingat menyusui (default `3`)
+- `CRON_SECRET` — string acak untuk endpoint cron push (interval pengingat diatur lewat app → Pengaturan)
 
 ## 4. Prisma Migrate & Seed
 
@@ -230,7 +229,6 @@ VAPID_PUBLIC_KEY="..."
 VAPID_PRIVATE_KEY="..."
 VAPID_SUBJECT="mailto:admin@yourdomain.com"
 CRON_SECRET="random-secret-min-32-chars"
-FEEDING_REMINDER_HOURS=3
 ```
 
 Restart app setelah mengubah `.env`:

@@ -89,9 +89,14 @@ export function Dashboard() {
   const optimisticUpdate = (action: string) => {
     if (!summary) return
     const now = new Date().toISOString()
+    const nowMs = Date.now()
     const next = {
       ...summary,
       lastTimes: { ...summary.lastTimes },
+      lastDurations: {
+        feed: summary.lastDurations?.feed ?? null,
+        sleep: summary.lastDurations?.sleep ?? null,
+      },
       activeFeedingStart: summary.activeFeedingStart,
       activeSleepStart: summary.activeSleepStart,
     }
@@ -109,26 +114,44 @@ export function Dashboard() {
         next.lastTimes.pup = now
         next.lastTimes.pee = now
         break
+      case 'change':
+        next.counts = { ...next.counts, change: (next.counts.change ?? 0) + 1 }
+        next.lastTimes.change = now
+        break
       case 'feed-start':
         next.activeFeeding = true
         next.activeFeedingStart = now
         next.counts = { ...next.counts, feed: next.counts.feed + 1 }
         next.lastTimes.feed = now
         break
-      case 'feed-end':
+      case 'feed-end': {
         next.activeFeeding = false
+        if (summary.activeFeedingStart) {
+          next.lastDurations.feed = Math.max(
+            0,
+            Math.round((nowMs - new Date(summary.activeFeedingStart).getTime()) / 60000)
+          )
+        }
         next.activeFeedingStart = null
         break
+      }
       case 'sleep-start':
         next.activeSleep = true
         next.activeSleepStart = now
         next.counts = { ...next.counts, sleep: next.counts.sleep + 1 }
         next.lastTimes.sleep = now
         break
-      case 'sleep-end':
+      case 'sleep-end': {
         next.activeSleep = false
+        if (summary.activeSleepStart) {
+          next.lastDurations.sleep = Math.max(
+            0,
+            Math.round((nowMs - new Date(summary.activeSleepStart).getTime()) / 60000)
+          )
+        }
         next.activeSleepStart = null
         break
+      }
     }
     setSummary(next)
   }
@@ -157,6 +180,7 @@ export function Dashboard() {
       pup: '💩 Tercatat!',
       pee: '💧 Tercatat!',
       both: '💩💧 Tercatat!',
+      change: '🔄 Popok tercatat!',
       feed: '🍼 Mulai menyusui!',
       sleep: wasSleeping ? '☀️ Bangun!' : '😴 Mulai tidur!',
       wake: '☀️ Bangun!',
@@ -178,6 +202,9 @@ export function Dashboard() {
           break
         case 'both':
           result = await api.logDiaper('both')
+          break
+        case 'change':
+          result = await api.logDiaper('change')
           break
         case 'feed':
           result = await api.logFeeding('start')
@@ -292,11 +319,13 @@ export function Dashboard() {
           type="feeding"
           startTime={summary?.activeFeedingStart ?? null}
           active={!!summary?.activeFeeding}
+          onClick={() => handleLog('feed')}
         />
         <ActiveTimer
           type="sleep"
           startTime={summary?.activeSleepStart ?? null}
           active={!!summary?.activeSleep}
+          onClick={() => handleLog('sleep')}
         />
 
         <InsightsCard summary={summary} />
@@ -341,6 +370,14 @@ export function Dashboard() {
               label="Pupee"
               color="bg-teal-200 dark:bg-teal-900"
               onClick={() => handleLog('both')}
+            />
+            <QuickLogButton
+              compact
+              type="change"
+              emoji="🔄"
+              label="Popok"
+              color="bg-slate-200 dark:bg-slate-800"
+              onClick={() => handleLog('change')}
             />
             <QuickLogButton
               compact

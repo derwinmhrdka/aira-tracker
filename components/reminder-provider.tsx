@@ -4,39 +4,74 @@ import { useEffect, useRef } from 'react'
 import { api } from '@/lib/api-client'
 import {
   getReminderSettings,
+  isAnyReminderEnabled,
   showFeedingReminder,
+  showDiaperReminder,
 } from '@/lib/reminder'
 import { checkServerPushReminder } from '@/lib/push-client'
 
 export function ReminderProvider() {
-  const lastNotified = useRef<number>(0)
+  const lastFeedingNotified = useRef<number>(0)
+  const lastDiaperNotified = useRef<number>(0)
 
   useEffect(() => {
     const check = async () => {
       const settings = getReminderSettings()
-      if (!settings.enabled) return
+      if (!isAnyReminderEnabled(settings)) return
 
       try {
-        const serverSent = await checkServerPushReminder(
-          settings.feedingIntervalHours
-        )
-        if (serverSent) {
-          lastNotified.current = Date.now()
-          return
+        const summary = await api.getTodaySummary()
+
+        if (settings.feedingEnabled) {
+          const serverSent = await checkServerPushReminder(
+            'feeding',
+            settings.feedingIntervalMinutes
+          )
+          if (serverSent) {
+            lastFeedingNotified.current = Date.now()
+          } else {
+            const lastFeed = summary.lastTimes.feed
+            if (lastFeed) {
+              const minutesSince =
+                (Date.now() - new Date(lastFeed).getTime()) / (1000 * 60)
+
+              if (minutesSince >= settings.feedingIntervalMinutes) {
+                const now = Date.now()
+                if (now - lastFeedingNotified.current > 30 * 60 * 1000) {
+                  await showFeedingReminder(summary.baby?.name)
+                  lastFeedingNotified.current = now
+                }
+              }
+            }
+          }
         }
 
-        const summary = await api.getTodaySummary()
-        const lastFeed = summary.lastTimes.feed
-        if (!lastFeed) return
+        if (settings.diaperEnabled) {
+          const serverSent = await checkServerPushReminder(
+            'diaper',
+            settings.diaperIntervalMinutes
+          )
+          if (serverSent) {
+            lastDiaperNotified.current = Date.now()
+          } else {
+            const lastDiaper =
+              summary.lastDiaper ??
+              [summary.lastTimes.pup, summary.lastTimes.pee, summary.lastTimes.change]
+                .filter((t): t is string => !!t)
+                .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ??
+              null
+            if (lastDiaper) {
+              const minutesSince =
+                (Date.now() - new Date(lastDiaper).getTime()) / (1000 * 60)
 
-        const hoursSince =
-          (Date.now() - new Date(lastFeed).getTime()) / (1000 * 60 * 60)
-
-        if (hoursSince >= settings.feedingIntervalHours) {
-          const now = Date.now()
-          if (now - lastNotified.current > 30 * 60 * 1000) {
-            await showFeedingReminder(summary.baby?.name)
-            lastNotified.current = now
+              if (minutesSince >= settings.diaperIntervalMinutes) {
+                const now = Date.now()
+                if (now - lastDiaperNotified.current > 30 * 60 * 1000) {
+                  await showDiaperReminder(summary.baby?.name)
+                  lastDiaperNotified.current = now
+                }
+              }
+            }
           }
         }
       } catch {

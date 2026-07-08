@@ -52,3 +52,11 @@ export function formatDurationShort(minutes: number): string {
   if (h > 0) return `${h}j ${m}m`
   return `${m} menit`
 }
+
+export function formatDurationLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h > 0 && m > 0) return `${h} jam ${m} menit`
+  if (h > 0) return `${h} jam`
+  return `${m} menit`
+}
