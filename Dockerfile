@@ -35,6 +35,7 @@ COPY --from=builder /app/package.json ./package.json
 # Seed script deps — copy from builder (avoid npm install pulling all package.json deps)
 COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
 COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=builder /app/node_modules/@esbuild ./node_modules/@esbuild
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 
 # Prisma CLI for deploy-time db push (isolated install — not full package.json)
