@@ -40,6 +40,15 @@ fi
 
 echo "==> Building and starting containers (db, app)..."
 echo "    HTTPS is handled by host nginx — see deploy/nginx-aira.conf.example"
+
+echo "==> Disk space before build:"
+df -h / /tmp 2>/dev/null || df -h /
+
+echo "==> Pruning unused Docker data (free disk for build)..."
+docker system prune -f --filter "until=24h" 2>/dev/null || true
+docker builder prune -f --filter "until=24h" 2>/dev/null || true
+docker image prune -f --filter "until=24h" 2>/dev/null || true
+
 $COMPOSE up -d --build --remove-orphans
 
 echo "==> Container status:"

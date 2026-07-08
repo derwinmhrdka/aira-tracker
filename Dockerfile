@@ -32,9 +32,10 @@ COPY --from=builder /app/node_modules/sharp ./node_modules/sharp
 COPY --from=builder /app/node_modules/@img ./node_modules/@img
 COPY --from=builder /app/package.json ./package.json
 
-# Seed script deps (deploy/docker-deploy.sh runs tsx prisma/seed.ts)
-USER root
-RUN npm install --no-save tsx bcryptjs
+# Seed script deps — copy from builder (avoid npm install pulling all package.json deps)
+COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
+COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 RUN mkdir -p uploads && chown -R nextjs:nodejs uploads
 USER nextjs
 EXPOSE 3000
