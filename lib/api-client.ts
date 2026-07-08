@@ -137,7 +137,7 @@ export const api = {
     }),
 
   getTodaySummary: async () => {
-    const data = await apiFetch<TodaySummary>('/api/logs/today')
+    const data = await apiFetch<TodaySummary>('/api/logs/summary')
     if (!isTodaySummary(data)) {
       throw new Error('Invalid today summary response')
     }

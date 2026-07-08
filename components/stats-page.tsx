@@ -1,35 +1,57 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { GrowthChart } from './growth-chart'
 import { GrowthSheet } from './growth-sheet'
+import { KmsGrowthChart } from './kms-growth-chart'
+import { KmsStatusBadge } from './kms-status-badge'
 import { ActivityTrendsChart } from './activity-trends-chart'
+import { ConfirmDeleteSheet } from './confirm-delete-sheet'
 import { Toast } from './toast'
 import { ErrorBanner } from './error-banner'
 import { playSoundEffect } from '@/lib/sounds'
-import { api, isQueuedResponse, type StatsResponse, type CreateGrowthInput } from '@/lib/api-client'
+import {
+  api,
+  isQueuedResponse,
+  type StatsResponse,
+  type CreateGrowthInput,
+  type BabyProfile,
+  type GrowthLog,
+} from '@/lib/api-client'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
+import type { GrowthMetric } from '@/lib/who-growth'
 
 const PERIOD_OPTIONS = [
   { days: 7, label: '7 hari' },
   { days: 30, label: '30 hari' },
 ]
 
+const HISTORY_PAGE_SIZE = 5
+
 export function StatsPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null)
+  const [profile, setProfile] = useState<BabyProfile | null>(null)
   const [days, setDays] = useState(7)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
+  const [editingLog, setEditingLog] = useState<GrowthLog | null>(null)
+  const [metric, setMetric] = useState<GrowthMetric>('weight')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<GrowthLog | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE)
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
     setError(false)
     try {
-      const data = await api.getStats(days)
+      const [data, babyProfile] = await Promise.all([
+        api.getStats(days),
+        api.getBabyProfile(),
+      ])
       setStats(data)
+      setProfile(babyProfile)
     } catch {
       setError(true)
     } finally {
@@ -44,18 +66,68 @@ export function StatsPage() {
   }, [fetchStats])
 
   const handleSaveGrowth = async (data: CreateGrowthInput) => {
-    const result = await api.createGrowth(data)
-    if (isQueuedResponse(result)) {
-      setToastMessage('📡 Menunggu sync...')
-    } else {
-      playSoundEffect('success')
-      setToastMessage('📏 Data pertumbuhan tersimpan!')
+    try {
+      const result = await api.createGrowth(data)
+      if (isQueuedResponse(result)) {
+        setToastMessage('📡 Menunggu sync...')
+      } else {
+        playSoundEffect('success')
+        setToastMessage('📏 Data pertumbuhan tersimpan!')
+      }
+      setTimeout(() => setToastMessage(null), 2000)
+      await fetchStats()
+    } catch (err) {
+      setToastMessage(
+        err instanceof Error ? err.message : 'Gagal menyimpan data pertumbuhan'
+      )
+      setTimeout(() => setToastMessage(null), 3000)
+      throw err
     }
-    setTimeout(() => setToastMessage(null), 2000)
-    await fetchStats()
+  }
+
+  const handleEditGrowth = async (data: CreateGrowthInput) => {
+    if (!editingLog) return
+    try {
+      await api.updateGrowth(editingLog.id, data)
+      playSoundEffect('success')
+      setToastMessage('✓ Data diperbarui!')
+      setTimeout(() => setToastMessage(null), 2000)
+      setEditingLog(null)
+      await fetchStats()
+    } catch (err) {
+      setToastMessage(
+        err instanceof Error ? err.message : 'Gagal memperbarui data pertumbuhan'
+      )
+      setTimeout(() => setToastMessage(null), 3000)
+      throw err
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    const log = pendingDelete
+    setDeletingId(log.id)
+    try {
+      await api.deleteGrowth(log.id)
+      setToastMessage('🗑️ Data dihapus')
+      setTimeout(() => setToastMessage(null), 2000)
+      setPendingDelete(null)
+      await fetchStats()
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const period = stats?.period ?? { pup: 0, pee: 0, feed: 0, sleepHours: 0 }
+  const growth = stats?.growth ?? []
+  const growthHistory = useMemo(
+    () => [...growth].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [growth]
+  )
+  const visibleGrowthHistory = growthHistory.slice(0, historyLimit)
+  const hasMoreHistory = historyLimit < growthHistory.length
+  const birthDate = profile?.birth_date ?? new Date().toISOString().split('T')[0]
+  const gender = profile?.gender ?? 'MALE'
 
   return (
     <motion.div
@@ -133,24 +205,122 @@ export function StatsPage() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-heading font-semibold text-foreground">
-            Pertumbuhan
-          </h2>
-          <button
-            type="button"
-            onClick={() => setGrowthOpen(true)}
-            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
-          >
-            Add
-          </button>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="font-heading font-semibold text-foreground">Grafik KMS</h2>
+            <p className="text-[10px] text-muted-foreground">
+              Kurva pertumbuhan WHO
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg bg-secondary p-0.5">
+              {(['weight', 'height'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMetric(m)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    metric === m
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {m === 'weight' ? 'Berat' : 'Panjang'}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setGrowthOpen(true)}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+            >
+              Add
+            </button>
+          </div>
         </div>
         {loading ? (
-          <div className="h-48 animate-pulse rounded-lg bg-secondary" />
+          <div className="h-[300px] animate-pulse rounded-lg bg-secondary" />
         ) : (
-          <GrowthChart data={stats?.growth ?? []} />
+          <KmsGrowthChart
+            growthLogs={growth}
+            birthDate={birthDate}
+            gender={gender}
+            metric={metric}
+          />
         )}
       </div>
+
+      {!loading && growth.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <h2 className="font-heading mb-3 font-semibold text-foreground">History</h2>
+          <div className="space-y-2">
+            {visibleGrowthHistory.map((g) => (
+              <div
+                key={g.id}
+                className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-muted-foreground">
+                    {new Date(g.date).toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </p>
+                  <p className="font-semibold text-foreground">
+                    {g.weight_kg} kg · {g.height_cm} cm
+                    {g.is_jaundice && ' · 🟡'}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <KmsStatusBadge
+                      value={g.weight_kg}
+                      birthDate={birthDate}
+                      measureDate={g.date}
+                      metric="weight"
+                      gender={gender}
+                      prefix="Berat"
+                    />
+                    <KmsStatusBadge
+                      value={g.height_cm}
+                      birthDate={birthDate}
+                      measureDate={g.date}
+                      metric="height"
+                      gender={gender}
+                      prefix="Panjang"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingLog(g)}
+                  className="shrink-0 rounded-lg px-2 py-2 opacity-60 hover:opacity-100"
+                  aria-label="Edit"
+                >
+                  ✏️
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(g)}
+                  disabled={deletingId === g.id}
+                  className="shrink-0 rounded-lg px-2 py-2 text-destructive opacity-60 hover:opacity-100"
+                  aria-label="Delete"
+                >
+                  {deletingId === g.id ? '...' : '🗑️'}
+                </button>
+              </div>
+            ))}
+          </div>
+          {hasMoreHistory && (
+            <button
+              type="button"
+              onClick={() => setHistoryLimit((prev) => prev + HISTORY_PAGE_SIZE)}
+              className="mt-3 w-full rounded-lg border border-border bg-secondary py-2.5 text-xs font-semibold text-foreground"
+            >
+              Muat lebih banyak ({growthHistory.length - historyLimit} lagi)
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <h2 className="font-heading mb-3 font-semibold text-foreground">Insight</h2>
@@ -184,6 +354,21 @@ export function StatsPage() {
         open={growthOpen}
         onClose={() => setGrowthOpen(false)}
         onSave={handleSaveGrowth}
+      />
+      <GrowthSheet
+        open={!!editingLog}
+        onClose={() => setEditingLog(null)}
+        onSave={handleEditGrowth}
+        initial={editingLog}
+        mode="edit"
+      />
+      <ConfirmDeleteSheet
+        open={!!pendingDelete}
+        title="Hapus data?"
+        message="Data pertumbuhan ini akan dihapus permanen."
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+        loading={!!deletingId}
       />
 
       {toastMessage && <Toast message={toastMessage} />}

@@ -14,7 +14,6 @@ import { HistoryPage } from '@/components/history-page'
 import { StatsPage } from '@/components/stats-page'
 import { MorePage } from '@/components/more-page'
 import { NotesPage } from '@/components/notes-page'
-import { GrowthPage } from '@/components/growth-page'
 import { ImmunizationsPage } from '@/components/immunizations-page'
 import { DevelopmentPage } from '@/components/development-page'
 import { ProfilePage } from '@/components/profile-page'
@@ -74,7 +73,6 @@ export function AppShell() {
           <MorePage onNavigate={(p: SubPage) => navigate(p)} />
         )}
         {currentPage === 'notes' && <NotesPage onBack={goBack} />}
-        {currentPage === 'growth' && <GrowthPage onBack={goBack} />}
         {currentPage === 'immunizations' && (
           <ImmunizationsPage onBack={goBack} />
         )}

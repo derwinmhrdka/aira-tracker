@@ -22,3 +22,9 @@ export function diaperTypeToClient(type: DiaperType): 'pup' | 'pee' | 'both' {
   if (type === 'PIPIS') return 'pee'
   return 'both'
 }
+
+export function diaperEventCounts(type: DiaperType): { pup: number; pee: number } {
+  if (type === 'PUP') return { pup: 1, pee: 0 }
+  if (type === 'PIPIS') return { pup: 0, pee: 1 }
+  return { pup: 1, pee: 1 }
+}

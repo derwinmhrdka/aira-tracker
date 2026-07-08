@@ -3,7 +3,6 @@
 import {
   Baby,
   FileText,
-  Ruler,
   Syringe,
   ListChecks,
   Trophy,
@@ -15,7 +14,6 @@ import { AppIcon } from './app-icon'
 
 export type SubPage =
   | 'notes'
-  | 'growth'
   | 'immunizations'
   | 'development'
   | 'profile'
@@ -49,14 +47,6 @@ const MENU_ITEMS: {
     desc: 'Tummy time, dll',
     color: 'bg-sky-100 border-sky-200/80 dark:bg-sky-950/60 dark:border-sky-800/60',
     iconColor: 'text-sky-600 dark:text-sky-300',
-  },
-  {
-    id: 'growth',
-    icon: Ruler,
-    label: 'Pertumbuhan',
-    desc: 'Berat, panjang, grafik KMS',
-    color: 'bg-emerald-100 border-emerald-200/80 dark:bg-emerald-950/60 dark:border-emerald-800/60',
-    iconColor: 'text-emerald-600 dark:text-emerald-300',
   },
   {
     id: 'immunizations',

@@ -80,6 +80,8 @@ export function GrowthSheet({
         notes: notes.trim() || undefined,
       })
       onClose()
+    } catch {
+      // Error toast handled by parent page
     } finally {
       setSaving(false)
     }

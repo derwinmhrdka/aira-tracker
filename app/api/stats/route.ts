@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { DiaperType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
+import { diaperEventCounts } from '@/lib/log-parsers'
 
 function hoursBetween(start: Date, end: Date) {
   return (end.getTime() - start.getTime()) / (1000 * 60 * 60)
@@ -38,7 +38,6 @@ export async function GET(request: NextRequest) {
         where: { timestampStart: { gte: since } },
       }),
       prisma.growthLog.findMany({
-        where: { date: { gte: since } },
         orderBy: { date: 'asc' },
       }),
     ])
@@ -58,8 +57,9 @@ export async function GET(request: NextRequest) {
       const key = dayKey(log.timestamp)
       const bucket = dailyMap.get(key)
       if (!bucket) continue
-      if (log.type === DiaperType.PUP) bucket.pup++
-      else bucket.pee++
+      const counts = diaperEventCounts(log.type)
+      bucket.pup += counts.pup
+      bucket.pee += counts.pee
     }
 
     for (const log of feedingLogs) {
@@ -121,13 +121,19 @@ export async function GET(request: NextRequest) {
       avgSleepHours = durations.reduce((a, b) => a + b, 0) / durations.length
     }
 
+    let periodPup = 0
+    let periodPee = 0
+    for (const log of diaperLogs) {
+      const counts = diaperEventCounts(log.type)
+      periodPup += counts.pup
+      periodPee += counts.pee
+    }
+
     return NextResponse.json({
       days,
       period: {
-        pup: diaperLogs.filter((l) => l.type === DiaperType.PUP).length,
-        pee: diaperLogs.filter(
-          (l) => l.type === DiaperType.PIPIS || l.type === DiaperType.KEDUANYA
-        ).length,
+        pup: periodPup,
+        pee: periodPee,
         feed: feedingLogs.length,
         sleepHours: Math.round(totalSleepHours * 10) / 10,
       },

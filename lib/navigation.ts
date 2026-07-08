@@ -2,7 +2,6 @@ export type MainPage = 'home' | 'history' | 'stats' | 'more'
 
 export type SubPage =
   | 'notes'
-  | 'growth'
   | 'immunizations'
   | 'development'
   | 'profile'
@@ -13,7 +12,6 @@ export type AppPage = MainPage | SubPage
 
 export const SUB_PAGES: SubPage[] = [
   'notes',
-  'growth',
   'immunizations',
   'development',
   'profile',
@@ -32,6 +30,7 @@ export function pageToPath(page: AppPage): string {
 }
 
 export function pathToPage(search: string | null): AppPage {
+  if (search === 'growth') return 'stats'
   if (!search || !isValidPage(search)) return 'home'
   return search
 }
