@@ -55,10 +55,10 @@ echo "==> Container status:"
 $COMPOSE ps
 
 echo "==> Applying database schema..."
-$COMPOSE exec -T -u root app npx prisma db push --skip-generate
+$COMPOSE exec -T -u root app prisma db push --skip-generate
 
 echo "==> Seeding database (safe to re-run — skips if data exists)..."
-$COMPOSE exec -T -u root app npx tsx prisma/seed.ts || true
+$COMPOSE exec -T -u root app node node_modules/tsx/dist/cli.mjs prisma/seed.ts || true
 
 echo "==> Waiting for app health..."
 APP_READY=false
