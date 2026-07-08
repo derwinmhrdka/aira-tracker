@@ -83,15 +83,26 @@ export function buildChartData(
   gender: Gender = 'MALE'
 ) {
   const ref = getWhoReference(metric, gender)
-  const whoData = ref.map((w) => ({
-    month: w.month,
-    minus3: w.minus3,
-    minus2: w.minus2,
-    median: w.median,
-    plus2: w.plus2,
-    plus3: w.plus3,
-    baby: null as number | null,
-  }))
+  const whoData = ref.map((w) => {
+    const pad = (w.plus3 - w.minus3) * 0.25
+    const lower = w.minus3 - pad
+    const upper = w.plus3 + pad
+
+    return {
+      month: w.month,
+      minus3: w.minus3,
+      minus2: w.minus2,
+      median: w.median,
+      plus2: w.plus2,
+      plus3: w.plus3,
+      zoneBahayaLow: [lower, w.minus3] as [number, number],
+      zoneWaspadaLow: [w.minus3, w.minus2] as [number, number],
+      zoneNormal: [w.minus2, w.plus2] as [number, number],
+      zoneWaspadaHigh: [w.plus2, w.plus3] as [number, number],
+      zoneBahayaHigh: [w.plus3, upper] as [number, number],
+      baby: null as number | null,
+    }
+  })
 
   for (const log of growthLogs) {
     const month = Math.round(ageInMonths(birthDate, log.date))

@@ -11,7 +11,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { buildChartData, type GrowthMetric, type Gender } from '@/lib/who-growth'
+import { buildChartData, ageInMonths, type GrowthMetric, type Gender } from '@/lib/who-growth'
+import {
+  getKmsZone,
+  KMS_ZONE_DOT,
+  KMS_ZONE_HINT,
+  KMS_ZONE_LABEL,
+  KMS_ZONE_STYLE,
+  type KmsZone,
+} from '@/lib/kms-status'
 import type { GrowthLog } from '@/lib/api-client'
 
 interface KmsGrowthChartProps {
@@ -52,25 +60,93 @@ export function KmsGrowthChart({
     gender
   )
 
+  const logByMonth = new Map<number, { date: string; value: number }>()
+  for (const g of growthLogs) {
+    const month = Math.round(ageInMonths(birthDate, g.date))
+    logByMonth.set(month, {
+      date: g.date,
+      value: metric === 'weight' ? g.weight_kg : g.height_cm,
+    })
+  }
+
+  const zoneForMonth = (month: number, value: number): KmsZone => {
+    const log = logByMonth.get(month)
+    if (!log) return 'unknown'
+    return getKmsZone(value, birthDate, log.date, metric, gender)
+  }
+
   const unit = metric === 'weight' ? 'kg' : 'cm'
   const label = metric === 'weight' ? 'berat badan' : 'panjang badan'
 
   const renderTooltip = (props: {
     active?: boolean
-    payload?: { dataKey?: string; value?: number }[]
+    payload?: { dataKey?: string; value?: number; payload?: { month?: number } }[]
     label?: string | number
   }) => {
     const { active, payload, label: month } = props
-    if (!active || !payload?.length) return null
+    if (!active || !payload?.length || month == null) return null
     const baby = payload.find((p) => p.dataKey === 'baby')
     if (baby?.value == null) return null
+
+    const monthNum = Number(month)
+    const log = logByMonth.get(monthNum)
+    const zone = zoneForMonth(monthNum, baby.value)
+    const hint = KMS_ZONE_HINT[zone]
+
     return (
-      <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-md">
+      <div className="max-w-[200px] rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-md">
         <p className="font-semibold text-foreground">Bulan {month}</p>
-        <p className="mt-0.5 text-muted-foreground">
-          Data bayi: <span className="font-medium text-foreground">{baby.value} {unit}</span>
+        {log && (
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            {new Date(log.date).toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </p>
+        )}
+        <p className="mt-1 text-muted-foreground">
+          Data bayi:{' '}
+          <span className="font-medium text-foreground">
+            {baby.value} {unit}
+          </span>
         </p>
+        <p className="mt-1.5">
+          <span
+            className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${KMS_ZONE_STYLE[zone]}`}
+          >
+            KMS: {KMS_ZONE_LABEL[zone]}
+          </span>
+        </p>
+        {hint && (
+          <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+            {hint}
+          </p>
+        )}
       </div>
+    )
+  }
+
+  const renderBabyDot = (props: {
+    cx?: number
+    cy?: number
+    payload?: { month?: number; baby?: number | null }
+  }) => {
+    const { cx, cy, payload } = props
+    if (cx == null || cy == null || payload?.baby == null || payload.month == null) {
+      return null
+    }
+    const zone = zoneForMonth(payload.month, payload.baby)
+    const fill = KMS_ZONE_DOT[zone]
+    return (
+      <circle
+        cx={cx}
+        cy={cy}
+        r={4}
+        fill={fill}
+        stroke="#fff"
+        strokeWidth={2}
+      />
     )
   }
 
@@ -117,49 +193,55 @@ export function KmsGrowthChart({
 
             <Area
               type="monotone"
-              dataKey="minus3"
-              stackId="red-low"
+              dataKey="zoneBahayaLow"
               stroke="none"
               fill="#fca5a5"
-              fillOpacity={0.25}
-              legendType="none"
-              tooltipType="none"
-            />
-            <Area
-              type="monotone"
-              dataKey="minus2"
-              stackId="red-low"
-              stroke="none"
-              fill="#fef08a"
-              fillOpacity={0.3}
-              legendType="none"
-              tooltipType="none"
-            />
-            <Area
-              type="monotone"
-              dataKey="median"
-              stroke="#86efac"
-              strokeWidth={1.5}
-              fill="#86efac"
               fillOpacity={0.35}
               legendType="none"
               tooltipType="none"
             />
             <Area
               type="monotone"
-              dataKey="plus2"
+              dataKey="zoneWaspadaLow"
               stroke="none"
-              fill="#86efac"
-              fillOpacity={0.2}
+              fill="#fef08a"
+              fillOpacity={0.45}
               legendType="none"
               tooltipType="none"
             />
             <Area
               type="monotone"
-              dataKey="plus3"
+              dataKey="zoneNormal"
+              stroke="none"
+              fill="#86efac"
+              fillOpacity={0.4}
+              legendType="none"
+              tooltipType="none"
+            />
+            <Area
+              type="monotone"
+              dataKey="zoneWaspadaHigh"
+              stroke="none"
+              fill="#fef08a"
+              fillOpacity={0.45}
+              legendType="none"
+              tooltipType="none"
+            />
+            <Area
+              type="monotone"
+              dataKey="zoneBahayaHigh"
               stroke="none"
               fill="#fca5a5"
-              fillOpacity={0.2}
+              fillOpacity={0.35}
+              legendType="none"
+              tooltipType="none"
+            />
+            <Line
+              type="monotone"
+              dataKey="median"
+              stroke="#22c55e"
+              strokeWidth={1.5}
+              dot={false}
               legendType="none"
               tooltipType="none"
             />
@@ -168,8 +250,33 @@ export function KmsGrowthChart({
               dataKey="baby"
               stroke="#3b82f6"
               strokeWidth={2.5}
-              dot={{ fill: '#3b82f6', r: 4, strokeWidth: 2, stroke: '#fff' }}
-              activeDot={{ r: 6 }}
+              dot={renderBabyDot}
+              activeDot={(props: {
+                cx?: number
+                cy?: number
+                payload?: { month?: number; baby?: number | null }
+              }) => {
+                const { cx, cy, payload } = props
+                if (
+                  cx == null ||
+                  cy == null ||
+                  payload?.baby == null ||
+                  payload.month == null
+                ) {
+                  return null
+                }
+                const zone = zoneForMonth(payload.month, payload.baby)
+                return (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={6}
+                    fill={KMS_ZONE_DOT[zone]}
+                    stroke="#fff"
+                    strokeWidth={2}
+                  />
+                )
+              }}
               connectNulls
               name="Bayi"
             />
@@ -180,13 +287,12 @@ export function KmsGrowthChart({
       <div className="mt-3 space-y-2 rounded-xl bg-secondary/40 px-3 py-2.5">
         <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 text-[10px] text-muted-foreground">
           <ChartLegendItem label="Data bayi">
-            <span className="inline-block h-0.5 w-4 rounded bg-blue-500" />
+            <span className="inline-flex gap-0.5">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+              <span className="inline-block h-2 w-2 rounded-full bg-yellow-500" />
+              <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+            </span>
           </ChartLegendItem>
-          <ChartLegendItem label="Median WHO">
-            <span className="inline-block h-0.5 w-4 rounded bg-green-400" />
-          </ChartLegendItem>
-        </div>
-        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
           <ChartLegendItem label="Normal">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-300/70" />
           </ChartLegendItem>
@@ -196,7 +302,13 @@ export function KmsGrowthChart({
           <ChartLegendItem label="Bahaya">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-300/70" />
           </ChartLegendItem>
+          <ChartLegendItem label="Median WHO">
+            <span className="inline-block h-0.5 w-4 rounded bg-green-500" />
+          </ChartLegendItem>
         </div>
+        <p className="text-center text-[9px] text-muted-foreground">
+          Ketuk titik data untuk lihat status KMS
+        </p>
       </div>
     </div>
   )

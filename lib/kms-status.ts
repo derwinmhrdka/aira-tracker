@@ -24,6 +24,20 @@ export const KMS_ZONE_STYLE: Record<KmsZone, string> = {
   unknown: 'bg-secondary text-muted-foreground',
 }
 
+export const KMS_ZONE_HINT: Record<KmsZone, string | null> = {
+  normal: 'Dalam rentang normal WHO (-2 SD s/d +2 SD)',
+  waspada: 'Di luar normal — perlu pemantauan lebih sering',
+  bahaya: 'Di luar batas aman — segera konsultasi ke tenaga kesehatan',
+  unknown: null,
+}
+
+export const KMS_ZONE_DOT: Record<KmsZone, string> = {
+  normal: '#22c55e',
+  waspada: '#eab308',
+  bahaya: '#ef4444',
+  unknown: '#3b82f6',
+}
+
 type WhoField = 'minus3' | 'minus2' | 'plus2' | 'plus3'
 
 function interpolateWhoValue(
