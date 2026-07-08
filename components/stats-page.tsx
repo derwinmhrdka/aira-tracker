@@ -41,6 +41,7 @@ export function StatsPage() {
   const [pendingDelete, setPendingDelete] = useState<GrowthLog | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE)
+  const [dailySummaryLimit, setDailySummaryLimit] = useState(5)
 
   const fetchStats = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) {
@@ -66,6 +67,10 @@ export function StatsPage() {
   useEffect(() => {
     fetchStats()
   }, [fetchStats])
+
+  useEffect(() => {
+    setDailySummaryLimit(5)
+  }, [days])
 
   const handleSaveGrowth = async (data: CreateGrowthInput) => {
     try {
@@ -128,6 +133,12 @@ export function StatsPage() {
   )
   const visibleGrowthHistory = growthHistory.slice(0, historyLimit)
   const hasMoreHistory = historyLimit < growthHistory.length
+  const dailySummaryRows = useMemo(
+    () => [...(stats?.daily ?? [])].sort((a, b) => b.date.localeCompare(a.date)),
+    [stats?.daily]
+  )
+  const visibleDailySummary = dailySummaryRows.slice(0, dailySummaryLimit)
+  const hasMoreDailySummary = dailySummaryLimit < dailySummaryRows.length
   const birthDate = profile?.birth_date ?? new Date().toISOString().split('T')[0]
   const gender = profile?.gender ?? 'MALE'
 
@@ -140,6 +151,23 @@ export function StatsPage() {
     const rightPct = 100 - leftPct
     return `Kiri : Kanan = ${left} : ${right} (${leftPct}% : ${rightPct}%)`
   }, [stats?.insights.feedSideLeft, stats?.insights.feedSideRight])
+
+  const avgFeedDurationText = useMemo(() => {
+    const minutes = stats?.insights.avgFeedingDurationMinutes
+    if (!minutes) return 'Belum cukup data'
+    return `${minutes} menit/sesi`
+  }, [stats?.insights.avgFeedingDurationMinutes])
+
+  const avgSleepDurationText = useMemo(() => {
+    const hours = stats?.insights.avgSleepHours
+    if (!hours) return 'Belum cukup data'
+    const totalMinutes = Math.round(hours * 60)
+    const h = Math.floor(totalMinutes / 60)
+    const m = totalMinutes % 60
+    if (h > 0 && m > 0) return `${h}j ${m}m/sesi`
+    if (h > 0) return `${h}j/sesi`
+    return `${m}m/sesi`
+  }, [stats?.insights.avgSleepHours])
 
   return (
     <motion.div
@@ -398,6 +426,57 @@ export function StatsPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <h2 className="font-heading mb-3 font-semibold text-foreground">
+          Ringkasan Harian
+        </h2>
+        {loading ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-16 animate-pulse rounded-lg bg-secondary" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              {visibleDailySummary.map((d) => (
+                <div
+                  key={d.date}
+                  className="rounded-lg border border-border/60 bg-secondary/70 px-3 py-2"
+                >
+                  <div className="mb-1 text-xs font-semibold text-foreground">
+                    {new Date(d.date).toLocaleDateString('id-ID', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    <span>💩 {d.pup}</span>
+                    <span>💧 {d.pee}</span>
+                    <span>🍼 {d.feed}</span>
+                    <span>😴 {d.sleepHours}j</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-primary">
+                    <span>📊 🍼 {avgFeedDurationText}</span>
+                    <span>📊 😴 {avgSleepDurationText}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {hasMoreDailySummary && (
+              <button
+                type="button"
+                onClick={() => setDailySummaryLimit((prev) => prev + 5)}
+                className="mt-3 w-full rounded-lg border border-border bg-secondary py-2.5 text-xs font-semibold text-foreground"
+              >
+                Load more ({dailySummaryRows.length - dailySummaryLimit} lagi)
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       <GrowthSheet

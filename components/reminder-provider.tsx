@@ -10,9 +10,26 @@ import {
 } from '@/lib/reminder'
 import { checkServerPushReminder } from '@/lib/push-client'
 
+const LAST_FEEDING_NOTIFY_KEY = 'last_feeding_notify_at'
+const LAST_DIAPER_NOTIFY_KEY = 'last_diaper_notify_at'
+const REMINDER_COOLDOWN_MS = 30 * 60 * 1000
+
+function readLastNotify(key: string): number {
+  if (typeof window === 'undefined') return 0
+  const raw = localStorage.getItem(key)
+  if (!raw) return 0
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function writeLastNotify(key: string, value: number) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(key, String(value))
+}
+
 export function ReminderProvider() {
-  const lastFeedingNotified = useRef<number>(0)
-  const lastDiaperNotified = useRef<number>(0)
+  const lastFeedingNotified = useRef<number>(readLastNotify(LAST_FEEDING_NOTIFY_KEY))
+  const lastDiaperNotified = useRef<number>(readLastNotify(LAST_DIAPER_NOTIFY_KEY))
 
   useEffect(() => {
     const check = async () => {
@@ -28,7 +45,9 @@ export function ReminderProvider() {
             settings.feedingIntervalMinutes
           )
           if (serverSent) {
-            lastFeedingNotified.current = Date.now()
+            const now = Date.now()
+            lastFeedingNotified.current = now
+            writeLastNotify(LAST_FEEDING_NOTIFY_KEY, now)
           } else {
             const lastFeed = summary.lastTimes.feed
             if (lastFeed) {
@@ -37,9 +56,10 @@ export function ReminderProvider() {
 
               if (minutesSince >= settings.feedingIntervalMinutes) {
                 const now = Date.now()
-                if (now - lastFeedingNotified.current > 30 * 60 * 1000) {
+                if (now - lastFeedingNotified.current > REMINDER_COOLDOWN_MS) {
                   await showFeedingReminder(summary.baby?.name)
                   lastFeedingNotified.current = now
+                  writeLastNotify(LAST_FEEDING_NOTIFY_KEY, now)
                 }
               }
             }
@@ -52,7 +72,9 @@ export function ReminderProvider() {
             settings.diaperIntervalMinutes
           )
           if (serverSent) {
-            lastDiaperNotified.current = Date.now()
+            const now = Date.now()
+            lastDiaperNotified.current = now
+            writeLastNotify(LAST_DIAPER_NOTIFY_KEY, now)
           } else {
             const lastDiaper =
               summary.lastDiaper ??
@@ -66,9 +88,10 @@ export function ReminderProvider() {
 
               if (minutesSince >= settings.diaperIntervalMinutes) {
                 const now = Date.now()
-                if (now - lastDiaperNotified.current > 30 * 60 * 1000) {
+                if (now - lastDiaperNotified.current > REMINDER_COOLDOWN_MS) {
                   await showDiaperReminder(summary.baby?.name)
                   lastDiaperNotified.current = now
+                  writeLastNotify(LAST_DIAPER_NOTIFY_KEY, now)
                 }
               }
             }
