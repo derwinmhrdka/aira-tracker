@@ -76,6 +76,85 @@ export function ageInMonths(birthDate: string, measureDate: string): number {
   return Math.max(0, Math.round(months * 10) / 10)
 }
 
+type WhoField = 'minus3' | 'minus2' | 'median' | 'plus2' | 'plus3'
+
+function interpolateWhoField(
+  months: number,
+  ref: WhoPoint[],
+  field: WhoField
+): number {
+  if (ref.length === 0) return 0
+  if (months <= ref[0].month) return ref[0][field]
+  if (months >= ref[ref.length - 1].month) return ref[ref.length - 1][field]
+
+  for (let i = 0; i < ref.length - 1; i++) {
+    const a = ref[i]
+    const b = ref[i + 1]
+    if (months >= a.month && months <= b.month) {
+      const span = b.month - a.month
+      if (span === 0) return a[field]
+      const t = (months - a.month) / span
+      return a[field] + t * (b[field] - a[field])
+    }
+  }
+  return ref[ref.length - 1][field]
+}
+
+function whoRowAtMonth(month: number, ref: WhoPoint[]) {
+  const minus3 = interpolateWhoField(month, ref, 'minus3')
+  const minus2 = interpolateWhoField(month, ref, 'minus2')
+  const median = interpolateWhoField(month, ref, 'median')
+  const plus2 = interpolateWhoField(month, ref, 'plus2')
+  const plus3 = interpolateWhoField(month, ref, 'plus3')
+  const pad = (plus3 - minus3) * 0.25
+  const lower = minus3 - pad
+  const upper = plus3 + pad
+
+  return {
+    month,
+    minus3,
+    minus2,
+    median,
+    plus2,
+    plus3,
+    zoneBahayaLow: [lower, minus3] as [number, number],
+    zoneWaspadaLow: [minus3, minus2] as [number, number],
+    zoneNormal: [minus2, plus2] as [number, number],
+    zoneWaspadaHigh: [plus2, plus3] as [number, number],
+    zoneBahayaHigh: [plus3, upper] as [number, number],
+    baby: null as number | null,
+  }
+}
+
+export function buildDenseChartData(
+  growthLogs: { date: string; value: number }[],
+  birthDate: string,
+  metric: GrowthMetric,
+  gender: Gender = 'MALE',
+  maxMonth = 24
+) {
+  const ref = getWhoReference(metric, gender)
+  const whoData = Array.from({ length: maxMonth + 1 }, (_, month) =>
+    whoRowAtMonth(month, ref)
+  )
+
+  const latestByMonth = new Map<number, { date: string; value: number }>()
+  for (const log of growthLogs) {
+    const month = Math.round(ageInMonths(birthDate, log.date))
+    if (month < 0 || month > maxMonth) continue
+    const existing = latestByMonth.get(month)
+    if (!existing || log.date > existing.date) {
+      latestByMonth.set(month, log)
+    }
+  }
+
+  for (const [month, log] of latestByMonth) {
+    whoData[month].baby = log.value
+  }
+
+  return whoData
+}
+
 export function buildChartData(
   growthLogs: { date: string; value: number }[],
   birthDate: string,
