@@ -23,7 +23,8 @@ function lastTimestamp(
 
 export async function GET() {
   return withAuth(async () => {
-    const since = todayStart()
+    try {
+      const since = todayStart()
 
     const [
       diaperLogs,
@@ -78,7 +79,7 @@ export async function GET() {
         (log.timestampEnd.getTime() - log.timestampStart.getTime()) / 60000
       )
     }
-    if (activeSleep?.timestampEnd == null) {
+    if (activeSleep && !activeSleep.timestampEnd) {
       totalSleepMinutes += Math.round(
         (Date.now() - activeSleep.timestampStart.getTime()) / 60000
       )
@@ -86,7 +87,8 @@ export async function GET() {
 
     const birthDate = profile?.birthDate.toISOString().split('T')[0] ?? null
 
-    return NextResponse.json({
+    return NextResponse.json(
+      {
       counts: {
         pup,
         pee,
@@ -113,6 +115,19 @@ export async function GET() {
           }
         : null,
       nextVaccine: getNextVaccine(immunizations, birthDate),
-    })
+    },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
+    )
+    } catch (err) {
+      console.error('GET /api/logs/today failed:', err)
+      return NextResponse.json(
+        { error: 'Gagal memuat ringkasan hari ini' },
+        { status: 500 }
+      )
+    }
   })
 }

@@ -21,10 +21,10 @@ const navItems: Array<{
   label: string
   icon: LucideIcon
 }> = [
-  { id: 'home', label: 'Home', icon: House },
-  { id: 'history', label: 'History', icon: Clock3 },
-  { id: 'stats', label: 'Stats', icon: ChartColumn },
-  { id: 'more', label: 'More', icon: Ellipsis },
+  { id: 'home', label: 'Beranda', icon: House },
+  { id: 'history', label: 'Riwayat', icon: Clock3 },
+  { id: 'stats', label: 'Statistik', icon: ChartColumn },
+  { id: 'more', label: 'Lainnya', icon: Ellipsis },
 ]
 
 export function BottomNav({ currentPage, onPageChange }: BottomNavProps) {

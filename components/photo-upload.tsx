@@ -20,8 +20,8 @@ export function PhotoUpload({ onUploaded, label = 'Photo', preview }: PhotoUploa
     if (!file) return
     try {
       const compressed = await compressImage(file)
-      if (compressed.size > 2 * 1024 * 1024) {
-        alert('Foto masih terlalu besar (max 2MB)')
+      if (compressed.size > 1.5 * 1024 * 1024) {
+        alert('Foto masih terlalu besar (max 1.5MB)')
         return
       }
       const { photo_url } = await api.uploadPhoto(compressed)

@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex min-h-screen items-center justify-center">
           <span className="text-sm text-muted-foreground">Loading...</span>
         </div>
       }

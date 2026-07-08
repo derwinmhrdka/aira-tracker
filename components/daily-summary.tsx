@@ -8,16 +8,13 @@ import { timeAgoId } from '@/lib/baby-utils'
 interface DailySummaryProps {
   summary: TodaySummary | null
   loading?: boolean
+  error?: boolean
+  onRetry?: () => void
 }
 
-export function DailySummary({ summary, loading }: DailySummaryProps) {
+export function DailySummary({ summary, loading, error, onRetry }: DailySummaryProps) {
   const data = useMemo(() => {
-    if (!summary) {
-      return {
-        counts: { pup: 0, pee: 0, feed: 0, sleep: 0 },
-        lastTimes: { pup: null, pee: null, feed: null, sleep: null },
-      }
-    }
+    if (!summary?.counts) return null
     return summary
   }, [summary])
 
@@ -48,9 +45,26 @@ export function DailySummary({ summary, loading }: DailySummaryProps) {
     )
   }
 
+  if (error || !data) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm">
+        <p className="text-sm text-muted-foreground">Gagal memuat ringkasan hari ini</p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-2 text-sm font-medium text-primary"
+          >
+            Coba lagi
+          </button>
+        )}
+      </div>
+    )
+  }
+
   const items = [
     { emoji: '💩', count: data.counts.pup, last: data.lastTimes.pup, label: 'Pup' },
-    { emoji: '💧', count: data.counts.pee, last: data.lastTimes.pee, label: 'Pipis' },
+    { emoji: '💧', count: data.counts.pee, last: data.lastTimes.pee, label: 'Pee' },
     { emoji: '🍼', count: data.counts.feed, last: data.lastTimes.feed, label: 'Susu' },
     { emoji: '😴', count: data.counts.sleep, last: data.lastTimes.sleep, label: 'Tidur' },
   ]

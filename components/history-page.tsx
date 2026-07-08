@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { api, type HistoryItem, type UpdateLogInput } from '@/lib/api-client'
+import { api, isQueuedResponse, type HistoryItem, type UpdateLogInput } from '@/lib/api-client'
+import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { EditLogSheet } from './edit-log-sheet'
 import { Toast } from './toast'
+import { ErrorBanner } from './error-banner'
 import { ConfirmDeleteSheet } from './confirm-delete-sheet'
 
 const TYPE_EMOJI: Record<string, string> = {
@@ -13,32 +15,63 @@ const TYPE_EMOJI: Record<string, string> = {
 }
 
 const TYPE_LABEL: Record<string, string> = {
-  pup: 'Pup', pee: 'Pipis', both: 'Keduanya', feed: 'Mulai Menyusui',
+  pup: 'Pup', pee: 'Pee', both: 'Pupee', feed: 'Mulai Menyusui',
   'feed-end': 'Selesai Menyusui', sleep: 'Mulai Tidur', wake: 'Bangun', note: 'Catatan',
 }
 
 const FILTERS = [
-  { id: '', label: 'All' },
+  { id: '', label: 'Semua' },
   { id: 'diaper', label: 'Popok' },
   { id: 'feeding', label: 'Susu' },
   { id: 'sleep', label: 'Tidur' },
-  { id: 'note', label: 'Notes' },
+  { id: 'note', label: 'Catatan' },
 ]
 
 const DAY_FILTERS = [
-  { days: 1, label: 'Today' },
-  { days: 7, label: '7d' },
-  { days: 30, label: '30d' },
+  { days: 1, label: 'Hari ini' },
+  { days: 7, label: '7 hari' },
+  { days: 30, label: '30 hari' },
 ]
 
 const PAGE_SIZE = 15
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function groupByDay(items: HistoryItem[]) {
+  const groups: { label: string; items: HistoryItem[] }[] = []
+  let currentKey = ''
+
+  for (const item of items) {
+    const key = new Date(item.timestamp).toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    })
+    if (key !== currentKey) {
+      currentKey = key
+      groups.push({ label: key, items: [item] })
+    } else {
+      groups[groups.length - 1].items.push(item)
+    }
+  }
+
+  return groups
+}
 
 export function HistoryPage() {
   const [items, setItems] = useState<HistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState(false)
   const [hasMore, setHasMore] = useState(false)
-  const [nextOffset, setNextOffset] = useState(0)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [category, setCategory] = useState('')
   const [days, setDays] = useState(7)
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -52,50 +85,46 @@ export function HistoryPage() {
     const requestId = ++requestIdRef.current
     setLoading(true)
     setLoadingMore(false)
+    setError(false)
     setItems([])
     setHasMore(false)
-    setNextOffset(0)
+    setNextCursor(null)
     try {
-      if (category) {
-        const allItems = await api.getAllHistory(days, category)
-        if (requestId !== requestIdRef.current) return
-        setItems(allItems)
-      } else {
-        const data = await api.getHistory(days, undefined, {
-          limit: PAGE_SIZE,
-          offset: 0,
-        })
-        if (requestId !== requestIdRef.current) return
-        setItems(data.items)
-        setHasMore(data.hasMore)
-        setNextOffset(data.nextOffset ?? PAGE_SIZE)
-      }
+      const data = await api.getHistory(days, category || undefined, {
+        limit: PAGE_SIZE,
+      })
+      if (requestId !== requestIdRef.current) return
+      setItems(data.items)
+      setHasMore(data.hasMore)
+      setNextCursor(data.nextCursor)
     } catch {
-      // handled
+      if (requestId === requestIdRef.current) setError(true)
     } finally {
       if (requestId === requestIdRef.current) setLoading(false)
     }
   }, [days, category])
 
   const loadMore = useCallback(async () => {
-    if (category || !hasMore || loadingMore || loading) return
+    if (!hasMore || !nextCursor || loadingMore || loading) return
     const requestId = requestIdRef.current
     setLoadingMore(true)
     try {
-      const data = await api.getHistory(days, undefined, {
+      const data = await api.getHistory(days, category || undefined, {
         limit: PAGE_SIZE,
-        offset: nextOffset,
+        cursor: nextCursor,
       })
       if (requestId !== requestIdRef.current) return
       setItems((prev) => [...prev, ...data.items])
       setHasMore(data.hasMore)
-      setNextOffset(data.nextOffset ?? nextOffset + PAGE_SIZE)
+      setNextCursor(data.nextCursor)
     } catch {
-      // handled
+      // keep existing items
     } finally {
       if (requestId === requestIdRef.current) setLoadingMore(false)
     }
-  }, [days, category, hasMore, loadingMore, loading, nextOffset])
+  }, [days, category, hasMore, nextCursor, loadingMore, loading])
+
+  useAppDataSync(loadInitial)
 
   useEffect(() => {
     loadInitial()
@@ -103,7 +132,7 @@ export function HistoryPage() {
 
   useEffect(() => {
     const el = loadMoreRef.current
-    if (!el || !hasMore || category) return
+    if (!el || !hasMore) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -113,7 +142,7 @@ export function HistoryPage() {
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [hasMore, loadMore, category])
+  }, [hasMore, loadMore])
 
   const handleEdit = async (data: UpdateLogInput) => {
     if (!editingItem) return
@@ -123,7 +152,7 @@ export function HistoryPage() {
         i.id === editingItem.id && i.category === editingItem.category ? updated : i
       )
     )
-    setToast('✓ Perubahan tersimpan')
+    setToast('✓ Diperbarui')
     setTimeout(() => setToast(null), 2000)
   }
 
@@ -133,40 +162,31 @@ export function HistoryPage() {
     setDeletingId(item.id)
     try {
       await api.deleteLog(item.category, item.id)
-      setItems((prev) => prev.filter((i) => i.id !== item.id))
+      setItems((prev) =>
+        prev.filter((i) => !(i.id === item.id && i.category === item.category))
+      )
       setPendingDelete(null)
-    } catch {
-      alert('Gagal menghapus')
+      setToast('🗑️ Dihapus')
+      setTimeout(() => setToast(null), 2000)
     } finally {
       setDeletingId(null)
     }
   }
 
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleString('id-ID', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+  const groups = groupByDay(items)
 
   return (
-    <div className="space-y-4 px-4 pt-6 pb-8">
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-foreground">History</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Filter untuk cari aktivitas
-        </p>
-      </div>
+    <div className="px-4 pt-6 pb-24">
+      <h1 className="font-heading mb-1 text-xl font-bold text-foreground">Riwayat</h1>
+      <p className="mb-4 text-sm text-muted-foreground">Semua aktivitas tercatat</p>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
         {DAY_FILTERS.map((f) => (
           <button
             key={f.days}
             type="button"
             onClick={() => setDays(f.days)}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
               days === f.days
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-secondary text-foreground'
@@ -177,16 +197,16 @@ export function HistoryPage() {
         ))}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="mb-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.id}
             type="button"
             onClick={() => setCategory(f.id)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
               category === f.id
                 ? 'bg-accent text-accent-foreground'
-                : 'bg-secondary/60 text-muted-foreground'
+                : 'bg-secondary text-foreground'
             }`}
           >
             {f.label}
@@ -194,9 +214,11 @@ export function HistoryPage() {
         ))}
       </div>
 
-      {loading ? (
+      {error ? (
+        <ErrorBanner message="Gagal memuat riwayat" onRetry={loadInitial} />
+      ) : loading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-16 animate-pulse rounded-xl bg-secondary" />
           ))}
         </div>
@@ -206,68 +228,75 @@ export function HistoryPage() {
           <p className="text-sm text-muted-foreground">Belum ada riwayat</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {items.map((item) => (
-            <motion.div
-              key={`${item.category}-${item.id}`}
-              layout
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm"
-            >
-              <span className="text-2xl">{TYPE_EMOJI[item.type] || '📋'}</span>
-              <div className="min-w-0 flex-1">
-                <p className="font-heading text-sm font-semibold text-foreground">
-                  {TYPE_LABEL[item.type] || item.type}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatTime(item.timestamp)}
-                  {item.loggedBy && ` · ${item.loggedBy}`}
-                </p>
-                {item.details && (
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {item.details}
-                  </p>
-                )}
-                {item.photo_url && (
-                  <img
-                    src={item.photo_url}
-                    alt=""
-                    className="mt-2 h-16 w-16 rounded-lg object-cover"
-                  />
-                )}
+        <div className="space-y-4">
+          {groups.map((group) => (
+            <div key={group.label}>
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                {group.label}
+              </p>
+              <div className="space-y-2">
+                {group.items.map((item) => (
+                  <motion.div
+                    key={`${item.category}-${item.id}`}
+                    layout
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm"
+                  >
+                    <span className="text-2xl">{TYPE_EMOJI[item.type] || '📋'}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-heading text-sm font-semibold text-foreground">
+                        {TYPE_LABEL[item.type] || item.type}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatTime(item.timestamp)}
+                        {item.loggedBy && ` · ${item.loggedBy}`}
+                      </p>
+                      {item.details && (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {item.details}
+                        </p>
+                      )}
+                      {item.photo_url && (
+                        <img
+                          src={item.photo_url}
+                          alt=""
+                          className="mt-2 h-16 w-16 rounded-lg object-cover"
+                        />
+                      )}
+                      {item.audio_url && (
+                        <audio
+                          src={item.audio_url}
+                          controls
+                          className="mt-2 w-full max-w-xs"
+                        />
+                      )}
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingItem(item)}
+                        className="rounded-lg px-2 py-2 text-xs opacity-60 hover:opacity-100"
+                        aria-label="Edit"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingDelete(item)}
+                        disabled={deletingId === item.id}
+                        className="rounded-lg px-2 py-2 text-xs opacity-60 hover:opacity-100"
+                        aria-label="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-              <div className="flex shrink-0 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setEditingItem(item)}
-                  className="rounded-lg px-2 py-2 text-xs opacity-60 hover:opacity-100"
-                  aria-label="Edit"
-                >
-                  ✏️
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPendingDelete(item)}
-                  disabled={deletingId === item.id}
-                  className="rounded-lg px-2 py-2 text-xs text-destructive opacity-60 hover:opacity-100"
-                  aria-label="Delete"
-                >
-                  {deletingId === item.id ? '...' : '🗑️'}
-                </button>
-              </div>
-            </motion.div>
+            </div>
           ))}
           {hasMore && (
-            <div ref={loadMoreRef} className="py-2">
-              {loadingMore && (
-                <div className="space-y-2">
-                  {[1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="h-16 animate-pulse rounded-xl bg-secondary"
-                    />
-                  ))}
-                </div>
-              )}
+            <div ref={loadMoreRef} className="py-4 text-center text-xs text-muted-foreground">
+              {loadingMore ? 'Memuat...' : 'Scroll untuk lebih banyak'}
             </div>
           )}
         </div>
@@ -279,15 +308,15 @@ export function HistoryPage() {
         onClose={() => setEditingItem(null)}
         onSave={handleEdit}
       />
-      {toast && <Toast message={toast} />}
       <ConfirmDeleteSheet
         open={!!pendingDelete}
-        title="Delete?"
-        message="Catatan ini akan dihapus permanen."
+        title="Hapus riwayat?"
+        message="Data yang dihapus tidak bisa dikembalikan."
+        confirmLabel="Hapus"
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
-        loading={!!deletingId}
       />
+      {toast && <Toast message={toast} />}
     </div>
   )
 }

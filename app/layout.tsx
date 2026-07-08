@@ -55,7 +55,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <SnowDecor />
-        <div className="relative z-10">
+        <div className="relative z-[2]">
           <Providers>{children}</Providers>
           <PwaRegister />
         </div>

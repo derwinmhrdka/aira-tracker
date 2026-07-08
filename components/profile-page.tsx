@@ -6,7 +6,7 @@ import { PageHeader } from './page-header'
 import { PhotoUpload } from './photo-upload'
 import { Toast } from './toast'
 import { playSoundEffect } from '@/lib/sounds'
-import { api, type BabyProfile } from '@/lib/api-client'
+import { api, type BabyProfile, cleanupDraftUploads } from '@/lib/api-client'
 
 interface ProfilePageProps {
   onBack: () => void
@@ -69,6 +69,23 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCancelEdit = () => {
+    void cleanupDraftUploads([form.photo_url], [profile?.photo_url])
+    if (profile) {
+      setForm({
+        name: profile.name,
+        birth_date: profile.birth_date,
+        birth_weight_kg: String(profile.birth_weight_kg ?? ''),
+        birth_height_cm: String(profile.birth_height_cm ?? ''),
+        blood_type: profile.blood_type ?? '',
+        parent_names: profile.parent_names ?? '',
+        photo_url: profile.photo_url ?? null,
+        gender: profile.gender ?? 'MALE',
+      })
+    }
+    setEditing(false)
   }
 
   if (loading) {
@@ -156,7 +173,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setEditing(false)}
+                onClick={handleCancelEdit}
                 className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold"
               >
                 Cancel

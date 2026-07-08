@@ -7,6 +7,7 @@ function formatGrowth(log: {
   date: Date
   weightKg: number
   heightCm: number
+  headCircumferenceCm: number | null
   isJaundice: boolean
   bilirubinLevel: number | null
   notes: string | null
@@ -16,6 +17,7 @@ function formatGrowth(log: {
     date: log.date.toISOString().split('T')[0],
     weight_kg: log.weightKg,
     height_cm: log.heightCm,
+    head_circumference_cm: log.headCircumferenceCm,
     is_jaundice: log.isJaundice,
     bilirubin_level: log.bilirubinLevel,
     notes: log.notes,
@@ -36,6 +38,10 @@ export async function PATCH(
         date: body.date ? new Date(body.date) : undefined,
         weightKg: body.weight_kg != null ? Number(body.weight_kg) : undefined,
         heightCm: body.height_cm != null ? Number(body.height_cm) : undefined,
+        headCircumferenceCm:
+          body.head_circumference_cm !== undefined
+            ? body.head_circumference_cm
+            : undefined,
         isJaundice: body.is_jaundice ?? undefined,
         bilirubinLevel:
           body.bilirubin_level !== undefined

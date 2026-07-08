@@ -22,6 +22,7 @@ import { MilestonesPage } from '@/components/milestones-page'
 import { SettingsPage } from '@/components/settings-page'
 import { BottomNav } from '@/components/bottom-nav'
 import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
+import { notifyDataSynced } from '@/lib/use-live-sync'
 
 export function AppShell() {
   const router = useRouter()
@@ -39,14 +40,32 @@ export function AppShell() {
     (page: AppPage) => {
       setCurrentPage(page)
       router.push(pageToPath(page), { scroll: false })
+      if (page === 'home') {
+        notifyDataSynced()
+      }
     },
     [router]
   )
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const url = (event as CustomEvent<{ url: string }>).detail?.url || '/'
+      try {
+        const parsed = new URL(url, window.location.origin)
+        const page = pathToPage(parsed.searchParams.get('p'))
+        navigate(page)
+      } catch {
+        navigate('home')
+      }
+    }
+    window.addEventListener('pwa-navigate', handler)
+    return () => window.removeEventListener('pwa-navigate', handler)
+  }, [navigate])
+
   const goBack = () => navigate('more')
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <div className="pb-24">
         {currentPage === 'home' && <Dashboard />}
         {currentPage === 'history' && <HistoryPage />}

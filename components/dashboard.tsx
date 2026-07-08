@@ -15,23 +15,27 @@ import { BabyInfoCard } from './baby-info-card'
 import { InsightsCard } from './insights-card'
 import { OnboardingSheet } from './onboarding-sheet'
 import { playSoundEffect } from '@/lib/sounds'
-import { api, type TodaySummary } from '@/lib/api-client'
+import { api, isQueuedResponse, type TodaySummary } from '@/lib/api-client'
+import { useAppDataSync } from '@/lib/use-app-data-sync'
+import { notifyDataSynced } from '@/lib/use-live-sync'
 
 export function Dashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [summary, setSummary] = useState<TodaySummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [summaryError, setSummaryError] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [feedEndOpen, setFeedEndOpen] = useState(false)
   const [quickFeedOpen, setQuickFeedOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
 
-  const fetchSummary = useCallback(async () => {
+  const fetchSummary = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setSummaryError(false)
     try {
       const data = await api.getTodaySummary()
       setSummary(data)
     } catch {
-      // handled by api client redirect
+      if (!opts?.silent) setSummaryError(true)
     } finally {
       setLoading(false)
     }
@@ -41,11 +45,7 @@ export function Dashboard() {
     fetchSummary()
   }, [fetchSummary])
 
-  useEffect(() => {
-    const onSync = () => fetchSummary()
-    window.addEventListener('app-data-synced', onSync)
-    return () => window.removeEventListener('app-data-synced', onSync)
-  }, [fetchSummary])
+  useAppDataSync(() => fetchSummary({ silent: true }))
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -58,11 +58,16 @@ export function Dashboard() {
       .catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (!summary?.activeFeeding && !summary?.activeSleep) return
-    const id = setInterval(fetchSummary, 30000)
-    return () => clearInterval(id)
-  }, [summary?.activeFeeding, summary?.activeSleep, fetchSummary])
+  const showLogError = (err: unknown) => {
+    fetchSummary({ silent: true })
+    const msg = err instanceof Error ? err.message : 'Gagal mencatat'
+    if (msg.includes('aktif') || msg.includes('Tidak ada sesi')) {
+      setToastMessage('ℹ️ Status sudah berubah (cek HP lain)')
+    } else {
+      setToastMessage(`❌ ${msg}`)
+    }
+    setTimeout(() => setToastMessage(null), 3000)
+  }
 
   const showToast = (message: string) => {
     setToastMessage(message)
@@ -70,9 +75,15 @@ export function Dashboard() {
     setTimeout(() => setToastMessage(null), 2000)
   }
 
-  const handleSaveNote = async (content: string, photoUrl?: string) => {
-    await api.createNote(content, photoUrl)
-    showToast('📝 Catatan tersimpan!')
+  const handleSaveNote = async (content: string, photoUrl?: string, audioUrl?: string) => {
+    const result = await api.createNote(content, photoUrl, audioUrl)
+    if (isQueuedResponse(result)) {
+      showToast('📡 Menunggu sync...')
+    } else {
+      showToast('📝 Catatan tersimpan!')
+      notifyDataSynced()
+    }
+    fetchSummary({ silent: true })
   }
 
   const optimisticUpdate = (action: string) => {
@@ -123,8 +134,19 @@ export function Dashboard() {
   }
 
   const handleLog = async (action: string) => {
-    const wasFeeding = summary?.activeFeeding
-    const wasSleeping = summary?.activeSleep
+    // Always use latest server state before toggling susu/tidur
+    let current = summary
+    if (action === 'feed' || action === 'sleep' || action === 'wake') {
+      try {
+        current = await api.getTodaySummary()
+        setSummary(current)
+      } catch {
+        // fall back to cached summary
+      }
+    }
+
+    const wasFeeding = current?.activeFeeding
+    const wasSleeping = current?.activeSleep
 
     if (action === 'feed' && wasFeeding) {
       setFeedEndOpen(true)
@@ -139,7 +161,6 @@ export function Dashboard() {
       sleep: wasSleeping ? '☀️ Bangun!' : '😴 Mulai tidur!',
       wake: '☀️ Bangun!',
     }
-    showToast(messages[action] || 'Tercatat!')
 
     if (action === 'feed') optimisticUpdate('feed-start')
     else if (action === 'sleep') optimisticUpdate(wasSleeping ? 'sleep-end' : 'sleep-start')
@@ -147,32 +168,39 @@ export function Dashboard() {
     else optimisticUpdate(action)
 
     try {
+      let result: unknown
       switch (action) {
         case 'pup':
-          await api.logDiaper('pup')
+          result = await api.logDiaper('pup')
           break
         case 'pee':
-          await api.logDiaper('pee')
+          result = await api.logDiaper('pee')
           break
         case 'both':
-          await api.logDiaper('both')
+          result = await api.logDiaper('both')
           break
         case 'feed':
-          await api.logFeeding('start')
+          result = await api.logFeeding('start')
           break
         case 'sleep':
-          await api.logSleep(wasSleeping ? 'end' : 'start')
+          result = await api.logSleep(wasSleeping ? 'end' : 'start')
           break
         case 'wake':
-          await api.logSleep('end')
+          result = await api.logSleep('end')
           break
+        default:
+          result = null
       }
-      fetchSummary()
+      if (isQueuedResponse(result)) {
+        setToastMessage('📡 Menunggu sync...')
+        setTimeout(() => setToastMessage(null), 3000)
+      } else {
+        showToast(messages[action] || 'Tercatat!')
+        fetchSummary()
+        notifyDataSynced()
+      }
     } catch (err) {
-      fetchSummary()
-      const msg = err instanceof Error ? err.message : 'Gagal mencatat'
-      setToastMessage(`❌ ${msg}`)
-      setTimeout(() => setToastMessage(null), 3000)
+      showLogError(err)
     }
   }
 
@@ -185,13 +213,18 @@ export function Dashboard() {
     optimisticUpdate('feed-end')
     setFeedEndOpen(false)
     try {
+      const current = await api.getTodaySummary()
+      if (!current.activeFeeding) {
+        setSummary(current)
+        setToastMessage('ℹ️ Menyusui sudah dihentikan di perangkat lain')
+        setTimeout(() => setToastMessage(null), 3000)
+        return
+      }
       await api.logFeeding('end', data)
       fetchSummary()
+      notifyDataSynced()
     } catch (err) {
-      fetchSummary()
-      const msg = err instanceof Error ? err.message : 'Gagal mencatat'
-      setToastMessage(`❌ ${msg}`)
-      setTimeout(() => setToastMessage(null), 3000)
+      showLogError(err)
     }
   }
 
@@ -208,16 +241,14 @@ export function Dashboard() {
     try {
       await api.logFeeding('quick', data)
       fetchSummary()
+      notifyDataSynced()
     } catch (err) {
-      fetchSummary()
-      const msg = err instanceof Error ? err.message : 'Gagal mencatat'
-      setToastMessage(`❌ ${msg}`)
-      setTimeout(() => setToastMessage(null), 3000)
+      showLogError(err)
     }
   }
 
   return (
-    <div className="min-h-screen bg-background pt-6 pb-8">
+    <div className="min-h-screen pt-6 pb-8">
       <div className="px-4 pb-4 pt-6">
         <div className="flex items-start justify-between">
           <motion.div
@@ -239,7 +270,10 @@ export function Dashboard() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => { setLoading(true); fetchSummary() }}
+              onClick={() => {
+                setLoading(true)
+                fetchSummary()
+              }}
               className="rounded-full bg-secondary p-2 text-sm"
               aria-label="Refresh"
             >
@@ -268,7 +302,15 @@ export function Dashboard() {
         <InsightsCard summary={summary} />
 
         <div className="pb-4">
-          <DailySummary summary={summary} loading={loading} />
+          <DailySummary
+            summary={summary}
+            loading={loading}
+            error={summaryError}
+            onRetry={() => {
+              setLoading(true)
+              fetchSummary()
+            }}
+          />
         </div>
 
         <div className="mb-4">
@@ -288,7 +330,7 @@ export function Dashboard() {
               compact
               type="pee"
               emoji="💧"
-              label="Pipis"
+              label="Pee"
               color="bg-blue-200 dark:bg-blue-900"
               onClick={() => handleLog('pee')}
             />
@@ -296,7 +338,7 @@ export function Dashboard() {
               compact
               type="both"
               emoji="💩💧"
-              label="Dua"
+              label="Pupee"
               color="bg-teal-200 dark:bg-teal-900"
               onClick={() => handleLog('both')}
             />
@@ -312,7 +354,7 @@ export function Dashboard() {
               compact
               type="pumped"
               emoji="🥛"
-              label="Perah"
+              label="Pumping"
               color="bg-amber-200 dark:bg-amber-900"
               onClick={() => setQuickFeedOpen(true)}
             />

@@ -1,5 +1,7 @@
-const CACHE_NAME = 'baby-tracker-v3'
+const CACHE_NAME = 'baby-tracker-v4'
 const STATIC_ASSETS = ['/', '/manifest.json', '/icon.svg']
+
+let reminderSettings = { enabled: false, feedingIntervalHours: 3 }
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -60,6 +62,11 @@ self.addEventListener('push', (event) => {
 })
 
 self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SYNC_REMINDER_SETTINGS') {
+    reminderSettings = event.data.settings || reminderSettings
+    return
+  }
+
   if (event.data?.type === 'SHOW_FEEDING_REMINDER') {
     const { title, body, tag } = event.data
     self.registration.showNotification(title || 'Waktunya menyusui 🍼', {
@@ -80,6 +87,7 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ('focus' in client) {
+          client.postMessage({ type: 'NAVIGATE', url })
           return client.focus()
         }
       }

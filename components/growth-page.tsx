@@ -9,6 +9,7 @@ import { ConfirmDeleteSheet } from './confirm-delete-sheet'
 import { Toast } from './toast'
 import { playSoundEffect } from '@/lib/sounds'
 import { api, type GrowthLog, type BabyProfile, type CreateGrowthInput } from '@/lib/api-client'
+import { useAppDataSync } from '@/lib/use-app-data-sync'
 import type { GrowthMetric } from '@/lib/who-growth'
 
 interface GrowthPageProps {
@@ -32,6 +33,8 @@ export function GrowthPage({ onBack }: GrowthPageProps) {
     setProfile(p)
     setLoading(false)
   }, [])
+
+  useAppDataSync(fetchData)
 
   useEffect(() => {
     fetchData()

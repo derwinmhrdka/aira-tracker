@@ -143,7 +143,7 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                               : 'bg-secondary text-foreground'
                           }`}
                         >
-                          {t === 'pup' ? '💩 Pup' : t === 'pee' ? '💧 Pipis' : 'Keduanya'}
+                          {t === 'pup' ? '💩 Pup' : t === 'pee' ? '💧 Pee' : 'Pupee'}
                         </button>
                       ))}
                     </div>
@@ -294,7 +294,12 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving || (item.category === 'note' && !content.trim())}
+                disabled={
+                  saving ||
+                  (item.category === 'note' &&
+                    !content.trim() &&
+                    !item.audio_url)
+                }
                 className="w-full rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground disabled:opacity-50"
               >
                 {saving ? '...' : 'Save'}

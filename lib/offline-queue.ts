@@ -1,4 +1,5 @@
-import { isLocalPhotoUrl, resolvePhotoUrl } from '@/lib/offline-photos'
+import { isLocalPhotoUrl, resolvePhotoUrl, flushPendingPhotos } from '@/lib/offline-photos'
+import { isLocalAudioUrl, resolveAudioUrl, flushPendingAudio } from '@/lib/offline-audio'
 
 const QUEUE_KEY = 'baby_tracker_offline_queue'
 
@@ -53,6 +54,9 @@ export function queueLength() {
 }
 
 export async function flushQueue(): Promise<{ synced: number; failed: number }> {
+  await flushPendingPhotos().catch(() => {})
+  await flushPendingAudio().catch(() => {})
+
   const queue = getQueue()
   if (queue.length === 0) return { synced: 0, failed: 0 }
 
@@ -63,11 +67,20 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
     try {
       let body = item.body
       if (body && item.url.startsWith('/api/notes')) {
-        const parsed = JSON.parse(body) as { photo_url?: string; content?: string }
+        const parsed = JSON.parse(body) as {
+          photo_url?: string
+          audio_url?: string
+          content?: string
+        }
         if (parsed.photo_url && isLocalPhotoUrl(parsed.photo_url)) {
           const serverUrl = await resolvePhotoUrl(parsed.photo_url)
-          body = JSON.stringify({ ...parsed, photo_url: serverUrl })
+          parsed.photo_url = serverUrl
         }
+        if (parsed.audio_url && isLocalAudioUrl(parsed.audio_url)) {
+          const serverUrl = await resolveAudioUrl(parsed.audio_url)
+          parsed.audio_url = serverUrl
+        }
+        body = JSON.stringify(parsed)
       }
 
       const res = await fetch(item.url, {

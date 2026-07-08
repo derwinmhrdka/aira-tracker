@@ -66,7 +66,7 @@ export function OnboardingSheet({ open, onComplete }: OnboardingSheetProps) {
             {step === 0 ? (
               <div className="space-y-4">
                 <p className="text-center text-sm text-muted-foreground">
-                  App ini membantu mencatat pup, pipis, menyusui, tidur, dan
+                  App ini membantu mencatat pup, pee, pupee, menyusui, tidur, dan
                   pertumbuhan bayi. Satu PIN untuk semua pengasuh.
                 </p>
                 <button

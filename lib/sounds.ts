@@ -1,8 +1,10 @@
 // Sound effect utilities for Baby Tracker
 // Using Web Audio API to create sound effects programmatically
 
+import { isSoundEnabled } from '@/lib/sound-settings'
+
 export const playSoundEffect = (type: 'click' | 'success' | 'notification') => {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined' || !isSoundEnabled()) return
 
   try {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()

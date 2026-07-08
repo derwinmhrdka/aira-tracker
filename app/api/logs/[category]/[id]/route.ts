@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { withAuth, jsonError } from '@/lib/api-helpers'
 import { feedTypeLabel } from '@/lib/feed-utils'
 import {
+  deleteUploadsIfManaged,
+  replaceManagedUpload,
+} from '@/lib/upload-files'
+import {
   parseDiaperType,
   parseFeedSide,
   parseFeedType,
@@ -64,6 +68,7 @@ function formatHistoryItem(
     timestamp: (record.timestamp as Date).toISOString(),
     content: record.content as string,
     photo_url: (record.photoUrl as string | null) ?? null,
+    audio_url: (record.audioUrl as string | null) ?? null,
     loggedBy: (record.loggedBy as string | null) ?? null,
   }
 }
@@ -137,11 +142,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (category === 'note') {
+      const existing = await prisma.dailyNote.findUnique({ where: { id } })
+      if (!existing) {
+        return jsonError('Note not found', 404)
+      }
+
+      const newPhotoUrl =
+        body.photo_url !== undefined ? body.photo_url : existing.photoUrl
+      const newAudioUrl =
+        body.audio_url !== undefined ? body.audio_url : existing.audioUrl
+
+      if (body.photo_url !== undefined && newPhotoUrl !== existing.photoUrl) {
+        await replaceManagedUpload(existing.photoUrl, newPhotoUrl)
+      }
+      if (body.audio_url !== undefined && newAudioUrl !== existing.audioUrl) {
+        await replaceManagedUpload(existing.audioUrl, newAudioUrl)
+      }
+
       const log = await prisma.dailyNote.update({
         where: { id },
         data: {
           timestamp: body.timestamp ? new Date(body.timestamp) : undefined,
           content: body.content?.trim(),
+          photoUrl: body.photo_url !== undefined ? body.photo_url : undefined,
+          audioUrl: body.audio_url !== undefined ? body.audio_url : undefined,
         },
       })
 
@@ -163,6 +187,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     } else if (category === 'sleep') {
       await prisma.sleepLog.delete({ where: { id } })
     } else if (category === 'note') {
+      const note = await prisma.dailyNote.findUnique({ where: { id } })
+      if (!note) {
+        return jsonError('Note not found', 404)
+      }
+      await deleteUploadsIfManaged([note.photoUrl, note.audioUrl], true)
       await prisma.dailyNote.delete({ where: { id } })
     } else {
       return jsonError('Unknown category', 404)

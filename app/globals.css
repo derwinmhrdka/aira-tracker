@@ -176,63 +176,83 @@
 .snow-decor {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
   overflow: hidden;
-  color: oklch(0.68 0.12 260);
+  color: oklch(0.62 0.14 250);
 }
 
-.dark .snow-decor {
-  color: oklch(0.85 0.06 260);
+.dark .snow-decor,
+:root:not(.light) .snow-decor {
+  color: oklch(0.88 0.08 250);
+}
+
+.snow-decor-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110' viewBox='0 0 110 110'%3E%3Cg fill='none' stroke='%236b9fd4' stroke-width='0.7' opacity='0.38'%3E%3Cpath d='M55 11v88M11 55h88M22 22l66 66M88 22L22 88'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 110px 110px;
+}
+
+.dark .snow-decor-pattern,
+:root:not(.light) .snow-decor-pattern {
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110' viewBox='0 0 110 110'%3E%3Cg fill='none' stroke='%23a8c8e8' stroke-width='0.7' opacity='0.45'%3E%3Cpath d='M55 11v88M11 55h88M22 22l66 66M88 22L22 88'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .snow-decor-gradient {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.92 0.04 260 / 35%), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, oklch(0.88 0.05 260 / 20%), transparent);
+    radial-gradient(ellipse 90% 55% at 50% -5%, oklch(0.90 0.06 250 / 13%), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 95% 95%, oklch(0.86 0.07 250 / 9%), transparent),
+    radial-gradient(ellipse 45% 30% at 5% 90%, oklch(0.88 0.05 250 / 7%), transparent);
 }
 
-.dark .snow-decor-gradient {
+.dark .snow-decor-gradient,
+:root:not(.light) .snow-decor-gradient {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.35 0.04 260 / 25%), transparent),
-    radial-gradient(ellipse 60% 40% at 0% 100%, oklch(0.30 0.03 260 / 15%), transparent);
+    radial-gradient(ellipse 90% 55% at 50% -5%, oklch(0.38 0.06 250 / 10%), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 95% 95%, oklch(0.32 0.05 250 / 7%), transparent),
+    radial-gradient(ellipse 45% 30% at 5% 90%, oklch(0.30 0.04 250 / 5%), transparent);
 }
 
 .snowflake {
   position: absolute;
-  opacity: 0.07;
+  opacity: 0.065;
   animation: snow-drift ease-in-out infinite alternate;
   will-change: transform;
 }
 
-.dark .snowflake {
-  opacity: 0.1;
+.dark .snowflake,
+:root:not(.light) .snowflake {
+  opacity: 0.08;
 }
 
 .snowman {
   position: absolute;
-  width: 72px;
-  height: 90px;
-  opacity: 0.055;
+  width: 68px;
+  height: 84px;
+  opacity: 0.045;
   transform-origin: center bottom;
 }
 
-.dark .snowman {
-  opacity: 0.08;
+.dark .snowman,
+:root:not(.light) .snowman {
+  opacity: 0.055;
 }
 
 .snowman--tl {
-  top: 8%;
-  left: -8px;
+  top: 10%;
+  left: 12px;
   transform: rotate(-8deg);
 }
 
 .snowman--br {
-  right: -4px;
-  bottom: 72px;
-  transform: rotate(6deg);
+  right: 16px;
+  bottom: 88px;
+  transform: rotate(6deg) scale(0.9);
 }
 
 @keyframes snow-drift {
@@ -240,7 +260,7 @@
     transform: translateY(0) translateX(0) rotate(0deg);
   }
   100% {
-    transform: translateY(12px) translateX(6px) rotate(25deg);
+    transform: translateY(9px) translateX(4px) rotate(18deg);
   }
 }
 

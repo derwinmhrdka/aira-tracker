@@ -6,7 +6,7 @@ import { PageHeader } from './page-header'
 import { PhotoUpload } from './photo-upload'
 import { Celebration } from './celebration'
 import { playSoundEffect } from '@/lib/sounds'
-import { api, type Milestone } from '@/lib/api-client'
+import { api, type Milestone, cleanupDraftUploads } from '@/lib/api-client'
 import { ConfirmDeleteSheet } from './confirm-delete-sheet'
 
 interface MilestonesPageProps {
@@ -82,6 +82,13 @@ export function MilestonesPage({ onBack }: MilestonesPageProps) {
     }
   }
 
+  const closeForm = () => {
+    const savedUrls = editing ? [editing.photo_url] : []
+    void cleanupDraftUploads([photoUrl], savedUrls)
+    resetForm()
+    setShowForm(false)
+  }
+
   const confirmDelete = async () => {
     if (!pendingDelete) return
     const m = pendingDelete
@@ -103,8 +110,7 @@ export function MilestonesPage({ onBack }: MilestonesPageProps) {
         type="button"
         onClick={() => {
           if (showForm) {
-            resetForm()
-            setShowForm(false)
+            closeForm()
           } else {
             resetForm()
             setShowForm(true)

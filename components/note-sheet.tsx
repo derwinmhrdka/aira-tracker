@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PhotoUpload } from './photo-upload'
+import { VoiceRecorder } from './voice-recorder'
 import { playSoundEffect } from '@/lib/sounds'
+import { cleanupDraftUploads } from '@/lib/api-client'
 
 const QUICK_NOTES = [
   'Tummy time 🤸',
@@ -16,26 +18,37 @@ const QUICK_NOTES = [
 interface NoteSheetProps {
   open: boolean
   onClose: () => void
-  onSave: (content: string, photoUrl?: string) => Promise<void>
+  onSave: (content: string, photoUrl?: string, audioUrl?: string) => Promise<void>
 }
 
 export function NoteSheet({ open, onClose, onSave }: NoteSheetProps) {
   const [content, setContent] = useState('')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const canSave = content.trim().length > 0 || !!audioUrl
+
   const handleSave = async () => {
-    const trimmed = content.trim()
-    if (!trimmed) return
+    if (!canSave) return
     setSaving(true)
     try {
-      await onSave(trimmed, photoUrl ?? undefined)
+      await onSave(content.trim(), photoUrl ?? undefined, audioUrl ?? undefined)
       setContent('')
       setPhotoUrl(null)
+      setAudioUrl(null)
       onClose()
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleClose = () => {
+    void cleanupDraftUploads([photoUrl, audioUrl], [])
+    setContent('')
+    setPhotoUrl(null)
+    setAudioUrl(null)
+    onClose()
   }
 
   const handleQuickNote = (note: string) => {
@@ -52,7 +65,7 @@ export function NoteSheet({ open, onClose, onSave }: NoteSheetProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-40 bg-black/40"
-            onClick={onClose}
+            onClick={handleClose}
           />
           <motion.div
             initial={{ y: '100%' }}
@@ -80,6 +93,10 @@ export function NoteSheet({ open, onClose, onSave }: NoteSheetProps) {
               <PhotoUpload onUploaded={setPhotoUrl} preview={photoUrl} label="Photo" />
             </div>
 
+            <div className="mb-3">
+              <VoiceRecorder onRecorded={setAudioUrl} preview={audioUrl} />
+            </div>
+
             <p className="mb-2 text-xs text-muted-foreground">Quick pick:</p>
             <div className="mb-4 flex flex-wrap gap-2">
               {QUICK_NOTES.map((note) => (
@@ -97,7 +114,7 @@ export function NoteSheet({ open, onClose, onSave }: NoteSheetProps) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="flex-1 rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground"
               >
                 Cancel
@@ -105,7 +122,7 @@ export function NoteSheet({ open, onClose, onSave }: NoteSheetProps) {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!content.trim() || saving}
+                disabled={!canSave || saving}
                 className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
                 {saving ? '...' : 'Save'}

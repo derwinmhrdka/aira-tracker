@@ -11,7 +11,8 @@ import {
   setReminderSettings,
   requestNotificationPermission,
 } from '@/lib/reminder'
-import { subscribeToPush, unsubscribeFromPush } from '@/lib/push-client'
+import { subscribeToPush, unsubscribeFromPush, updatePushReminderInterval } from '@/lib/push-client'
+import { isSoundEnabled, setSoundEnabled } from '@/lib/sound-settings'
 import { api } from '@/lib/api-client'
 import { exportHistoryCsv, exportGrowthCsv, exportFullCsv } from '@/lib/export-csv'
 import { exportHistoryPdf, exportGrowthPdf, exportFullPdf } from '@/lib/export-pdf'
@@ -27,6 +28,7 @@ const EXPORT_DAYS = [7, 30, 90]
 export function SettingsPage({ onBack }: SettingsPageProps) {
   const { theme, toggleTheme } = useTheme()
   const [reminders, setReminders] = useState(getReminderSettings())
+  const [soundOn, setSoundOn] = useState(isSoundEnabled())
   const [toast, setToast] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportDays, setExportDays] = useState(30)
@@ -44,7 +46,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         setTimeout(() => setToast(null), 3000)
         return
       }
-      const subscribed = await subscribeToPush()
+      const subscribed = await subscribeToPush(reminders.feedingIntervalHours)
       if (!subscribed) {
         setToast('⚠️ Push server belum dikonfigurasi — notifikasi lokal saja')
         setTimeout(() => setToast(null), 3000)
@@ -61,6 +63,15 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const setInterval = (hours: number) => {
     const next = setReminderSettings({ feedingIntervalHours: hours })
     setReminders(next)
+    void updatePushReminderInterval(hours)
+  }
+
+  const toggleSound = () => {
+    const next = !soundOn
+    setSoundEnabled(next)
+    setSoundOn(next)
+    setToast(next ? '🔊 Suara aktif' : '🔇 Suara dimatikan')
+    setTimeout(() => setToast(null), 2000)
   }
 
   const handleExport = async (type: 'history' | 'growth' | 'all') => {
@@ -187,20 +198,28 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
   return (
     <div className="px-4 pt-6 pb-8">
-      <PageHeader title="Settings" subtitle="Notifications & data" onBack={onBack} />
+      <PageHeader title="Pengaturan" subtitle="Notifikasi & data" onBack={onBack} />
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <h2 className="font-heading mb-3 font-semibold text-foreground">Tampilan</h2>
         <button
           type="button"
           onClick={toggleTheme}
-          className="flex w-full items-center justify-between rounded-xl bg-secondary px-4 py-3 text-sm font-semibold text-foreground"
+          className="mb-2 flex w-full items-center justify-between rounded-xl bg-secondary px-4 py-3 text-sm font-semibold text-foreground"
         >
-          <span>Theme</span>
+          <span>Tema</span>
           <span className="flex items-center gap-2">
-            {theme === 'light' ? 'Light' : 'Dark'}
+            {theme === 'light' ? 'Terang' : 'Gelap'}
             <AppIcon icon={theme === 'light' ? Moon : Sun} size={18} strokeWidth={1.75} />
           </span>
+        </button>
+        <button
+          type="button"
+          onClick={toggleSound}
+          className="flex w-full items-center justify-between rounded-xl bg-secondary px-4 py-3 text-sm font-semibold text-foreground"
+        >
+          <span>Efek suara</span>
+          <span>{soundOn ? '🔊 On' : '🔇 Off'}</span>
         </button>
       </div>
 

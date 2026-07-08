@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
+import { replaceManagedUpload } from '@/lib/upload-files'
 
 export async function GET() {
   return withAuth(async () => {
@@ -30,6 +31,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
+    const newPhotoUrl =
+      body.photo_url !== undefined ? (body.photo_url as string | null) : undefined
+
+    if (newPhotoUrl !== undefined && newPhotoUrl !== profile.photoUrl) {
+      await replaceManagedUpload(profile.photoUrl, newPhotoUrl)
+    }
+
     const updated = await prisma.babyProfile.update({
       where: { id: profile.id },
       data: {
@@ -39,7 +47,7 @@ export async function PATCH(request: NextRequest) {
         birthHeightCm: body.birth_height_cm ?? undefined,
         bloodType: body.blood_type ?? undefined,
         parentNames: body.parent_names ?? undefined,
-        photoUrl: body.photo_url ?? undefined,
+        photoUrl: newPhotoUrl,
         gender: body.gender ?? undefined,
       },
     })

@@ -1,4 +1,5 @@
 import type { LoggedBy } from '@/lib/types'
+import { isManagedUploadUrl } from '@/lib/upload-url'
 import {
   enqueue,
   isQueueableUrl,
@@ -33,6 +34,7 @@ async function apiFetch<T>(
 
   const res = await fetch(url, {
     ...options,
+    cache: 'no-store',
     headers,
     body: options.body
       ? JSON.stringify({
@@ -65,7 +67,7 @@ async function apiFetch<T>(
   })
 
   if (res === null) {
-    return {} as T
+    return { queued: true } as T
   }
 
   if (res.status === 401) {
@@ -82,6 +84,18 @@ async function apiFetch<T>(
   }
 
   return res.json()
+}
+
+function isTodaySummary(data: unknown): data is TodaySummary {
+  if (!data || typeof data !== 'object') return false
+  const counts = (data as TodaySummary).counts
+  return (
+    !!counts &&
+    typeof counts.pup === 'number' &&
+    typeof counts.pee === 'number' &&
+    typeof counts.feed === 'number' &&
+    typeof counts.sleep === 'number'
+  )
 }
 
 export const api = {
@@ -122,7 +136,13 @@ export const api = {
       body: JSON.stringify({ action, notes }),
     }),
 
-  getTodaySummary: () => apiFetch<TodaySummary>('/api/logs/today'),
+  getTodaySummary: async () => {
+    const data = await apiFetch<TodaySummary>('/api/logs/today')
+    if (!isTodaySummary(data)) {
+      throw new Error('Invalid today summary response')
+    }
+    return data
+  },
 
   getHistory: (
     days = 7,
@@ -189,12 +209,22 @@ export const api = {
       return res.json()
     }),
 
-  getNotes: () => apiFetch<DailyNote[]>('/api/notes'),
+  getNotes: (options?: { limit?: number; cursor?: string }) => {
+    const params = new URLSearchParams()
+    if (options?.limit) params.set('limit', String(options.limit))
+    if (options?.cursor) params.set('cursor', options.cursor)
+    const qs = params.toString()
+    return apiFetch<NotesResponse>(`/api/notes${qs ? `?${qs}` : ''}`)
+  },
 
-  createNote: (content: string, photoUrl?: string) =>
+  createNote: (content: string, photoUrl?: string, audioUrl?: string) =>
     apiFetch('/api/notes', {
       method: 'POST',
-      body: JSON.stringify({ content, photo_url: photoUrl }),
+      body: JSON.stringify({
+        content: content || undefined,
+        photo_url: photoUrl,
+        audio_url: audioUrl,
+      }),
     }),
 
   getMilestones: () => apiFetch<Milestone[]>('/api/milestones'),
@@ -282,6 +312,32 @@ export const api = {
     }
   },
 
+  uploadAudio: async (file: File): Promise<{ audio_url: string }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Upload failed')
+      }
+      return res.json()
+    } catch (err) {
+      if (isOffline() || isNetworkFailure(err)) {
+        const { storeOfflineAudio } = await import('@/lib/offline-audio')
+        const audio_url = await storeOfflineAudio(file)
+        return { audio_url }
+      }
+      throw err
+    }
+  },
+
+  deleteUpload: (url: string) =>
+    apiFetch('/api/upload/cleanup', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
+
   getBabyProfile: () => apiFetch<BabyProfile>('/api/baby-profile'),
 
   updateBabyProfile: (data: Partial<BabyProfile>) =>
@@ -297,6 +353,30 @@ export const api = {
       '/api/backup/restore',
       { method: 'POST', body: JSON.stringify(data) }
     ),
+}
+
+export function isQueuedResponse(data: unknown): data is { queued: true } {
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    (data as { queued?: boolean }).queued === true
+  )
+}
+
+export async function cleanupDraftUploads(
+  current: (string | null | undefined)[],
+  saved: (string | null | undefined)[]
+) {
+  const savedSet = new Set(saved.filter(Boolean))
+  for (const url of current) {
+    if (isManagedUploadUrl(url) && !savedSet.has(url)) {
+      try {
+        await api.deleteUpload(url)
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+  }
 }
 
 export interface TodaySummary {
@@ -340,6 +420,7 @@ export interface HistoryItem {
   notes?: string | null
   content?: string | null
   photo_url?: string | null
+  audio_url?: string | null
 }
 
 export interface UpdateLogInput {
@@ -389,6 +470,7 @@ export interface GrowthLog {
   date: string
   weight_kg: number
   height_cm: number
+  head_circumference_cm?: number | null
   is_jaundice: boolean
   bilirubin_level?: number | null
   notes?: string | null
@@ -398,9 +480,16 @@ export interface CreateGrowthInput {
   date: string
   weight_kg: number
   height_cm: number
+  head_circumference_cm?: number
   is_jaundice?: boolean
   bilirubin_level?: number
   notes?: string
+}
+
+export interface NotesResponse {
+  items: DailyNote[]
+  hasMore: boolean
+  nextCursor: string | null
 }
 
 export interface DailyNote {
@@ -408,6 +497,7 @@ export interface DailyNote {
   timestamp: string
   content: string
   photo_url?: string | null
+  audio_url?: string | null
   logged_by?: string | null
 }
 

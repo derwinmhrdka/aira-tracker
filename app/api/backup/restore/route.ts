@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
 import { BACKUP_VERSION } from '../route'
-import type { DiaperType, FeedSide, LoggedBy, Gender } from '@prisma/client'
+import type { DiaperType, FeedSide, FeedType, LoggedBy, Gender } from '@prisma/client'
 
 function parseDiaperType(v: string): DiaperType {
   if (v === 'PUP' || v === 'pup') return 'PUP'
@@ -20,11 +20,16 @@ function parseFeedSide(v: unknown): FeedSide | null {
   return null
 }
 
+function parseFeedType(v: unknown): FeedType | null {
+  if (v === 'DIRECT' || v === 'PUMPED' || v === 'FORMULA') return v
+  return null
+}
+
 export async function POST(request: NextRequest) {
   return withAuth(async () => {
     const backup = await request.json()
 
-    if (backup.version !== BACKUP_VERSION) {
+    if (backup.version !== BACKUP_VERSION && backup.version !== 1) {
       return NextResponse.json(
         { error: `Versi backup tidak didukung (v${backup.version})` },
         { status: 400 }
@@ -76,6 +81,7 @@ export async function POST(request: NextRequest) {
             timestampStart: new Date(l.timestamp_start),
             timestampEnd: l.timestamp_end ? new Date(l.timestamp_end) : null,
             side: parseFeedSide(l.side),
+            feedType: parseFeedType(l.feed_type) ?? 'DIRECT',
             amountMl: l.amount_ml ?? null,
             notes: l.notes ?? null,
             loggedBy: parseLoggedBy(l.logged_by),
@@ -100,6 +106,7 @@ export async function POST(request: NextRequest) {
             date: new Date(l.date),
             weightKg: Number(l.weight_kg),
             heightCm: Number(l.height_cm),
+            headCircumferenceCm: l.head_circumference_cm ?? null,
             isJaundice: l.is_jaundice ?? false,
             bilirubinLevel: l.bilirubin_level ?? null,
             notes: l.notes ?? null,
@@ -113,6 +120,7 @@ export async function POST(request: NextRequest) {
             timestamp: new Date(n.timestamp),
             content: n.content,
             photoUrl: n.photo_url ?? null,
+            audioUrl: n.audio_url ?? null,
             loggedBy: parseLoggedBy(n.logged_by),
           },
         })
@@ -142,6 +150,17 @@ export async function POST(request: NextRequest) {
               notes: i.notes ?? null,
             },
           })
+        } else {
+          await tx.immunization.create({
+            data: {
+              vaccineName: i.vaccine_name,
+              scheduledAgeMonths: i.scheduled_age_months ?? 0,
+              isDone: i.is_done ?? false,
+              dateGiven: i.date_given ? new Date(i.date_given) : null,
+              notes: i.notes ?? null,
+              isCustom: i.is_custom ?? true,
+            },
+          })
         }
       }
 
@@ -153,6 +172,15 @@ export async function POST(request: NextRequest) {
           await tx.developmentChecklist.update({
             where: { id: existing.id },
             data: {
+              isChecked: d.is_checked ?? false,
+              dateChecked: d.date_checked ? new Date(d.date_checked) : null,
+            },
+          })
+        } else {
+          await tx.developmentChecklist.create({
+            data: {
+              ageGroupMonths: d.age_group_months ?? 0,
+              question: d.question,
               isChecked: d.is_checked ?? false,
               dateChecked: d.date_checked ? new Date(d.date_checked) : null,
             },

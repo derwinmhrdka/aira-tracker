@@ -20,7 +20,7 @@ export function OfflineSyncProvider() {
       const { synced } = await flushQueue()
       refresh()
       if (synced > 0) {
-        setToast(`✓ ${synced} synced`)
+        setToast(`✓ ${synced} data tersinkron`)
         setTimeout(() => setToast(null), 2500)
         window.dispatchEvent(new CustomEvent('app-data-synced'))
       }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
 
-export const BACKUP_VERSION = 1
+export const BACKUP_VERSION = 2
 
 export async function GET() {
   return withAuth(async () => {
@@ -53,6 +53,7 @@ export async function GET() {
         timestamp_start: l.timestampStart.toISOString(),
         timestamp_end: l.timestampEnd?.toISOString() ?? null,
         side: l.side,
+        feed_type: l.feedType,
         amount_ml: l.amountMl,
         notes: l.notes,
         logged_by: l.loggedBy,
@@ -67,6 +68,7 @@ export async function GET() {
         date: l.date.toISOString().split('T')[0],
         weight_kg: l.weightKg,
         height_cm: l.heightCm,
+        head_circumference_cm: l.headCircumferenceCm,
         is_jaundice: l.isJaundice,
         bilirubin_level: l.bilirubinLevel,
         notes: l.notes,
@@ -75,6 +77,7 @@ export async function GET() {
         timestamp: n.timestamp.toISOString(),
         content: n.content,
         photo_url: n.photoUrl,
+        audio_url: n.audioUrl,
         logged_by: n.loggedBy,
       })),
       milestones: milestones.map((m) => ({
@@ -89,6 +92,7 @@ export async function GET() {
         is_done: i.isDone,
         date_given: i.dateGiven?.toISOString().split('T')[0] ?? null,
         notes: i.notes,
+        is_custom: i.isCustom,
       })),
       development: development.map((d) => ({
         age_group_months: d.ageGroupMonths,

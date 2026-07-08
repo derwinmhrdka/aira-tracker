@@ -72,6 +72,7 @@ model FeedingLog {
   notes          String?
   createdAt      DateTime  @default(now()) @map("created_at")
 
+  @@index([timestampStart])
   @@map("feeding_logs")
 }
 
@@ -83,6 +84,7 @@ model SleepLog {
   notes          String?
   createdAt      DateTime  @default(now()) @map("created_at")
 
+  @@index([timestampStart])
   @@map("sleep_logs")
 }
 
@@ -95,19 +97,22 @@ model DiaperLog {
   loggedBy         LoggedBy?  @map("logged_by")
   createdAt        DateTime   @default(now()) @map("created_at")
 
+  @@index([timestamp])
   @@map("diaper_logs")
 }
 
 model GrowthLog {
-  id             String   @id @default(cuid())
-  date           DateTime @db.Date
-  weightKg       Float    @map("weight_kg")
-  heightCm       Float    @map("height_cm")
-  isJaundice     Boolean  @default(false) @map("is_jaundice")
-  bilirubinLevel Float?   @map("bilirubin_level")
-  notes          String?
-  createdAt      DateTime @default(now()) @map("created_at")
+  id                  String   @id @default(cuid())
+  date                DateTime @db.Date
+  weightKg            Float    @map("weight_kg")
+  heightCm            Float    @map("height_cm")
+  headCircumferenceCm Float?   @map("head_circumference_cm")
+  isJaundice          Boolean  @default(false) @map("is_jaundice")
+  bilirubinLevel      Float?   @map("bilirubin_level")
+  notes               String?
+  createdAt           DateTime @default(now()) @map("created_at")
 
+  @@index([date])
   @@map("growth_logs")
 }
 
@@ -116,9 +121,11 @@ model DailyNote {
   timestamp DateTime  @default(now())
   content   String
   photoUrl  String?   @map("photo_url")
+  audioUrl  String?   @map("audio_url")
   loggedBy  LoggedBy? @map("logged_by")
   createdAt DateTime  @default(now()) @map("created_at")
 
+  @@index([timestamp])
   @@map("daily_notes")
 }
 
@@ -160,12 +167,13 @@ model DevelopmentChecklist {
 }
 
 model PushSubscription {
-  id             String    @id @default(cuid())
-  endpoint       String    @unique
-  p256dh         String
-  auth           String
-  lastNotifiedAt DateTime? @map("last_notified_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
+  id                   String    @id @default(cuid())
+  endpoint             String    @unique
+  p256dh               String
+  auth                 String
+  feedingReminderHours Float?    @default(3) @map("feeding_reminder_hours")
+  lastNotifiedAt       DateTime? @map("last_notified_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
 
   @@map("push_subscriptions")
 }

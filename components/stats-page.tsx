@@ -6,41 +6,51 @@ import { GrowthChart } from './growth-chart'
 import { GrowthSheet } from './growth-sheet'
 import { ActivityTrendsChart } from './activity-trends-chart'
 import { Toast } from './toast'
+import { ErrorBanner } from './error-banner'
 import { playSoundEffect } from '@/lib/sounds'
-import { api, type StatsResponse, type CreateGrowthInput } from '@/lib/api-client'
+import { api, isQueuedResponse, type StatsResponse, type CreateGrowthInput } from '@/lib/api-client'
+import { useAppDataSync } from '@/lib/use-app-data-sync'
 
 const PERIOD_OPTIONS = [
-  { days: 7, label: '7d' },
-  { days: 30, label: '30d' },
+  { days: 7, label: '7 hari' },
+  { days: 30, label: '30 hari' },
 ]
 
 export function StatsPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [days, setDays] = useState(7)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
+    setError(false)
     try {
       const data = await api.getStats(days)
       setStats(data)
     } catch {
-      // handled by api client
+      setError(true)
     } finally {
       setLoading(false)
     }
   }, [days])
+
+  useAppDataSync(fetchStats)
 
   useEffect(() => {
     fetchStats()
   }, [fetchStats])
 
   const handleSaveGrowth = async (data: CreateGrowthInput) => {
-    await api.createGrowth(data)
-    playSoundEffect('success')
-    setToastMessage('📏 Data pertumbuhan tersimpan!')
+    const result = await api.createGrowth(data)
+    if (isQueuedResponse(result)) {
+      setToastMessage('📡 Menunggu sync...')
+    } else {
+      playSoundEffect('success')
+      setToastMessage('📏 Data pertumbuhan tersimpan!')
+    }
     setTimeout(() => setToastMessage(null), 2000)
     await fetchStats()
   }
@@ -54,7 +64,7 @@ export function StatsPage() {
       className="space-y-6 px-4 pt-6 pb-8"
     >
       <div>
-        <h1 className="font-heading text-2xl font-bold text-foreground">Stats</h1>
+        <h1 className="font-heading text-2xl font-bold text-foreground">Statistik</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Ringkasan aktivitas & pertumbuhan bayi
         </p>
@@ -77,9 +87,13 @@ export function StatsPage() {
         ))}
       </div>
 
+      {error && (
+        <ErrorBanner message="Gagal memuat statistik" onRetry={fetchStats} />
+      )}
+
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <h2 className="font-heading mb-4 font-semibold text-foreground">
-          Total {days} Days
+          Total {days} hari
         </h2>
         {loading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -91,7 +105,7 @@ export function StatsPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               { emoji: '💩', value: period.pup, label: 'Pup' },
-              { emoji: '💧', value: period.pee, label: 'Pipis' },
+              { emoji: '💧', value: period.pee, label: 'Pee' },
               { emoji: '🍼', value: period.feed, label: 'Susu' },
               { emoji: '😴', value: `${period.sleepHours}j`, label: 'Tidur' },
             ].map((item) => (

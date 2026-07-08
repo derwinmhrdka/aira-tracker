@@ -26,6 +26,7 @@ export function GrowthSheet({
   const [date, setDate] = useState(todayStr())
   const [weight, setWeight] = useState('')
   const [height, setHeight] = useState('')
+  const [headCircumference, setHeadCircumference] = useState('')
   const [isJaundice, setIsJaundice] = useState(false)
   const [bilirubin, setBilirubin] = useState('')
   const [notes, setNotes] = useState('')
@@ -37,6 +38,11 @@ export function GrowthSheet({
       setDate(initial.date)
       setWeight(String(initial.weight_kg))
       setHeight(String(initial.height_cm))
+      setHeadCircumference(
+        initial.head_circumference_cm != null
+          ? String(initial.head_circumference_cm)
+          : ''
+      )
       setIsJaundice(initial.is_jaundice)
       setBilirubin(initial.bilirubin_level != null ? String(initial.bilirubin_level) : '')
       setNotes(initial.notes ?? '')
@@ -44,6 +50,7 @@ export function GrowthSheet({
       setDate(todayStr())
       setWeight('')
       setHeight('')
+      setHeadCircumference('')
       setIsJaundice(false)
       setBilirubin('')
       setNotes('')
@@ -58,6 +65,9 @@ export function GrowthSheet({
         date,
         weight_kg: parseFloat(weight),
         height_cm: parseFloat(height),
+        head_circumference_cm: headCircumference
+          ? parseFloat(headCircumference)
+          : undefined,
         is_jaundice: isJaundice,
         bilirubin_level: bilirubin ? parseFloat(bilirubin) : undefined,
         notes: notes.trim() || undefined,
@@ -137,6 +147,21 @@ export function GrowthSheet({
                     className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground">
+                  Lingkar kepala (cm) — opsional
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  placeholder="38.5"
+                  value={headCircumference}
+                  onChange={(e) => setHeadCircumference(e.target.value)}
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground"
+                />
               </div>
 
               <label className="flex items-center gap-2 text-sm text-foreground">

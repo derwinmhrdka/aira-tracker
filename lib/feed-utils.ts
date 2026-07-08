@@ -2,7 +2,7 @@ export type FeedTypeValue = 'DIRECT' | 'PUMPED' | 'FORMULA'
 
 export const FEED_TYPE_OPTIONS: { value: FeedTypeValue; label: string }[] = [
   { value: 'DIRECT', label: 'ASI' },
-  { value: 'PUMPED', label: 'Perah' },
+  { value: 'PUMPED', label: 'Pumping' },
   { value: 'FORMULA', label: 'Formula' },
 ]
 

@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
       prisma.sleepLog.findMany({
         where: { timestampStart: { gte: since } },
       }),
-      prisma.growthLog.findMany({ orderBy: { date: 'asc' } }),
+      prisma.growthLog.findMany({
+        where: { date: { gte: since } },
+        orderBy: { date: 'asc' },
+      }),
     ])
 
     const dailyMap = new Map<
@@ -134,6 +137,7 @@ export async function GET(request: NextRequest) {
         date: g.date.toISOString().split('T')[0],
         weight_kg: g.weightKg,
         height_cm: g.heightCm,
+        head_circumference_cm: g.headCircumferenceCm,
         is_jaundice: g.isJaundice,
         bilirubin_level: g.bilirubinLevel,
         notes: g.notes,

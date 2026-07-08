@@ -1,4 +1,8 @@
-export async function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<File> {
+export async function compressImage(
+  file: File,
+  maxWidth = 1024,
+  initialQuality = 0.72
+): Promise<File> {
   if (!file.type.startsWith('image/')) return file
 
   return new Promise((resolve, reject) => {
@@ -23,22 +27,34 @@ export async function compressImage(file: File, maxWidth = 1200, quality = 0.8):
       }
       ctx.drawImage(img, 0, 0, width, height)
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve(file)
-            return
-          }
-          resolve(
-            new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            })
-          )
-        },
-        'image/jpeg',
-        quality
-      )
+      const encode = (quality: number) =>
+        new Promise<Blob | null>((res) => {
+          canvas.toBlob((blob) => res(blob), 'image/jpeg', quality)
+        })
+
+      const compress = async () => {
+        let quality = initialQuality
+        let blob = await encode(quality)
+
+        while (blob && blob.size > 450 * 1024 && quality > 0.45) {
+          quality -= 0.08
+          blob = await encode(quality)
+        }
+
+        if (!blob) {
+          resolve(file)
+          return
+        }
+
+        resolve(
+          new File([blob], file.name.replace(/\.\w+$/, '.jpg'), {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          })
+        )
+      }
+
+      void compress()
     }
 
     img.onerror = () => {

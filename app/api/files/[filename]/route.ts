@@ -9,6 +9,11 @@ const MIME_TYPES: Record<string, string> = {
   png: 'image/png',
   webp: 'image/webp',
   gif: 'image/gif',
+  webm: 'audio/webm',
+  m4a: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
 }
 
 export async function GET(

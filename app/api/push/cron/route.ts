@@ -6,6 +6,15 @@ import {
   shouldSendVaccineReminder,
   markPushSent,
 } from '@/lib/push-server'
+import { prisma } from '@/lib/prisma'
+
+async function getFeedingIntervalHours(): Promise<number> {
+  const sub = await prisma.pushSubscription.findFirst({
+    where: { feedingReminderHours: { not: null } },
+    select: { feedingReminderHours: true },
+  })
+  return sub?.feedingReminderHours ?? Number(process.env.FEEDING_REMINDER_HOURS ?? 3)
+}
 
 export async function GET(request: NextRequest) {
   const secret = request.headers.get('x-cron-secret')
@@ -32,11 +41,9 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const intervalHours = Number(
-    request.nextUrl.searchParams.get('hours') ??
-      process.env.FEEDING_REMINDER_HOURS ??
-      3
-  )
+  const intervalHours =
+    Number(request.nextUrl.searchParams.get('hours')) ||
+    (await getFeedingIntervalHours())
 
   const feeding = await shouldSendFeedingReminder(intervalHours)
   if (!feeding.shouldSend) {

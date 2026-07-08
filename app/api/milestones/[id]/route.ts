@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
+import {
+  deleteUploadIfManaged,
+  replaceManagedUpload,
+} from '@/lib/upload-files'
 
 function formatMilestone(m: {
   id: string
@@ -26,6 +30,18 @@ export async function PATCH(
     const { id } = await params
     const body = await request.json()
 
+    const existing = await prisma.milestone.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    const newPhotoUrl =
+      body.photo_url !== undefined ? body.photo_url : existing.photoUrl
+
+    if (body.photo_url !== undefined && newPhotoUrl !== existing.photoUrl) {
+      await replaceManagedUpload(existing.photoUrl, newPhotoUrl)
+    }
+
     const updated = await prisma.milestone.update({
       where: { id },
       data: {
@@ -46,6 +62,12 @@ export async function DELETE(
 ) {
   return withAuth(async () => {
     const { id } = await params
+    const existing = await prisma.milestone.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    await deleteUploadIfManaged(existing.photoUrl, true)
     await prisma.milestone.delete({ where: { id } })
     return NextResponse.json({ success: true })
   })

@@ -7,7 +7,7 @@ function urlBase64ToUint8Array(base64String: string) {
   return arr
 }
 
-export async function subscribeToPush(): Promise<boolean> {
+export async function subscribeToPush(intervalHours = 3): Promise<boolean> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return false
   }
@@ -32,10 +32,23 @@ export async function subscribeToPush(): Promise<boolean> {
   const res = await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(subscription.toJSON()),
+    body: JSON.stringify({
+      ...subscription.toJSON(),
+      feeding_reminder_hours: intervalHours,
+    }),
   })
 
   return res.ok
+}
+
+export async function updatePushReminderInterval(
+  intervalHours: number
+): Promise<void> {
+  await fetch('/api/push/subscribe', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ feeding_reminder_hours: intervalHours }),
+  })
 }
 
 export async function unsubscribeFromPush(): Promise<void> {
