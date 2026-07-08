@@ -140,6 +140,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const daysWithPup = daily.filter((d) => d.pup > 0)
+    const daysWithPee = daily.filter((d) => d.pee > 0)
+    const avgPupPerDay =
+      daysWithPup.length > 0
+        ? daysWithPup.reduce((sum, d) => sum + d.pup, 0) / daysWithPup.length
+        : 0
+    const avgPeePerDay =
+      daysWithPee.length > 0
+        ? daysWithPee.reduce((sum, d) => sum + d.pee, 0) / daysWithPee.length
+        : 0
+
     return NextResponse.json({
       days,
       period: {
@@ -169,8 +180,8 @@ export async function GET(request: NextRequest) {
         avgFeedingDurationMinutes: avgFeedingDurationMinutes
           ? Math.round(avgFeedingDurationMinutes)
           : null,
-        avgPupPerDay: Math.round((periodPup / days) * 10) / 10,
-        avgPeePerDay: Math.round((periodPee / days) * 10) / 10,
+        avgPupPerDay: Math.round(avgPupPerDay * 10) / 10,
+        avgPeePerDay: Math.round(avgPeePerDay * 10) / 10,
         feedSideLeft: feedLeft,
         feedSideRight: feedRight,
       },

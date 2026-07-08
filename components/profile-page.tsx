@@ -118,9 +118,20 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
             </div>
           )}
           {!editing && (
-            <h2 className="font-heading mt-3 text-xl font-bold text-foreground">
-              {profile?.name}
-            </h2>
+            <>
+              <h2 className="font-heading mt-3 text-xl font-bold text-foreground">
+                {profile?.name}
+              </h2>
+              {(profile?.horoscope || profile?.shio) && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {profile.horoscope_emoji && profile.horoscope
+                    ? `${profile.horoscope_emoji} ${profile.horoscope}`
+                    : null}
+                  {profile.horoscope && profile.shio ? ' · ' : null}
+                  {profile.shio ? profile.shio : null}
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -195,8 +206,35 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
               value={profile?.gender === 'FEMALE' ? '👧 Perempuan' : '👦 Laki-laki'}
             />
             <Row label="Tanggal lahir" value={profile?.birth_date} />
-            <Row label="Berat lahir" value={profile?.birth_weight_kg ? `${profile.birth_weight_kg} kg` : '-'} />
-            <Row label="Panjang lahir" value={profile?.birth_height_cm ? `${profile.birth_height_cm} cm` : '-'} />
+            <Row
+              label="Horoskop"
+              value={
+                profile?.horoscope
+                  ? `${profile.horoscope_emoji ?? ''} ${profile.horoscope}`.trim()
+                  : '-'
+              }
+            />
+            <Row label="Shio" value={profile?.shio ? profile.shio : '-'} />
+            <Row
+              label="Berat"
+              value={
+                profile?.latest_weight_kg != null
+                  ? `${profile.latest_weight_kg} kg`
+                  : profile?.birth_weight_kg
+                    ? `${profile.birth_weight_kg} kg`
+                    : '-'
+              }
+            />
+            <Row
+              label="Panjang"
+              value={
+                profile?.latest_height_cm != null
+                  ? `${profile.latest_height_cm} cm`
+                  : profile?.birth_height_cm
+                    ? `${profile.birth_height_cm} cm`
+                    : '-'
+              }
+            />
             <Row label="Gol. darah" value={profile?.blood_type ?? '-'} />
             <Row label="Orang tua" value={profile?.parent_names ?? '-'} />
             <button

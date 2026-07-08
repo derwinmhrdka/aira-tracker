@@ -12,6 +12,7 @@ import { FeedingEndSheet } from './feeding-end-sheet'
 import { QuickFeedSheet } from './quick-feed-sheet'
 import { ActiveTimer } from './active-timer'
 import { BabyInfoCard } from './baby-info-card'
+import { BabyProfileSheet } from './baby-profile-sheet'
 import { InsightsCard } from './insights-card'
 import { OnboardingSheet } from './onboarding-sheet'
 import { playSoundEffect } from '@/lib/sounds'
@@ -28,6 +29,7 @@ export function Dashboard() {
   const [feedEndOpen, setFeedEndOpen] = useState(false)
   const [quickFeedOpen, setQuickFeedOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
 
   const fetchSummary = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setSummaryError(false)
@@ -180,7 +182,7 @@ export function Dashboard() {
       pup: '💩 Tercatat!',
       pee: '💧 Tercatat!',
       both: '💩💧 Tercatat!',
-      change: '🔄 Popok tercatat!',
+      change: 'Popok tercatat!',
       feed: '🍼 Mulai menyusui!',
       sleep: wasSleeping ? '☀️ Bangun!' : '😴 Mulai tidur!',
       wake: '☀️ Bangun!',
@@ -313,7 +315,7 @@ export function Dashboard() {
       </div>
 
       <div className="px-4">
-        <BabyInfoCard summary={summary} />
+        <BabyInfoCard summary={summary} onClick={() => setProfileOpen(true)} />
 
         <ActiveTimer
           type="feeding"
@@ -366,7 +368,12 @@ export function Dashboard() {
             <QuickLogButton
               compact
               type="both"
-              emoji="💩💧"
+              icon={
+                <span className="inline-flex items-center gap-0.5 text-[1.05rem] leading-none">
+                  <span>💩</span>
+                  <span>💧</span>
+                </span>
+              }
               label="Pupee"
               color="bg-teal-200 dark:bg-teal-900"
               onClick={() => handleLog('both')}
@@ -374,7 +381,7 @@ export function Dashboard() {
             <QuickLogButton
               compact
               type="change"
-              emoji="🔄"
+              emoji="🩲"
               label="Popok"
               color="bg-slate-200 dark:bg-slate-800"
               onClick={() => handleLog('change')}
@@ -441,6 +448,7 @@ export function Dashboard() {
           fetchSummary()
         }}
       />
+      <BabyProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} />
 
       {toastMessage && <Toast message={toastMessage} />}
     </div>

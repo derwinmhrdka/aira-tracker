@@ -149,7 +149,7 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                               ? '💧 Pee'
                               : t === 'both'
                                 ? 'Pupee'
-                                : '🔄 Popok'}
+                                : '🩲 Popok'}
                         </button>
                       ))}
                     </div>

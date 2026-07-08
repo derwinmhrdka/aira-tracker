@@ -197,7 +197,7 @@ export async function showFeedingReminder(babyName?: string) {
 }
 
 export async function showDiaperReminder(babyName?: string) {
-  const title = 'Waktunya popok 🔄'
+  const title = 'Waktunya popok'
   const body = babyName
     ? `Cek popok ${babyName} — sudah waktunya`
     : 'Sudah waktunya cek popok'

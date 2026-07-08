@@ -11,9 +11,10 @@ const VACCINE_STATUS: Record<string, { label: string; className: string }> = {
 
 interface BabyInfoCardProps {
   summary: TodaySummary | null
+  onClick?: () => void
 }
 
-export function BabyInfoCard({ summary }: BabyInfoCardProps) {
+export function BabyInfoCard({ summary, onClick }: BabyInfoCardProps) {
   if (!summary?.baby) return null
 
   const vaccineStatus = summary.nextVaccine?.status
@@ -21,10 +22,13 @@ export function BabyInfoCard({ summary }: BabyInfoCardProps) {
     : null
 
   return (
-    <motion.div
+    <motion.button
+      type="button"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mb-4 flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm"
+      onClick={onClick}
+      className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left shadow-sm transition-colors hover:bg-secondary/30 active:scale-[0.99]"
+      aria-label="Lihat profil bayi"
     >
       {summary.baby.photo_url ? (
         <img
@@ -42,8 +46,17 @@ export function BabyInfoCard({ summary }: BabyInfoCardProps) {
           {summary.baby.name}
         </p>
         <p className="text-xs text-muted-foreground">{summary.baby.age_label}</p>
+        {(summary.baby.horoscope || summary.baby.shio) && (
+          <p className="truncate text-[10px] text-muted-foreground">
+            {summary.baby.horoscope_emoji && summary.baby.horoscope
+              ? `${summary.baby.horoscope_emoji} ${summary.baby.horoscope}`
+              : null}
+            {summary.baby.horoscope && summary.baby.shio ? ' · ' : null}
+            {summary.baby.shio ?? null}
+          </p>
+        )}
       </div>
-      {summary.nextVaccine && (
+      {summary.nextVaccine ? (
         <div
           className={`shrink-0 rounded-xl px-2.5 py-1.5 text-center ${
             summary.nextVaccine.status === 'overdue'
@@ -51,8 +64,8 @@ export function BabyInfoCard({ summary }: BabyInfoCardProps) {
               : 'bg-secondary'
           }`}
         >
-          <p className="text-[10px] text-muted-foreground">Vaksin</p>
-          <p className="max-w-[80px] truncate text-[10px] font-semibold text-foreground">
+          <p className="text-[10px] text-muted-foreground">💉</p>
+          <p className="max-w-[72px] truncate text-[10px] font-semibold text-foreground">
             {summary.nextVaccine.name}
           </p>
           {vaccineStatus && (
@@ -61,7 +74,9 @@ export function BabyInfoCard({ summary }: BabyInfoCardProps) {
             </p>
           )}
         </div>
+      ) : (
+        <span className="shrink-0 text-lg text-muted-foreground">›</span>
       )}
-    </motion.div>
+    </motion.button>
   )
 }

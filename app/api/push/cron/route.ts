@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sent: false, reason: 'not_due' })
   }
 
-  const title = 'Waktunya popok 🔄'
+  const title = 'Waktunya popok'
   const body = diaper.babyName
     ? `Cek popok ${diaper.babyName} — sudah waktunya`
     : 'Sudah waktunya cek popok'

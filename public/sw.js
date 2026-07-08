@@ -103,7 +103,7 @@ self.addEventListener('message', (event) => {
 
   if (event.data?.type === 'SHOW_DIAPER_REMINDER') {
     const { title, body, tag } = event.data
-    self.registration.showNotification(title || 'Waktunya popok 🔄', {
+    self.registration.showNotification(title || 'Waktunya popok', {
       body: body || 'Sudah waktunya cek popok',
       icon: '/icon-192.png',
       badge: '/icon-192.png',

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   Baby,
   FileText,
@@ -7,10 +8,12 @@ import {
   ListChecks,
   Trophy,
   Settings,
+  Heart,
   type LucideIcon,
 } from 'lucide-react'
 import { PageHeader } from './page-header'
 import { AppIcon } from './app-icon'
+import { AboutSheet } from './about-sheet'
 
 export type SubPage =
   | 'notes'
@@ -83,6 +86,8 @@ const MENU_ITEMS: {
 ]
 
 export function MorePage({ onNavigate }: MorePageProps) {
+  const [aboutOpen, setAboutOpen] = useState(false)
+
   return (
     <div className="px-4 pt-6 pb-8">
       <PageHeader title="More" subtitle="Profile, notes, pertumbuhan & lainnya" />
@@ -102,7 +107,18 @@ export function MorePage({ onNavigate }: MorePageProps) {
             <p className="mt-0.5 text-xs text-muted-foreground">{item.desc}</p>
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setAboutOpen(true)}
+          className="rounded-2xl border border-pink-200/80 bg-pink-100 p-4 text-left shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] dark:border-pink-800/60 dark:bg-pink-950/60"
+        >
+          <AppIcon icon={Heart} size={26} className="text-pink-600 dark:text-pink-300" />
+          <p className="font-heading mt-2 text-[15px] font-semibold text-foreground">About</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Tentang app</p>
+        </button>
       </div>
+
+      <AboutSheet open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </div>
   )
 }

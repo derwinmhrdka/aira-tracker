@@ -3,6 +3,7 @@ import { DiaperType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
 import { formatAge } from '@/lib/baby-utils'
+import { getBabyAstrology } from '@/lib/baby-astrology'
 import { getNextVaccine } from '@/lib/immunization-utils'
 import { startOfTodayWib } from '@/lib/day-boundary'
 import { diaperEventCounts } from '@/lib/log-parsers'
@@ -110,6 +111,7 @@ export async function GET() {
       }
 
       const birthDate = profile?.birthDate.toISOString().split('T')[0] ?? null
+      const astrology = birthDate ? getBabyAstrology(birthDate) : null
       const lastFeed = feedingLogs[0] ?? null
       const lastSleep = sleepLogs[0] ?? null
 
@@ -158,6 +160,9 @@ export async function GET() {
                 birth_date: birthDate,
                 age_label: birthDate ? formatAge(birthDate) : null,
                 photo_url: profile.photoUrl,
+                horoscope: astrology?.horoscope ?? null,
+                horoscope_emoji: astrology?.horoscopeEmoji ?? null,
+                shio: astrology?.shio ?? null,
               }
             : null,
           nextVaccine: getNextVaccine(immunizations, birthDate),

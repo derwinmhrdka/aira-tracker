@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { TodaySummary } from '@/lib/api-client'
 import { formatDurationLabel, timeAgoId } from '@/lib/baby-utils'
 
@@ -13,7 +13,8 @@ interface DailySummaryProps {
 }
 
 type SummaryItem = {
-  emoji: string
+  emoji?: string
+  icon?: ReactNode
   count: number
   last: string | null
   label: string
@@ -40,11 +41,17 @@ function SummaryCard({
   return (
     <motion.div
       variants={variants}
-      className={`rounded-xl bg-secondary/50 text-center ${
+      className={`flex flex-col items-center rounded-xl bg-secondary/50 text-center ${
         wide ? 'px-4 py-3.5' : 'p-3'
       }`}
     >
-      <div className={wide ? 'text-2xl' : 'text-xl'}>{item.emoji}</div>
+      <div
+        className={`flex items-center justify-center leading-none ${
+          wide ? 'h-8 text-2xl' : 'h-7 text-xl'
+        }`}
+      >
+        {item.icon ?? item.emoji}
+      </div>
       <div className={`font-heading font-bold text-foreground ${wide ? 'text-3xl' : 'text-2xl'}`}>
         {item.count}
       </div>
@@ -124,7 +131,7 @@ export function DailySummary({ summary, loading, error, onRetry }: DailySummaryP
     { emoji: '💩', count: data.counts.pup, last: data.lastTimes.pup, label: 'Pup' },
     { emoji: '💧', count: data.counts.pee, last: data.lastTimes.pee, label: 'Pee' },
     {
-      emoji: '🔄',
+      emoji: '🩲',
       count: data.counts.change ?? 0,
       last: data.lastTimes.change ?? null,
       label: 'Popok',

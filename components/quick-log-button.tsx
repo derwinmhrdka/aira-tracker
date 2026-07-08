@@ -1,12 +1,13 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { playSoundEffect } from '@/lib/sounds'
 
 interface QuickLogButtonProps {
   type: string
-  emoji: string
+  emoji?: string
+  icon?: ReactNode
   label: string
   color: string
   onClick: () => void
@@ -16,6 +17,7 @@ interface QuickLogButtonProps {
 export function QuickLogButton({
   type,
   emoji,
+  icon,
   label,
   color,
   onClick,
@@ -36,6 +38,12 @@ export function QuickLogButton({
           initial: { scale: 1 },
           tap: { scale: 0.92, y: 4 },
           hover: { scale: 1.08 },
+        }
+      case 'both':
+        return {
+          initial: { scale: 1 },
+          tap: { scale: 0.95 },
+          hover: { scale: 1.05 },
         }
       case 'feed':
         return {
@@ -115,11 +123,17 @@ export function QuickLogButton({
 
       {/* Emoji with animation */}
       <motion.div
-        animate={isPressed ? { scale: 1.3, rotate: 10 } : { scale: 1, rotate: 0 }}
+        animate={
+          isPressed
+            ? { scale: type === 'both' ? 1.1 : 1.3, rotate: type === 'both' ? 0 : 10 }
+            : { scale: 1, rotate: 0 }
+        }
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        className={compact ? 'text-xl leading-none' : 'text-2xl'}
+        className={`flex shrink-0 items-center justify-center leading-none ${
+          icon ? 'h-6' : compact ? 'h-6 w-6 text-xl' : 'h-8 w-8 text-2xl'
+        }`}
       >
-        {emoji}
+        {icon ?? emoji}
       </motion.div>
 
       {/* Label */}

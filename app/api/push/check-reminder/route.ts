@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ sent: false, reason: 'not_due' })
       }
 
-      const title = 'Waktunya popok 🔄'
+      const title = 'Waktunya popok'
       const bodyText = babyName
         ? `Cek popok ${babyName} — sudah waktunya`
         : 'Sudah waktunya cek popok'

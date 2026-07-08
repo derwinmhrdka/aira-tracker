@@ -405,6 +405,9 @@ export interface TodaySummary {
     birth_date: string
     age_label: string | null
     photo_url?: string | null
+    horoscope?: string | null
+    horoscope_emoji?: string | null
+    shio?: string | null
   } | null
   nextVaccine?: {
     name: string
@@ -554,10 +557,18 @@ export interface BabyProfile {
   birth_date: string
   birth_weight_kg?: number | null
   birth_height_cm?: number | null
+  latest_weight_kg?: number | null
+  latest_height_cm?: number | null
+  latest_growth_date?: string | null
   blood_type?: string | null
   parent_names?: string | null
   photo_url?: string | null
   gender?: 'MALE' | 'FEMALE' | null
+  horoscope?: string | null
+  horoscope_emoji?: string | null
+  shio?: string | null
+  shio_animal?: string | null
+  shio_element?: string | null
 }
 
 export interface BackupData {
