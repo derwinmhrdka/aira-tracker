@@ -81,14 +81,16 @@ export function HistoryPage() {
   const [toast, setToast] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<HistoryItem | null>(null)
 
-  const loadInitial = useCallback(async () => {
+  const loadInitial = useCallback(async (opts?: { silent?: boolean }) => {
     const requestId = ++requestIdRef.current
-    setLoading(true)
-    setLoadingMore(false)
-    setError(false)
-    setItems([])
-    setHasMore(false)
-    setNextCursor(null)
+    if (!opts?.silent) {
+      setLoading(true)
+      setLoadingMore(false)
+      setError(false)
+      setItems([])
+      setHasMore(false)
+      setNextCursor(null)
+    }
     try {
       const data = await api.getHistory(days, category || undefined, {
         limit: PAGE_SIZE,
@@ -98,9 +100,9 @@ export function HistoryPage() {
       setHasMore(data.hasMore)
       setNextCursor(data.nextCursor)
     } catch {
-      if (requestId === requestIdRef.current) setError(true)
+      if (requestId === requestIdRef.current && !opts?.silent) setError(true)
     } finally {
-      if (requestId === requestIdRef.current) setLoading(false)
+      if (requestId === requestIdRef.current && !opts?.silent) setLoading(false)
     }
   }, [days, category])
 
@@ -124,7 +126,7 @@ export function HistoryPage() {
     }
   }, [days, category, hasMore, nextCursor, loadingMore, loading])
 
-  useAppDataSync(loadInitial)
+  useAppDataSync(() => loadInitial({ silent: true }))
 
   useEffect(() => {
     loadInitial()

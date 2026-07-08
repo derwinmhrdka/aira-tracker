@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 /** Poll interval while app is visible — multi-device sync */
-export const LIVE_SYNC_MS = 12000
+export const LIVE_SYNC_MS = 20000
 
 export function useLiveSync(onSync: () => void, enabled = true) {
   const onSyncRef = useRef(onSync)

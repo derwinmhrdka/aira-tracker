@@ -42,9 +42,11 @@ export function StatsPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE)
 
-  const fetchStats = useCallback(async () => {
-    setLoading(true)
-    setError(false)
+  const fetchStats = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoading(true)
+      setError(false)
+    }
     try {
       const [data, babyProfile] = await Promise.all([
         api.getStats(days),
@@ -53,13 +55,13 @@ export function StatsPage() {
       setStats(data)
       setProfile(babyProfile)
     } catch {
-      setError(true)
+      if (!opts?.silent) setError(true)
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [days])
 
-  useAppDataSync(fetchStats)
+  useAppDataSync(() => fetchStats({ silent: true }))
 
   useEffect(() => {
     fetchStats()

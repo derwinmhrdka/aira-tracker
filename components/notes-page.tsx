@@ -60,18 +60,20 @@ export function NotesPage({ onBack }: NotesPageProps) {
     return data
   }, [])
 
-  const loadInitial = useCallback(async () => {
-    setLoading(true)
-    setError(false)
+  const loadInitial = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoading(true)
+      setError(false)
+    }
     try {
       const data = await loadNotes()
       setNotes(data.items)
       setHasMore(data.hasMore)
       setNextCursor(data.nextCursor)
     } catch {
-      setError(true)
+      if (!opts?.silent) setError(true)
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [loadNotes])
 
@@ -88,7 +90,7 @@ export function NotesPage({ onBack }: NotesPageProps) {
     }
   }, [hasMore, nextCursor, loadingMore, loadNotes])
 
-  useAppDataSync(loadInitial)
+  useAppDataSync(() => loadInitial({ silent: true }))
 
   useEffect(() => {
     loadInitial()

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
 import { feedTypeLabel } from '@/lib/feed-utils'
+import { periodStartWib } from '@/lib/day-boundary'
 
 const DEFAULT_LIMIT = 15
 const MAX_LIMIT = 50
@@ -115,7 +116,7 @@ function mapNote(n: {
 
 export async function GET(request: NextRequest) {
   return withAuth(async () => {
-    const days = Number(request.nextUrl.searchParams.get('days') || '7')
+    const days = Math.min(90, Math.max(1, Number(request.nextUrl.searchParams.get('days') || '7')))
     const category = request.nextUrl.searchParams.get('category')
     const limit = Math.min(
       Math.max(1, Number(request.nextUrl.searchParams.get('limit') || DEFAULT_LIMIT)),
@@ -124,9 +125,7 @@ export async function GET(request: NextRequest) {
     const cursor = request.nextUrl.searchParams.get('cursor')
     const before = cursor ? new Date(cursor) : undefined
 
-    const since = new Date()
-    since.setDate(since.getDate() - days)
-    since.setHours(0, 0, 0, 0)
+    const since = periodStartWib(days)
 
     const range = before ? { gte: since, lt: before } : { gte: since }
     const fetchN = limit + 1
