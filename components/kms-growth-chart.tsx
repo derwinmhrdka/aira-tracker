@@ -42,11 +42,19 @@ interface KmsGrowthChartProps {
 }
 
 type MonthRange = { start: number; end: number }
+type YDomain = { min: number; max: number }
 
 type PinchState = {
   distance: number
   centerRatio: number
   range: MonthRange
+}
+
+type PanState = {
+  startX: number
+  startY: number
+  xRange: MonthRange
+  yDomain: YDomain
 }
 
 function ChartLegendItem({
@@ -149,6 +157,63 @@ function hasVisibleMonths(range: MonthRange): boolean {
   return buildXTicks(range.start, range.end).length > 0
 }
 
+function shiftXRange(range: MonthRange, deltaMonths: number): MonthRange {
+  const span = range.end - range.start
+  let start = range.start + deltaMonths
+  let end = range.end + deltaMonths
+
+  if (start < 0) {
+    start = 0
+    end = span
+  }
+  if (end > MAX_MONTH) {
+    end = MAX_MONTH
+    start = MAX_MONTH - span
+  }
+
+  return { start, end }
+}
+
+type ChartRow = ReturnType<typeof buildDenseChartData>[number]
+
+function computeAutoYDomain(data: ChartRow[]): YDomain {
+  let min = Infinity
+  let max = -Infinity
+
+  for (const row of data) {
+    const values = [
+      row.minus3,
+      row.plus3,
+      row.median,
+      row.zoneBahayaLow[0],
+      row.zoneBahayaHigh[1],
+      row.baby,
+    ].filter((v): v is number => v != null)
+
+    for (const v of values) {
+      min = Math.min(min, v)
+      max = Math.max(max, v)
+    }
+  }
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return { min: 0, max: 1 }
+  }
+
+  const pad = Math.max((max - min) * 0.08, 0.2)
+  return { min: min - pad, max: max + pad }
+}
+
+function shiftYDomain(domain: YDomain, delta: number): YDomain {
+  return { min: domain.min + delta, max: domain.max + delta }
+}
+
+function formatRangeLabel(range: MonthRange): string {
+  const start = Math.round(range.start * 10) / 10
+  const end = Math.round(range.end * 10) / 10
+  return start === end ? `Bulan ${start}` : `${start}–${end}`
+}
+
 export function KmsGrowthChart({
   growthLogs,
   birthDate,
@@ -157,8 +222,11 @@ export function KmsGrowthChart({
 }: KmsGrowthChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const pinchRef = useRef<PinchState | null>(null)
+  const panRef = useRef<PanState | null>(null)
+  const mousePanRef = useRef(false)
 
   const [viewRange, setViewRange] = useState<MonthRange>({ start: 0, end: MAX_MONTH })
+  const [yDomain, setYDomain] = useState<YDomain | null>(null)
 
   const fullData = useMemo(
     () =>
@@ -176,8 +244,18 @@ export function KmsGrowthChart({
   )
 
   const visibleData = useMemo(
-    () => fullData.filter((d) => d.month >= viewRange.start && d.month <= viewRange.end),
+    () =>
+      fullData.filter(
+        (d) =>
+          d.month >= Math.floor(viewRange.start) &&
+          d.month <= Math.ceil(viewRange.end)
+      ),
     [fullData, viewRange]
+  )
+
+  const resolvedYDomain = useMemo(
+    () => yDomain ?? computeAutoYDomain(visibleData),
+    [yDomain, visibleData]
   )
 
   const xTicks = useMemo(
@@ -218,6 +296,7 @@ export function KmsGrowthChart({
   )
 
   const applyZoom = useCallback((scale: number, centerRatio: number) => {
+    setYDomain(null)
     setViewRange((current) => {
       const next = rangeFromZoom(current, scale, centerRatio)
       return hasVisibleMonths(next) ? next : current
@@ -226,36 +305,152 @@ export function KmsGrowthChart({
 
   const resetZoom = useCallback(() => {
     setViewRange({ start: 0, end: MAX_MONTH })
+    setYDomain(null)
   }, [])
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length !== 2 || !chartRef.current) return
-    const rect = chartRef.current.getBoundingClientRect()
-    pinchRef.current = {
-      distance: touchDistance(e.touches),
-      centerRatio: touchCenterRatio(e.touches, rect),
-      range: viewRange,
+  const applyPan = useCallback(
+    (dx: number, dy: number, rect: DOMRect, base: PanState) => {
+      const span = base.xRange.end - base.xRange.start
+      const monthShift = -(dx / rect.width) * Math.max(span, 1)
+      const nextX = shiftXRange(base.xRange, monthShift)
+
+      const ySpan = base.yDomain.max - base.yDomain.min
+      const valueShift = -(dy / rect.height) * ySpan
+      const nextY = shiftYDomain(base.yDomain, valueShift)
+
+      if (hasVisibleMonths(nextX)) {
+        setViewRange(nextX)
+        setYDomain(nextY)
+      }
+    },
+    []
+  )
+
+  const startPan = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!chartRef.current) return
+      panRef.current = {
+        startX: clientX,
+        startY: clientY,
+        xRange: viewRange,
+        yDomain: resolvedYDomain,
+      }
+    },
+    [viewRange, resolvedYDomain]
+  )
+
+  const endPan = useCallback(() => {
+    panRef.current = null
+    mousePanRef.current = false
+  }, [])
+
+  useEffect(() => {
+    setViewRange({ start: 0, end: MAX_MONTH })
+    setYDomain(null)
+  }, [metric, gender, birthDate])
+
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!chartRef.current) return
+
+      if (e.touches.length === 2) {
+        panRef.current = null
+        const rect = chartRef.current.getBoundingClientRect()
+        pinchRef.current = {
+          distance: touchDistance(e.touches),
+          centerRatio: touchCenterRatio(e.touches, rect),
+          range: viewRange,
+        }
+        return
+      }
+
+      if (e.touches.length === 1) {
+        pinchRef.current = null
+        startPan(e.touches[0].clientX, e.touches[0].clientY)
+      }
+    },
+    [viewRange, startPan]
+  )
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!chartRef.current) return
+
+      if (e.touches.length === 2 && pinchRef.current) {
+        e.preventDefault()
+        const dist = touchDistance(e.touches)
+        const scale = dist / pinchRef.current.distance
+        const next = rangeFromZoom(
+          pinchRef.current.range,
+          scale,
+          pinchRef.current.centerRatio
+        )
+        if (hasVisibleMonths(next)) {
+          setYDomain(null)
+          setViewRange(next)
+        }
+        return
+      }
+
+      if (e.touches.length === 1 && panRef.current) {
+        e.preventDefault()
+        const touch = e.touches[0]
+        applyPan(
+          touch.clientX - panRef.current.startX,
+          touch.clientY - panRef.current.startY,
+          chartRef.current.getBoundingClientRect(),
+          panRef.current
+        )
+      }
+    },
+    [applyPan]
+  )
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches.length === 0) {
+        pinchRef.current = null
+        endPan()
+        return
+      }
+
+      if (e.touches.length === 1 && pinchRef.current) {
+        pinchRef.current = null
+        startPan(e.touches[0].clientX, e.touches[0].clientY)
+      }
+    },
+    [endPan, startPan]
+  )
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return
+      mousePanRef.current = true
+      startPan(e.clientX, e.clientY)
+    },
+    [startPan]
+  )
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!mousePanRef.current || !panRef.current || !chartRef.current) return
+      applyPan(
+        e.clientX - panRef.current.startX,
+        e.clientY - panRef.current.startY,
+        chartRef.current.getBoundingClientRect(),
+        panRef.current
+      )
     }
-  }, [viewRange])
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length !== 2 || !pinchRef.current) return
-    e.preventDefault()
-    const dist = touchDistance(e.touches)
-    const scale = dist / pinchRef.current.distance
-    const next = rangeFromZoom(
-      pinchRef.current.range,
-      scale,
-      pinchRef.current.centerRatio
-    )
-    if (hasVisibleMonths(next)) {
-      setViewRange(next)
+    const onMouseUp = () => endPan()
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [])
-
-  const handleTouchEnd = useCallback(() => {
-    pinchRef.current = null
-  }, [])
+  }, [applyPan, endPan])
 
   useEffect(() => {
     const el = chartRef.current
@@ -410,21 +605,19 @@ export function KmsGrowthChart({
     <div>
       <div
         ref={chartRef}
-        className="relative h-[240px] w-full touch-none select-none"
+        className="relative h-[240px] w-full cursor-grab touch-none select-none active:cursor-grabbing"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
+        onMouseDown={handleMouseDown}
         onDoubleClick={resetZoom}
       >
         <span className="absolute bottom-0 right-0 z-10 text-[10px] text-muted-foreground">
           Bulan
         </span>
         <span className="absolute right-0 top-0 z-10 rounded-full bg-secondary/80 px-2 py-0.5 text-[9px] text-muted-foreground">
-          {viewRange.start === viewRange.end
-            ? `Bulan ${viewRange.start}`
-            : `${viewRange.start}–${viewRange.end}`}{' '}
-          · {zoomLabel}
+          {formatRangeLabel(viewRange)} · {zoomLabel}
           {atMaxZoom ? ' · maks' : ''}
         </span>
         <ResponsiveContainer width="100%" height="100%">
@@ -464,7 +657,8 @@ export function KmsGrowthChart({
               }}
               axisLine={false}
               tickLine={false}
-              domain={['auto', 'auto']}
+              domain={[resolvedYDomain.min, resolvedYDomain.max]}
+              allowDataOverflow
             />
             <Tooltip content={renderTooltip} />
 
