@@ -96,6 +96,19 @@ export async function GET() {
         )
       }
 
+      let totalFeedingMinutes = 0
+      for (const log of feedingLogs) {
+        if (!log.timestampEnd) continue
+        totalFeedingMinutes += Math.round(
+          (log.timestampEnd.getTime() - log.timestampStart.getTime()) / 60000
+        )
+      }
+      if (activeFeeding && !activeFeeding.timestampEnd) {
+        totalFeedingMinutes += Math.round(
+          (Date.now() - activeFeeding.timestampStart.getTime()) / 60000
+        )
+      }
+
       const birthDate = profile?.birthDate.toISOString().split('T')[0] ?? null
       const lastFeed = feedingLogs[0] ?? null
       const lastSleep = sleepLogs[0] ?? null
@@ -138,6 +151,7 @@ export async function GET() {
           activeFeedingStart: activeFeeding?.timestampStart.toISOString() ?? null,
           activeSleepStart: activeSleep?.timestampStart.toISOString() ?? null,
           totalSleepMinutes,
+          totalFeedingMinutes,
           baby: profile
             ? {
                 name: profile.name,

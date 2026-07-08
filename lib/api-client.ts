@@ -399,6 +399,7 @@ export interface TodaySummary {
   activeFeedingStart?: string | null
   activeSleepStart?: string | null
   totalSleepMinutes?: number
+  totalFeedingMinutes?: number
   baby?: {
     name: string
     birth_date: string

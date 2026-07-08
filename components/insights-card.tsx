@@ -18,6 +18,12 @@ export function InsightsCard({ summary }: InsightsCardProps) {
       text: `Terakhir menyusui ${timeAgoId(summary.lastTimes.feed)}`,
     })
   }
+  if ((summary.totalFeedingMinutes ?? 0) > 0) {
+    insights.push({
+      icon: '🍼',
+      text: `Menyusui hari ini ${formatDurationShort(summary.totalFeedingMinutes ?? 0)}`,
+    })
+  }
   if ((summary.totalSleepMinutes ?? 0) > 0) {
     insights.push({
       icon: '😴',
