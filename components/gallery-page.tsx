@@ -24,8 +24,18 @@ function formatGalleryDate(iso: string) {
   })
 }
 
-function sourceLabel(source: GalleryItem['source']) {
+function sourceLabel(source: GalleryItem['source'], mediaType: GalleryItem['media_type']) {
+  if (mediaType === 'audio') return 'Audio catatan'
   return source === 'note' ? 'Catatan' : 'Milestone'
+}
+
+function galleryItemKey(item: GalleryItem) {
+  return `${item.source}-${item.id}-${item.media_type}`
+}
+
+function viewingMediaSrc(item: GalleryItem | null) {
+  if (!item) return null
+  return item.media_type === 'audio' ? item.audio_url : item.photo_url
 }
 
 export function GalleryPage({ onBack }: GalleryPageProps) {
@@ -35,8 +45,10 @@ export function GalleryPage({ onBack }: GalleryPageProps) {
   const [error, setError] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [nextOffset, setNextOffset] = useState<number | null>(null)
-  const [viewing, setViewing] = useState<GalleryItem | null>(null)
+  const [viewingIndex, setViewingIndex] = useState<number | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
+
+  const viewing = viewingIndex != null ? (items[viewingIndex] ?? null) : null
 
   const loadInitial = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) {
@@ -87,10 +99,37 @@ export function GalleryPage({ onBack }: GalleryPageProps) {
     return () => observer.disconnect()
   }, [hasMore, loadMore])
 
+  const handlePrevious = useCallback(() => {
+    setViewingIndex((current) => {
+      if (current == null || current <= 0) return current
+      return current - 1
+    })
+  }, [])
+
+  const handleNext = useCallback(async () => {
+    if (viewingIndex == null) return
+    if (viewingIndex < items.length - 1) {
+      setViewingIndex(viewingIndex + 1)
+      return
+    }
+    if (!hasMore || loadingMore || nextOffset == null) return
+    setLoadingMore(true)
+    try {
+      const data = await api.getGallery({ offset: nextOffset })
+      if (data.items.length === 0) return
+      setItems((prev) => [...prev, ...data.items])
+      setHasMore(data.hasMore)
+      setNextOffset(data.nextOffset)
+      setViewingIndex(viewingIndex + 1)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [viewingIndex, items.length, hasMore, loadingMore, nextOffset])
+
   const viewingSubtitle = viewing
     ? [
         formatGalleryDate(viewing.timestamp),
-        sourceLabel(viewing.source),
+        sourceLabel(viewing.source, viewing.media_type),
         viewing.logged_by,
       ]
         .filter(Boolean)
@@ -101,7 +140,7 @@ export function GalleryPage({ onBack }: GalleryPageProps) {
     <div className="px-4 pt-6 pb-8">
       <PageHeader
         title="Gallery"
-        subtitle="Foto dari catatan & milestone"
+        subtitle="Foto & audio dari catatan & milestone"
         onBack={onBack}
       />
 
@@ -115,26 +154,32 @@ export function GalleryPage({ onBack }: GalleryPageProps) {
         </div>
       ) : items.length === 0 ? (
         <p className="py-12 text-center text-sm text-muted-foreground">
-          Belum ada foto terlampir
+          Belum ada lampiran
         </p>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-1.5">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <motion.button
-                key={`${item.source}-${item.id}`}
+                key={galleryItemKey(item)}
                 type="button"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                onClick={() => setViewing(item)}
+                onClick={() => setViewingIndex(index)}
                 className="group relative aspect-square overflow-hidden rounded-lg bg-secondary"
-                aria-label="Lihat foto"
+                aria-label={item.media_type === 'audio' ? 'Lihat audio' : 'Lihat foto'}
               >
-                <img
-                  src={getDisplayPhotoUrl(item.photo_url)}
-                  alt=""
-                  className="h-full w-full object-cover transition-transform group-active:scale-95"
-                />
+                {item.media_type === 'audio' ? (
+                  <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-violet-500/25 to-sky-500/20">
+                    <span className="text-3xl">🎤</span>
+                  </div>
+                ) : (
+                  <img
+                    src={getDisplayPhotoUrl(item.photo_url!)}
+                    alt=""
+                    className="h-full w-full object-cover transition-transform group-active:scale-95"
+                  />
+                )}
               </motion.button>
             ))}
           </div>
@@ -150,10 +195,18 @@ export function GalleryPage({ onBack }: GalleryPageProps) {
       )}
 
       <PhotoViewer
-        src={viewing?.photo_url ?? null}
+        mediaType={viewing?.media_type ?? 'photo'}
+        src={viewingMediaSrc(viewing)}
         caption={viewing?.caption}
         subtitle={viewingSubtitle}
-        onClose={() => setViewing(null)}
+        onClose={() => setViewingIndex(null)}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        hasPrevious={viewingIndex != null && viewingIndex > 0}
+        hasNext={
+          viewingIndex != null &&
+          (viewingIndex < items.length - 1 || hasMore)
+        }
       />
     </div>
   )

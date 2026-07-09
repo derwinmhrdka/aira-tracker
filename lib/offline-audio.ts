@@ -25,6 +25,14 @@ export function isLocalAudioUrl(url: string) {
   return url.startsWith(LOCAL_PREFIX)
 }
 
+export function getDisplayAudioUrl(url: string): string {
+  if (!isLocalAudioUrl(url)) return url
+  const id = url.slice(LOCAL_PREFIX.length)
+  const audio = getStore()[id]
+  if (!audio) return url
+  return `data:${audio.mime};base64,${audio.base64}`
+}
+
 export async function storeOfflineAudio(file: File): Promise<string> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const base64 = await new Promise<string>((resolve, reject) => {

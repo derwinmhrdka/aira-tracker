@@ -50,7 +50,7 @@ const MENU_ITEMS: {
     id: 'gallery',
     icon: Images,
     label: 'Gallery',
-    desc: 'Foto catatan & milestone',
+    desc: 'Foto & audio catatan',
     color: 'bg-fuchsia-100 border-fuchsia-200/80 dark:bg-fuchsia-950/60 dark:border-fuchsia-800/60',
     iconColor: 'text-fuchsia-600 dark:text-fuchsia-300',
   },

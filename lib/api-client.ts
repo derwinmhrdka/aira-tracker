@@ -548,7 +548,9 @@ export interface NotesResponse {
 export interface GalleryItem {
   id: string
   source: 'note' | 'milestone'
-  photo_url: string
+  media_type: 'photo' | 'audio'
+  photo_url: string | null
+  audio_url: string | null
   caption: string
   timestamp: string
   logged_by: string | null
