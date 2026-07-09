@@ -218,6 +218,14 @@ export const api = {
     return apiFetch<NotesResponse>(`/api/notes${qs ? `?${qs}` : ''}`)
   },
 
+  getGallery: (options?: { limit?: number; offset?: number }) => {
+    const params = new URLSearchParams()
+    if (options?.limit) params.set('limit', String(options.limit))
+    if (options?.offset != null) params.set('offset', String(options.offset))
+    const qs = params.toString()
+    return apiFetch<GalleryResponse>(`/api/gallery${qs ? `?${qs}` : ''}`)
+  },
+
   createNote: (content: string, photoUrl?: string, audioUrl?: string) =>
     apiFetch('/api/notes', {
       method: 'POST',
@@ -495,6 +503,8 @@ export interface StatsResponse {
     pee: number
     feed: number
     sleepHours: number
+    avgFeedingDurationMinutes: number | null
+    avgSleepDurationMinutes: number | null
   }[]
   growth: GrowthLog[]
   insights: {
@@ -533,6 +543,22 @@ export interface NotesResponse {
   items: DailyNote[]
   hasMore: boolean
   nextCursor: string | null
+}
+
+export interface GalleryItem {
+  id: string
+  source: 'note' | 'milestone'
+  photo_url: string
+  caption: string
+  timestamp: string
+  logged_by: string | null
+}
+
+export interface GalleryResponse {
+  items: GalleryItem[]
+  total: number
+  hasMore: boolean
+  nextOffset: number | null
 }
 
 export interface DailyNote {

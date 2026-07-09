@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react'
 import { api } from '@/lib/api-client'
 import { compressImage } from '@/lib/compress-image'
-import { isLocalPhotoUrl } from '@/lib/offline-photos'
+import { getDisplayPhotoUrl, isLocalPhotoUrl } from '@/lib/offline-photos'
+import { PhotoViewer } from './photo-viewer'
 
 interface PhotoUploadProps {
   onUploaded: (url: string) => void
@@ -14,6 +15,9 @@ interface PhotoUploadProps {
 export function PhotoUpload({ onUploaded, label = 'Photo', preview }: PhotoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const previewSrc = localPreview || (preview ? getDisplayPhotoUrl(preview) : null)
+  const viewerSrc = viewerOpen ? (localPreview || preview) : null
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -53,12 +57,24 @@ export function PhotoUpload({ onUploaded, label = 'Photo', preview }: PhotoUploa
         📷 {label}
       </button>
       {(localPreview || preview) && (
-        <img
-          src={localPreview || preview || ''}
-          alt="Preview"
-          className="mt-2 h-24 w-full rounded-xl object-cover"
-        />
+        <button
+          type="button"
+          onClick={() => setViewerOpen(true)}
+          className="mt-2 block w-full"
+          aria-label="Lihat foto"
+        >
+          <img
+            src={previewSrc || ''}
+            alt="Preview"
+            className="h-24 w-full cursor-zoom-in rounded-xl object-cover"
+          />
+        </button>
       )}
+      <PhotoViewer
+        src={viewerSrc}
+        onClose={() => setViewerOpen(false)}
+        alt="Preview"
+      />
     </div>
   )
 }

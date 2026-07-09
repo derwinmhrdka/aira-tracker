@@ -35,12 +35,28 @@ export async function GET(request: NextRequest) {
 
     const dailyMap = new Map<
       string,
-      { pup: number; pee: number; feed: number; sleepHours: number }
+      {
+        pup: number
+        pee: number
+        feed: number
+        sleepHours: number
+        feedDurationMinutes: number
+        feedSessionsCompleted: number
+        sleepSessions: number
+      }
     >()
 
     for (let i = 0; i < days; i++) {
       const d = new Date(since.getTime() + i * 24 * 60 * 60 * 1000)
-      dailyMap.set(dayKeyWib(d), { pup: 0, pee: 0, feed: 0, sleepHours: 0 })
+      dailyMap.set(dayKeyWib(d), {
+        pup: 0,
+        pee: 0,
+        feed: 0,
+        sleepHours: 0,
+        feedDurationMinutes: 0,
+        feedSessionsCompleted: 0,
+        sleepSessions: 0,
+      })
     }
 
     for (const log of diaperLogs) {
@@ -55,16 +71,22 @@ export async function GET(request: NextRequest) {
     for (const log of feedingLogs) {
       const key = dayKeyWib(log.timestampStart)
       const bucket = dailyMap.get(key)
-      if (bucket) bucket.feed++
+      if (!bucket) continue
+      bucket.feed++
+      if (log.timestampEnd) {
+        bucket.feedSessionsCompleted++
+        bucket.feedDurationMinutes +=
+          (log.timestampEnd.getTime() - log.timestampStart.getTime()) / 60000
+      }
     }
 
     for (const log of sleepLogs) {
       if (!log.timestampEnd) continue
       const key = dayKeyWib(log.timestampStart)
       const bucket = dailyMap.get(key)
-      if (bucket) {
-        bucket.sleepHours += hoursBetween(log.timestampStart, log.timestampEnd)
-      }
+      if (!bucket) continue
+      bucket.sleepSessions++
+      bucket.sleepHours += hoursBetween(log.timestampStart, log.timestampEnd)
     }
 
     const daily = [...dailyMap.entries()].map(([date, counts]) => ({
@@ -77,6 +99,16 @@ export async function GET(request: NextRequest) {
       pee: counts.pee,
       feed: counts.feed,
       sleepHours: Math.round(counts.sleepHours * 10) / 10,
+      avgFeedingDurationMinutes:
+        counts.feedSessionsCompleted > 0
+          ? Math.round(
+              counts.feedDurationMinutes / counts.feedSessionsCompleted
+            )
+          : null,
+      avgSleepDurationMinutes:
+        counts.sleepSessions > 0
+          ? Math.round((counts.sleepHours * 60) / counts.sleepSessions)
+          : null,
     }))
 
     let totalSleepHours = 0

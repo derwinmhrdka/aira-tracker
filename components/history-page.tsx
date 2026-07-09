@@ -8,6 +8,7 @@ import { EditLogSheet } from './edit-log-sheet'
 import { Toast } from './toast'
 import { ErrorBanner } from './error-banner'
 import { ConfirmDeleteSheet } from './confirm-delete-sheet'
+import { ClickablePhoto, PhotoViewer } from './photo-viewer'
 
 const TYPE_EMOJI: Record<string, string> = {
   pup: '💩', pee: '💧', both: '💩💧', change: '🩲', feed: '🍼', 'feed-end': '🍼',
@@ -80,6 +81,7 @@ export function HistoryPage() {
   const [editingItem, setEditingItem] = useState<HistoryItem | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<HistoryItem | null>(null)
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null)
 
   const loadInitial = useCallback(async (opts?: { silent?: boolean }) => {
     const requestId = ++requestIdRef.current
@@ -258,10 +260,11 @@ export function HistoryPage() {
                         </p>
                       )}
                       {item.photo_url && (
-                        <img
+                        <ClickablePhoto
                           src={item.photo_url}
-                          alt=""
-                          className="mt-2 h-16 w-16 rounded-lg object-cover"
+                          wrapperClassName="mt-2 block"
+                          className="h-16 w-16 rounded-lg"
+                          onView={setViewingPhoto}
                         />
                       )}
                       {item.audio_url && (
@@ -318,6 +321,7 @@ export function HistoryPage() {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
+      <PhotoViewer src={viewingPhoto} onClose={() => setViewingPhoto(null)} />
       {toast && <Toast message={toast} />}
     </div>
   )

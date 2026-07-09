@@ -10,20 +10,13 @@ import {
   CalendarDays,
   Settings,
   Heart,
+  Images,
   type LucideIcon,
 } from 'lucide-react'
 import { PageHeader } from './page-header'
 import { AppIcon } from './app-icon'
 import { AboutSheet } from './about-sheet'
-
-export type SubPage =
-  | 'notes'
-  | 'immunizations'
-  | 'development'
-  | 'profile'
-  | 'milestones'
-  | 'events'
-  | 'settings'
+import type { SubPage } from '@/lib/navigation'
 
 interface MorePageProps {
   onNavigate: (page: SubPage) => void
@@ -52,6 +45,14 @@ const MENU_ITEMS: {
     desc: 'Tummy time, dll',
     color: 'bg-sky-100 border-sky-200/80 dark:bg-sky-950/60 dark:border-sky-800/60',
     iconColor: 'text-sky-600 dark:text-sky-300',
+  },
+  {
+    id: 'gallery',
+    icon: Images,
+    label: 'Gallery',
+    desc: 'Foto catatan & milestone',
+    color: 'bg-fuchsia-100 border-fuchsia-200/80 dark:bg-fuchsia-950/60 dark:border-fuchsia-800/60',
+    iconColor: 'text-fuchsia-600 dark:text-fuchsia-300',
   },
   {
     id: 'immunizations',

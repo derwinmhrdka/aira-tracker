@@ -2,6 +2,7 @@ export type MainPage = 'home' | 'history' | 'stats' | 'more'
 
 export type SubPage =
   | 'notes'
+  | 'gallery'
   | 'immunizations'
   | 'development'
   | 'profile'
@@ -13,6 +14,7 @@ export type AppPage = MainPage | SubPage
 
 export const SUB_PAGES: SubPage[] = [
   'notes',
+  'gallery',
   'immunizations',
   'development',
   'profile',

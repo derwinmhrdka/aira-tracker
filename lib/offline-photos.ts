@@ -25,6 +25,14 @@ export function isLocalPhotoUrl(url: string) {
   return url.startsWith(LOCAL_PREFIX)
 }
 
+export function getDisplayPhotoUrl(url: string): string {
+  if (!isLocalPhotoUrl(url)) return url
+  const id = url.slice(LOCAL_PREFIX.length)
+  const photo = getStore()[id]
+  if (!photo) return url
+  return `data:${photo.mime};base64,${photo.base64}`
+}
+
 export async function storeOfflinePhoto(file: File): Promise<string> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const base64 = await new Promise<string>((resolve, reject) => {

@@ -9,6 +9,7 @@ import { Toast } from './toast'
 import { ErrorBanner } from './error-banner'
 import { EditLogSheet } from './edit-log-sheet'
 import { ConfirmDeleteSheet } from './confirm-delete-sheet'
+import { ClickablePhoto, PhotoViewer } from './photo-viewer'
 import { playSoundEffect } from '@/lib/sounds'
 import {
   api,
@@ -51,6 +52,7 @@ export function NotesPage({ onBack }: NotesPageProps) {
   const [toast, setToast] = useState<string | null>(null)
   const [editingNote, setEditingNote] = useState<HistoryItem | null>(null)
   const [pendingDelete, setPendingDelete] = useState<DailyNote | null>(null)
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
   const canSave = content.trim().length > 0 || !!audioUrl
@@ -220,10 +222,11 @@ export function NotesPage({ onBack }: NotesPageProps) {
                 <audio src={note.audio_url} controls className="mt-2 w-full" />
               )}
               {note.photo_url && (
-                <img
+                <ClickablePhoto
                   src={note.photo_url}
-                  alt=""
-                  className="mt-2 h-32 w-full rounded-lg object-cover"
+                  wrapperClassName="mt-2 block w-full"
+                  className="h-32 w-full rounded-lg"
+                  onView={setViewingPhoto}
                 />
               )}
               <p className="mt-1 text-xs text-muted-foreground">
@@ -254,6 +257,7 @@ export function NotesPage({ onBack }: NotesPageProps) {
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
+      <PhotoViewer src={viewingPhoto} onClose={() => setViewingPhoto(null)} />
       {toast && <Toast message={toast} />}
     </div>
   )

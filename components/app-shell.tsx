@@ -19,6 +19,7 @@ import { DevelopmentPage } from '@/components/development-page'
 import { ProfilePage } from '@/components/profile-page'
 import { MilestonesPage } from '@/components/milestones-page'
 import { EventsPage } from '@/components/events-page'
+import { GalleryPage } from '@/components/gallery-page'
 import { SettingsPage } from '@/components/settings-page'
 import { BottomNav } from '@/components/bottom-nav'
 import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
@@ -74,6 +75,7 @@ export function AppShell() {
           <MorePage onNavigate={(p: SubPage) => navigate(p)} />
         )}
         {currentPage === 'notes' && <NotesPage onBack={goBack} />}
+        {currentPage === 'gallery' && <GalleryPage onBack={goBack} />}
         {currentPage === 'immunizations' && (
           <ImmunizationsPage onBack={goBack} />
         )}

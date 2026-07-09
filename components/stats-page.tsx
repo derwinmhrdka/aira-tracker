@@ -10,6 +10,7 @@ import { ConfirmDeleteSheet } from './confirm-delete-sheet'
 import { Toast } from './toast'
 import { ErrorBanner } from './error-banner'
 import { playSoundEffect } from '@/lib/sounds'
+import { formatDurationLabel } from '@/lib/baby-utils'
 import {
   api,
   isQueuedResponse,
@@ -134,7 +135,10 @@ export function StatsPage() {
   const visibleGrowthHistory = growthHistory.slice(0, historyLimit)
   const hasMoreHistory = historyLimit < growthHistory.length
   const dailySummaryRows = useMemo(
-    () => [...(stats?.daily ?? [])].sort((a, b) => b.date.localeCompare(a.date)),
+    () =>
+      [...(stats?.daily ?? [])]
+        .filter((d) => d.pup > 0 || d.pee > 0 || d.feed > 0 || d.sleepHours > 0)
+        .sort((a, b) => b.date.localeCompare(a.date)),
     [stats?.daily]
   )
   const visibleDailySummary = dailySummaryRows.slice(0, dailySummaryLimit)
@@ -151,23 +155,6 @@ export function StatsPage() {
     const rightPct = 100 - leftPct
     return `Kiri : Kanan = ${left} : ${right} (${leftPct}% : ${rightPct}%)`
   }, [stats?.insights.feedSideLeft, stats?.insights.feedSideRight])
-
-  const avgFeedDurationText = useMemo(() => {
-    const minutes = stats?.insights.avgFeedingDurationMinutes
-    if (!minutes) return 'Belum cukup data'
-    return `${minutes} menit/sesi`
-  }, [stats?.insights.avgFeedingDurationMinutes])
-
-  const avgSleepDurationText = useMemo(() => {
-    const hours = stats?.insights.avgSleepHours
-    if (!hours) return 'Belum cukup data'
-    const totalMinutes = Math.round(hours * 60)
-    const h = Math.floor(totalMinutes / 60)
-    const m = totalMinutes % 60
-    if (h > 0 && m > 0) return `${h}j ${m}m/sesi`
-    if (h > 0) return `${h}j/sesi`
-    return `${m}m/sesi`
-  }, [stats?.insights.avgSleepHours])
 
   return (
     <motion.div
@@ -438,6 +425,10 @@ export function StatsPage() {
               <div key={i} className="h-16 animate-pulse rounded-lg bg-secondary" />
             ))}
           </div>
+        ) : dailySummaryRows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Belum ada data harian
+          </p>
         ) : (
           <>
             <div className="space-y-2">
@@ -460,8 +451,16 @@ export function StatsPage() {
                     <span>😴 {d.sleepHours}j</span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-primary">
-                    <span>📊 🍼 {avgFeedDurationText}</span>
-                    <span>📊 😴 {avgSleepDurationText}</span>
+                    {d.avgFeedingDurationMinutes != null && (
+                      <span>
+                        📊 🍼 {formatDurationLabel(d.avgFeedingDurationMinutes)}/sesi
+                      </span>
+                    )}
+                    {d.avgSleepDurationMinutes != null && (
+                      <span>
+                        📊 😴 {formatDurationLabel(d.avgSleepDurationMinutes)}/sesi
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
