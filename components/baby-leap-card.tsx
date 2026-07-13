@@ -40,10 +40,10 @@ export function BabyLeapCard({ birthDate }: BabyLeapCardProps) {
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
             {isActive
-              ? `Sedang berlangsung · sisa ~${status.daysLeftInLeap} hari`
+              ? `In progress · ~${status.daysLeftInLeap} days left`
               : status.daysUntilStart === 0
-                ? 'Mulai sekitar hari ini'
-                : `Mulai ~${status.daysUntilStart} hari lagi`}
+                ? 'Starting around today'
+                : `Starts in ~${status.daysUntilStart} days`}
           </p>
         </div>
         <span
@@ -53,7 +53,7 @@ export function BabyLeapCard({ birthDate }: BabyLeapCardProps) {
               : 'bg-secondary text-muted-foreground'
           }`}
         >
-          {isActive ? 'Aktif' : 'Sebentar'}
+          {isActive ? 'Active' : 'Soon'}
         </span>
         <span className="text-[10px] text-muted-foreground">{open ? '▴' : '▾'}</span>
       </button>
@@ -74,7 +74,7 @@ export function BabyLeapCard({ birthDate }: BabyLeapCardProps) {
 
               <div>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/80">
-                  Tanda-tanda
+                  Signs
                 </p>
                 <ul className="space-y-0.5">
                   {leap.signs.map((s) => (

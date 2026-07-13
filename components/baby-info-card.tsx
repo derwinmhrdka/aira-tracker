@@ -5,9 +5,9 @@ import type { TodaySummary } from '@/lib/api-client'
 import { MoodWidget } from './mood-widget'
 
 const VACCINE_STATUS: Record<string, { label: string; className: string }> = {
-  overdue: { label: 'Terlambat', className: 'text-red-600 dark:text-red-400' },
-  due: { label: 'Saatnya', className: 'text-amber-600 dark:text-amber-400' },
-  upcoming: { label: 'Mendatang', className: 'text-primary' },
+  overdue: { label: 'Overdue', className: 'text-red-600 dark:text-red-400' },
+  due: { label: 'Due', className: 'text-amber-600 dark:text-amber-400' },
+  upcoming: { label: 'Upcoming', className: 'text-primary' },
 }
 
 interface BabyInfoCardProps {
