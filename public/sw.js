@@ -1,4 +1,4 @@
-const CACHE_NAME = 'baby-tracker-v7'
+const CACHE_NAME = 'baby-tracker-v8'
 const STATIC_ASSETS = ['/', '/manifest.json', '/icon.svg']
 
 let reminderSettings = {
@@ -33,16 +33,20 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
   if (url.pathname.startsWith('/api/')) return
 
+  // Network-first: always try fresh content when online so deploys show up on reload.
+  // Fall back to cache only when offline.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached
-      return fetch(request).then((response) => {
-        if (!response.ok) return response
-        const clone = response.clone()
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+        }
         return response
       })
-    })
+      .catch(() =>
+        caches.match(request).then((cached) => cached || Response.error())
+      )
   )
 })
 
