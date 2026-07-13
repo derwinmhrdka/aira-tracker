@@ -2,11 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { FeedSide } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
-import { dayKeyWib, periodStartWib } from '@/lib/day-boundary'
+import {
+  dayKeyWib,
+  distributeMinutesByDayWib,
+  endOfTodayWib,
+  periodStartWib,
+} from '@/lib/day-boundary'
 import { diaperEventCounts } from '@/lib/log-parsers'
 
 function hoursBetween(start: Date, end: Date) {
-  return (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+  return hours > 0 ? hours : 0
+}
+
+function positiveMinutes(start: Date, end: Date) {
+  const minutes = (end.getTime() - start.getTime()) / 60000
+  return minutes > 0 ? minutes : 0
 }
 
 export async function GET(request: NextRequest) {
@@ -16,17 +27,33 @@ export async function GET(request: NextRequest) {
       Math.max(7, Number(request.nextUrl.searchParams.get('days') || '7'))
     )
     const since = periodStartWib(days)
+    const until = endOfTodayWib()
+    const now = new Date()
 
     const [diaperLogs, feedingLogs, sleepLogs, growthLogs] = await Promise.all([
       prisma.diaperLog.findMany({
-        where: { timestamp: { gte: since } },
+        where: { timestamp: { gte: since, lt: until } },
       }),
       prisma.feedingLog.findMany({
-        where: { timestampStart: { gte: since } },
+        where: {
+          timestampStart: { lt: until },
+          OR: [
+            { timestampStart: { gte: since } },
+            { timestampEnd: { gte: since } },
+            { timestampEnd: null },
+          ],
+        },
         orderBy: { timestampStart: 'asc' },
       }),
       prisma.sleepLog.findMany({
-        where: { timestampStart: { gte: since } },
+        where: {
+          timestampStart: { lt: until },
+          OR: [
+            { timestampStart: { gte: since } },
+            { timestampEnd: { gte: since } },
+            { timestampEnd: null },
+          ],
+        },
       }),
       prisma.growthLog.findMany({
         orderBy: { date: 'asc' },
@@ -69,24 +96,42 @@ export async function GET(request: NextRequest) {
     }
 
     for (const log of feedingLogs) {
-      const key = dayKeyWib(log.timestampStart)
-      const bucket = dailyMap.get(key)
-      if (!bucket) continue
-      bucket.feed++
-      if (log.timestampEnd) {
+      const startKey = dayKeyWib(log.timestampStart)
+      const startBucket = dailyMap.get(startKey)
+      if (startBucket && log.timestampStart >= since) {
+        startBucket.feed++
+      }
+
+      if (!log.timestampEnd && log.timestampStart < since) continue
+
+      const end = log.timestampEnd ?? now
+      if (end.getTime() <= log.timestampStart.getTime()) continue
+
+      for (const { dayKey, minutes } of distributeMinutesByDayWib(
+        log.timestampStart,
+        end
+      )) {
+        const bucket = dailyMap.get(dayKey)
+        if (!bucket || minutes <= 0) continue
+        bucket.feedDurationMinutes += minutes
         bucket.feedSessionsCompleted++
-        bucket.feedDurationMinutes +=
-          (log.timestampEnd.getTime() - log.timestampStart.getTime()) / 60000
       }
     }
 
     for (const log of sleepLogs) {
-      if (!log.timestampEnd) continue
-      const key = dayKeyWib(log.timestampStart)
-      const bucket = dailyMap.get(key)
-      if (!bucket) continue
-      bucket.sleepSessions++
-      bucket.sleepHours += hoursBetween(log.timestampStart, log.timestampEnd)
+      if (!log.timestampEnd && log.timestampStart < since) continue
+      const end = log.timestampEnd ?? now
+      if (end.getTime() <= log.timestampStart.getTime()) continue
+
+      for (const { dayKey, minutes } of distributeMinutesByDayWib(
+        log.timestampStart,
+        end
+      )) {
+        const bucket = dailyMap.get(dayKey)
+        if (!bucket || minutes <= 0) continue
+        bucket.sleepHours += minutes / 60
+        bucket.sleepSessions++
+      }
     }
 
     const daily = [...dailyMap.entries()].map(([date, counts]) => ({
@@ -112,38 +157,40 @@ export async function GET(request: NextRequest) {
     }))
 
     let totalSleepHours = 0
-    for (const log of sleepLogs) {
-      if (log.timestampEnd) {
-        totalSleepHours += hoursBetween(log.timestampStart, log.timestampEnd)
-      }
+    for (const day of daily) {
+      totalSleepHours += day.sleepHours
     }
 
-    const completedFeeds = feedingLogs.filter((f) => f.timestampEnd)
+    const completedFeeds = feedingLogs.filter(
+      (f) => f.timestampEnd && f.timestampEnd > f.timestampStart
+    )
     let avgFeedingInterval: number | null = null
     let avgFeedingDurationMinutes: number | null = null
     if (completedFeeds.length >= 2) {
       const intervals: number[] = []
       for (let i = 1; i < completedFeeds.length; i++) {
-        intervals.push(
-          hoursBetween(
-            completedFeeds[i - 1].timestampStart,
-            completedFeeds[i].timestampStart
-          )
+        const gap = hoursBetween(
+          completedFeeds[i - 1].timestampStart,
+          completedFeeds[i].timestampStart
         )
+        if (gap > 0) intervals.push(gap)
       }
-      avgFeedingInterval =
-        intervals.reduce((a, b) => a + b, 0) / intervals.length
+      if (intervals.length > 0) {
+        avgFeedingInterval =
+          intervals.reduce((a, b) => a + b, 0) / intervals.length
+      }
     }
     if (completedFeeds.length > 0) {
-      const durations = completedFeeds.map(
-        (f) =>
-          (f.timestampEnd!.getTime() - f.timestampStart.getTime()) / 60000
+      const durations = completedFeeds.map((f) =>
+        positiveMinutes(f.timestampStart, f.timestampEnd!)
       )
       avgFeedingDurationMinutes =
         durations.reduce((a, b) => a + b, 0) / durations.length
     }
 
-    const completedSleeps = sleepLogs.filter((s) => s.timestampEnd)
+    const completedSleeps = sleepLogs.filter(
+      (s) => s.timestampEnd && s.timestampEnd > s.timestampStart
+    )
     let avgSleepHours: number | null = null
     if (completedSleeps.length > 0) {
       const durations = completedSleeps.map((s) =>
@@ -162,7 +209,10 @@ export async function GET(request: NextRequest) {
 
     let feedLeft = 0
     let feedRight = 0
-    for (const log of feedingLogs) {
+    const feedsStartedInPeriod = feedingLogs.filter(
+      (f) => f.timestampStart >= since
+    )
+    for (const log of feedsStartedInPeriod) {
       if (!log.side) continue
       if (log.side === FeedSide.LEFT) feedLeft++
       else if (log.side === FeedSide.RIGHT) feedRight++
@@ -188,7 +238,7 @@ export async function GET(request: NextRequest) {
       period: {
         pup: periodPup,
         pee: periodPee,
-        feed: feedingLogs.length,
+        feed: feedsStartedInPeriod.length,
         sleepHours: Math.round(totalSleepHours * 10) / 10,
       },
       daily,

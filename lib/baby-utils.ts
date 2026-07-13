@@ -38,7 +38,7 @@ export function timeAgoId(iso: string | null | undefined): string {
 }
 
 export function formatDuration(ms: number): string {
-  const totalSec = Math.floor(ms / 1000)
+  const totalSec = Math.max(0, Math.floor(ms / 1000))
   const h = Math.floor(totalSec / 3600)
   const m = Math.floor((totalSec % 3600) / 60)
   const s = totalSec % 60
@@ -47,15 +47,17 @@ export function formatDuration(ms: number): string {
 }
 
 export function formatDurationShort(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
+  const safe = Math.max(0, Math.round(minutes))
+  const h = Math.floor(safe / 60)
+  const m = safe % 60
   if (h > 0) return `${h}j ${m}m`
   return `${m} menit`
 }
 
 export function formatDurationLabel(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
+  const safe = Math.max(0, Math.round(minutes))
+  const h = Math.floor(safe / 60)
+  const m = safe % 60
   if (h > 0 && m > 0) return `${h} jam ${m} menit`
   if (h > 0) return `${h} jam`
   return `${m} menit`

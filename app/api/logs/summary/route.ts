@@ -5,7 +5,12 @@ import { withAuth } from '@/lib/api-helpers'
 import { formatAge } from '@/lib/baby-utils'
 import { getBabyAstrology } from '@/lib/baby-astrology'
 import { getNextVaccine } from '@/lib/immunization-utils'
-import { startOfTodayWib } from '@/lib/day-boundary'
+import {
+  endOfTodayWib,
+  minutesOverlap,
+  sessionOverlapsWindow,
+  startOfTodayWib,
+} from '@/lib/day-boundary'
 import { diaperEventCounts } from '@/lib/log-parsers'
 
 function lastTimestamp(
@@ -33,7 +38,9 @@ function sessionDurationMinutes(
 export async function GET() {
   return withAuth(async () => {
     try {
-      const since = startOfTodayWib()
+      const dayStart = startOfTodayWib()
+      const dayEnd = endOfTodayWib()
+      const overlapWhere = sessionOverlapsWindow(dayStart, dayEnd)
 
       const [
         diaperLogs,
@@ -46,15 +53,15 @@ export async function GET() {
         lastDiaperLog,
       ] = await Promise.all([
         prisma.diaperLog.findMany({
-          where: { timestamp: { gte: since } },
+          where: { timestamp: { gte: dayStart, lt: dayEnd } },
           orderBy: { timestamp: 'desc' },
         }),
         prisma.feedingLog.findMany({
-          where: { timestampStart: { gte: since } },
+          where: overlapWhere,
           orderBy: { timestampStart: 'desc' },
         }),
         prisma.sleepLog.findMany({
-          where: { timestampStart: { gte: since } },
+          where: overlapWhere,
           orderBy: { timestampStart: 'desc' },
         }),
         prisma.feedingLog.findFirst({
@@ -84,29 +91,27 @@ export async function GET() {
         if (log.type === 'GANTI' || String(log.type) === 'GANTI') change++
       }
 
+      const now = new Date()
+
       let totalSleepMinutes = 0
       for (const log of sleepLogs) {
-        if (!log.timestampEnd) continue
-        totalSleepMinutes += Math.round(
-          (log.timestampEnd.getTime() - log.timestampStart.getTime()) / 60000
-        )
-      }
-      if (activeSleep && !activeSleep.timestampEnd) {
-        totalSleepMinutes += Math.round(
-          (Date.now() - activeSleep.timestampStart.getTime()) / 60000
+        const end = log.timestampEnd ?? now
+        totalSleepMinutes += minutesOverlap(
+          log.timestampStart,
+          end,
+          dayStart,
+          dayEnd
         )
       }
 
       let totalFeedingMinutes = 0
       for (const log of feedingLogs) {
-        if (!log.timestampEnd) continue
-        totalFeedingMinutes += Math.round(
-          (log.timestampEnd.getTime() - log.timestampStart.getTime()) / 60000
-        )
-      }
-      if (activeFeeding && !activeFeeding.timestampEnd) {
-        totalFeedingMinutes += Math.round(
-          (Date.now() - activeFeeding.timestampStart.getTime()) / 60000
+        const end = log.timestampEnd ?? now
+        totalFeedingMinutes += minutesOverlap(
+          log.timestampStart,
+          end,
+          dayStart,
+          dayEnd
         )
       }
 

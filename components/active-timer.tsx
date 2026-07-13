@@ -21,7 +21,7 @@ export function ActiveTimer({ type, startTime, active, onClick }: ActiveTimerPro
     }
 
     const tick = () => {
-      setElapsed(Date.now() - new Date(startTime).getTime())
+      setElapsed(Math.max(0, Date.now() - new Date(startTime).getTime()))
     }
     tick()
     const id = setInterval(tick, 1000)
