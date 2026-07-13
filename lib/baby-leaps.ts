@@ -7,6 +7,8 @@ export type BabyLeap = {
   startWeek: number
   endWeek: number
   hint: string
+  signs: string[]
+  tips: string[]
 }
 
 export const BABY_LEAPS: BabyLeap[] = [
@@ -18,6 +20,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 4,
     endWeek: 5,
     hint: 'Lebih sensitif terhadap cahaya, suara, dan sentuhan',
+    signs: [
+      'Lebih rewel / mudah menangis',
+      'Lebih clingy ingin digendong',
+      'Tidur lebih gelisah',
+      'Lebih sensitif suara & cahaya',
+    ],
+    tips: [
+      'Kurangi stimulasi berlebih (lampu, suara keras)',
+      'Kontak kulit & gendongan lebih sering',
+      'Rutin tidur & menyusui tetap dijaga',
+    ],
   },
   {
     number: 2,
@@ -27,6 +40,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 7,
     endWeek: 9,
     hint: 'Mulai mengenali pola sederhana di sekitarnya',
+    signs: [
+      'Menatap lebih lama ke wajah / pola',
+      'Lebih fussy tanpa sebab jelas',
+      'Lebih sering ingin dekat orang tua',
+      'Nafsu makan bisa naik-turun',
+    ],
+    tips: [
+      'Tunjukkan pola sederhana (garis, wajah, mainan kontras)',
+      'Ngobrol & nyanyi dengan ritme tetap',
+      'Sabar — fussy biasanya sementara',
+    ],
   },
   {
     number: 3,
@@ -36,6 +60,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 11,
     endWeek: 12,
     hint: 'Lebih mudah mengikuti gerakan dan suara yang mulus',
+    signs: [
+      'Mengikuti gerakan mata lebih mulus',
+      'Lebih mudah “tersinggung”',
+      'Menolak digendong lalu minta lagi',
+      'Suara / tangisan berubah-ubah',
+    ],
+    tips: [
+      'Gerakan gendong yang lembut & konsisten',
+      'Main kejar pandang / goyang pelan',
+      'Hindari jadwal yang terlalu padat',
+    ],
   },
   {
     number: 4,
@@ -45,6 +80,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 14,
     endWeek: 19,
     hint: 'Mulai paham sebab-akibat sederhana',
+    signs: [
+      'Lebih penasaran menggapai benda',
+      'Menangis bila rutin berubah',
+      'Lebih banyak “eksperimen” suara',
+      'Tidur siang bisa berantakan',
+    ],
+    tips: [
+      'Main sebab-akibat sederhana (kerincing, tombol bunyi)',
+      'Respons cepat saat dipanggil / digapai',
+      'Pertahankan ritual tidur yang sama',
+    ],
   },
   {
     number: 5,
@@ -54,6 +100,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 22,
     endWeek: 26,
     hint: 'Lebih clingy; mulai sadar jarak & orang tua',
+    signs: [
+      'Separation anxiety meningkat',
+      'Hanya mau digendong orang tertentu',
+      'Takut orang / tempat baru',
+      'Menangis saat ditinggal sebentar',
+    ],
+    tips: [
+      'Latihan perpisahan singkat & hangat',
+      'Selalu bilang “sebentar ya” lalu kembali',
+      'Bawa “comfort object” jika sudah aman usianya',
+    ],
   },
   {
     number: 6,
@@ -63,6 +120,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 33,
     endWeek: 37,
     hint: 'Mulai mengelompokkan benda dan kata “tidak”',
+    signs: [
+      'Mulai bilang / paham “tidak”',
+      'Mengelompokkan mainan mirip',
+      'Lebih keras kepala',
+      'Frustrasi saat main tidak “pas”',
+    ],
+    tips: [
+      'Main sortir sederhana (warna / bentuk)',
+      'Beri pilihan terbatas (2 opsi)',
+      'Tetap konsisten pada batas aman',
+    ],
   },
   {
     number: 7,
@@ -72,6 +140,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 41,
     endWeek: 47,
     hint: 'Belajar tindakan berurutan & meniru',
+    signs: [
+      'Meniru gerakan sederhana',
+      'Main “urutan” (ambil–masukkan–ambil)',
+      'Lebih mudah frustasi bila urutan gagal',
+      'Ingin ikut rutin harian',
+    ],
+    tips: [
+      'Ajarkan langkah demi langkah (cuci tangan, makan)',
+      'Nyanyi lagu dengan gerakan berurut',
+      'Puji usaha, bukan hanya hasil',
+    ],
   },
   {
     number: 8,
@@ -81,6 +160,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 50,
     endWeek: 54,
     hint: 'Mencapai tujuan dengan cara yang lebih fleksibel',
+    signs: [
+      'Lebih gigih menyelesaikan tugas',
+      'Mencoba cara lain jika gagal',
+      'Mood naik-turun saat belajar',
+      'Lebih mandiri tapi tetap clingy',
+    ],
+    tips: [
+      'Beri waktu mencoba sendiri dulu',
+      'Bantu sedikit saja saat stuck',
+      'Jaga rutinitas tidur tetap stabil',
+    ],
   },
   {
     number: 9,
@@ -90,6 +180,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 59,
     endWeek: 65,
     hint: 'Mulai paham aturan sederhana & empati',
+    signs: [
+      'Mulai “tes” aturan orang tua',
+      'Reaksi lebih emosional',
+      'Mulai peduli reaksi orang lain',
+      'Lebih sering “negosiasi”',
+    ],
+    tips: [
+      'Aturan singkat, jelas, konsisten',
+      'Contohkan empati (“teman sedih ya”)',
+      'Hindari hukuman kasar; arahkan ulang',
+    ],
   },
   {
     number: 10,
@@ -99,6 +200,17 @@ export const BABY_LEAPS: BabyLeap[] = [
     startWeek: 70,
     endWeek: 76,
     hint: 'Sadar sistem yang lebih kompleks di sekitarnya',
+    signs: [
+      'Lebih paham “aturan rumah”',
+      'Ingin ikut keputusan kecil',
+      'Bisa lebih bossy / opinionated',
+      'Bahasa & imajinasi berkembang cepat',
+    ],
+    tips: [
+      'Libatkan dalam rutin sederhana',
+      'Jelaskan “kenapa” dengan singkat',
+      'Beri ruang eksplorasi aman',
+    ],
   },
 ]
 
