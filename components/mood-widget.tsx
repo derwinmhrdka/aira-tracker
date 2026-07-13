@@ -110,18 +110,16 @@ export function MoodWidget({ onLogged }: MoodWidgetProps) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={saving}
-        className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-1.5 text-xs active:scale-[0.98]"
+        className="inline-flex min-w-[44px] flex-col items-center justify-center rounded-xl border border-border bg-secondary/50 px-2 py-1 active:scale-[0.98]"
         aria-expanded={open}
         aria-label="Pilih mood"
       >
-        <span className="text-base leading-none">
+        <span className="text-xl leading-none">
           {latestMeta?.emoji ?? '🙂'}
         </span>
-        {latest && (
-          <span className="max-w-[52px] truncate text-[10px] text-muted-foreground">
-            {timeAgoId(latest.timestamp)}
-          </span>
-        )}
+        <span className="mt-0.5 max-w-[56px] truncate text-[9px] leading-tight text-muted-foreground">
+          {latest ? timeAgoId(latest.timestamp) : 'Mood'}
+        </span>
       </button>
     </div>
   )
