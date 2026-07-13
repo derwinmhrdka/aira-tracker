@@ -190,6 +190,11 @@ export const api = {
 
   getStats: (days = 7) => apiFetch<StatsResponse>(`/api/stats?days=${days}`),
 
+  getTimeline: (date?: string) => {
+    const qs = date ? `?date=${encodeURIComponent(date)}` : ''
+    return apiFetch<TimelineResponse>(`/api/timeline${qs}`)
+  },
+
   getGrowth: () => apiFetch<GrowthLog[]>('/api/growth'),
 
   createGrowth: (data: CreateGrowthInput) =>
@@ -533,6 +538,28 @@ export interface StatsResponse {
     feedSideLeft: number
     feedSideRight: number
   }
+}
+
+export interface TimelineEvent {
+  id: string
+  kind: 'sleep' | 'feeding' | 'diaper' | 'mood'
+  label: string
+  emoji: string
+  start: string
+  end: string | null
+  start_min: number
+  end_min: number | null
+  ongoing: boolean
+}
+
+export interface TimelineResponse {
+  date: string
+  label: string
+  prev_date: string
+  next_date: string | null
+  is_today: boolean
+  now_min: number | null
+  events: TimelineEvent[]
 }
 
 export interface GrowthLog {

@@ -6,6 +6,7 @@ import { GrowthSheet } from './growth-sheet'
 import { KmsGrowthChart } from './kms-growth-chart'
 import { KmsStatusBadge } from './kms-status-badge'
 import { ActivityTrendsChart } from './activity-trends-chart'
+import { DailyTimeline } from './daily-timeline'
 import { ConfirmDeleteSheet } from './confirm-delete-sheet'
 import { Toast } from './toast'
 import { ErrorBanner } from './error-banner'
@@ -230,6 +231,8 @@ export function StatsPage() {
           <ActivityTrendsChart data={stats?.daily ?? []} />
         )}
       </div>
+
+      <DailyTimeline />
 
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">

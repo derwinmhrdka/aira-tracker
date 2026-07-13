@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { api, type MoodLog } from '@/lib/api-client'
 import { playSoundEffect } from '@/lib/sounds'
 import { timeAgoId } from '@/lib/baby-utils'
@@ -20,14 +20,16 @@ interface MoodWidgetProps {
 
 export function MoodWidget({ onLogged }: MoodWidgetProps) {
   const [latest, setLatest] = useState<MoodLog | null>(null)
-  const [saving, setSaving] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   const loadLatest = useCallback(async () => {
     try {
       const data = await api.getLatestMood()
       setLatest(data.latest)
     } catch {
-      // optional widget — ignore
+      // optional widget
     }
   }, [])
 
@@ -35,18 +37,28 @@ export function MoodWidget({ onLogged }: MoodWidgetProps) {
     loadLatest()
   }, [loadLatest])
 
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [open])
+
   const handleTap = async (mood: MoodLog['mood']) => {
     if (saving) return
-    setSaving(mood)
+    setSaving(true)
     try {
       const log = await api.createMood(mood)
       setLatest(log)
       playSoundEffect('click')
+      setOpen(false)
       onLogged?.()
     } catch {
-      // keep previous latest
+      // keep previous
     } finally {
-      setSaving(null)
+      setSaving(false)
     }
   }
 
@@ -55,42 +67,60 @@ export function MoodWidget({ onLogged }: MoodWidgetProps) {
     : null
 
   return (
-    <div className="mb-4 rounded-2xl border border-border bg-card p-3 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="font-heading text-sm font-semibold text-foreground">
-          Mood sekarang
-        </h2>
-        {latestMeta && (
-          <p className="text-[11px] text-muted-foreground">
-            {latestMeta.emoji} {timeAgoId(latest.timestamp)}
-          </p>
+    <div ref={rootRef} className="relative mb-3 flex justify-end">
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+            className="absolute bottom-full right-0 z-30 mb-2 flex items-center gap-0.5 rounded-full border border-border bg-card px-1.5 py-1 shadow-lg"
+          >
+            {MOODS.map((mood) => {
+              const active = latest?.mood === mood.id
+              return (
+                <motion.button
+                  key={mood.id}
+                  type="button"
+                  whileHover={{ scale: 1.18, y: -4 }}
+                  whileTap={{ scale: 0.92 }}
+                  disabled={saving}
+                  onClick={() => handleTap(mood.id)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-xl transition-colors ${
+                    active ? 'bg-sky-100 dark:bg-sky-950/60' : 'hover:bg-secondary'
+                  }`}
+                  aria-label={mood.label}
+                  title={mood.label}
+                >
+                  {mood.emoji}
+                </motion.button>
+              )
+            })}
+          </motion.div>
         )}
-      </div>
-      <div className="flex justify-between gap-1">
-        {MOODS.map((mood) => {
-          const active = latest?.mood === mood.id
-          return (
-            <motion.button
-              key={mood.id}
-              type="button"
-              whileTap={{ scale: 0.9 }}
-              disabled={!!saving}
-              onClick={() => handleTap(mood.id)}
-              className={`flex flex-1 flex-col items-center rounded-xl py-2 transition-colors ${
-                active
-                  ? 'bg-sky-100 dark:bg-sky-950/50'
-                  : 'bg-secondary/60 hover:bg-secondary'
-              } ${saving === mood.id ? 'opacity-60' : ''}`}
-              aria-label={mood.label}
-            >
-              <span className="text-2xl">{mood.emoji}</span>
-              <span className="mt-0.5 text-[9px] text-muted-foreground">
-                {mood.label}
-              </span>
-            </motion.button>
-          )
-        })}
-      </div>
+      </AnimatePresence>
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={saving}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm active:scale-[0.98]"
+        aria-expanded={open}
+        aria-label="Pilih mood"
+      >
+        <span className="text-base leading-none">
+          {latestMeta?.emoji ?? '🙂'}
+        </span>
+        <span className="font-medium text-foreground">
+          {latestMeta?.label ?? 'Mood'}
+        </span>
+        {latest && (
+          <span className="text-[10px] text-muted-foreground">
+            · {timeAgoId(latest.timestamp)}
+          </span>
+        )}
+      </button>
     </div>
   )
 }
