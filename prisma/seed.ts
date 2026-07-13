@@ -90,6 +90,39 @@ async function main() {
     })
     console.log(`Seeded ${DEVELOPMENT_ITEMS.length} development items`)
   }
+
+  const titleCount = await prisma.title.count()
+  if (titleCount === 0) {
+    await prisma.title.createMany({
+      data: [
+        {
+          category: 'physical',
+          name: 'Snowball Roller',
+          emoji: '⛄',
+          description: 'Bisa berguling/bergerak aktif sendiri',
+        },
+        {
+          category: 'cognitive',
+          name: 'Little Snowflake Thinker',
+          emoji: '❄️',
+          description: 'Mulai memahami sebab-akibat sederhana',
+        },
+        {
+          category: 'linguistic',
+          name: 'Winter Whisperer',
+          emoji: '🌬️',
+          description: 'Mengucapkan kata pertama yang jelas',
+        },
+        {
+          category: 'social',
+          name: 'Cozy Cuddler',
+          emoji: '🤗',
+          description: 'Mulai tersenyum & merespons secara sosial',
+        },
+      ],
+    })
+    console.log('Seeded 4 titles')
+  }
 }
 
 main()

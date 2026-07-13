@@ -1,7 +1,7 @@
 'use client'
 
 import type { TodaySummary } from '@/lib/api-client'
-import { timeAgoId, formatDurationShort } from '@/lib/baby-utils'
+import { formatDurationShort } from '@/lib/baby-utils'
 
 interface InsightsCardProps {
   summary: TodaySummary | null
@@ -12,12 +12,6 @@ export function InsightsCard({ summary }: InsightsCardProps) {
 
   const insights: { icon: string; text: string }[] = []
 
-  if (summary.lastTimes.feed) {
-    insights.push({
-      icon: '🍼',
-      text: `Terakhir menyusui ${timeAgoId(summary.lastTimes.feed)}`,
-    })
-  }
   if ((summary.totalFeedingMinutes ?? 0) > 0) {
     insights.push({
       icon: '🍼',
@@ -28,12 +22,6 @@ export function InsightsCard({ summary }: InsightsCardProps) {
     insights.push({
       icon: '😴',
       text: `Tidur hari ini ${formatDurationShort(summary.totalSleepMinutes ?? 0)}`,
-    })
-  }
-  if (summary.lastTimes.pup) {
-    insights.push({
-      icon: '💩',
-      text: `Terakhir pup ${timeAgoId(summary.lastTimes.pup)}`,
     })
   }
 

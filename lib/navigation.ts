@@ -7,6 +7,7 @@ export type SubPage =
   | 'development'
   | 'profile'
   | 'milestones'
+  | 'achievements'
   | 'events'
   | 'settings'
 
@@ -19,6 +20,7 @@ export const SUB_PAGES: SubPage[] = [
   'development',
   'profile',
   'milestones',
+  'achievements',
   'events',
   'settings',
 ]

@@ -18,6 +18,7 @@ import { ImmunizationsPage } from '@/components/immunizations-page'
 import { DevelopmentPage } from '@/components/development-page'
 import { ProfilePage } from '@/components/profile-page'
 import { MilestonesPage } from '@/components/milestones-page'
+import { AchievementsPage } from '@/components/achievements-page'
 import { EventsPage } from '@/components/events-page'
 import { GalleryPage } from '@/components/gallery-page'
 import { SettingsPage } from '@/components/settings-page'
@@ -84,6 +85,9 @@ export function AppShell() {
         )}
         {currentPage === 'profile' && <ProfilePage onBack={goBack} />}
         {currentPage === 'milestones' && <MilestonesPage onBack={goBack} />}
+        {currentPage === 'achievements' && (
+          <AchievementsPage onBack={goBack} />
+        )}
         {currentPage === 'events' && <EventsPage onBack={goBack} />}
         {currentPage === 'settings' && <SettingsPage onBack={goBack} />}
       </div>

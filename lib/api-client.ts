@@ -238,6 +238,23 @@ export const api = {
 
   getMilestones: () => apiFetch<Milestone[]>('/api/milestones'),
 
+  getTitles: () => apiFetch<TitleItem[]>('/api/titles'),
+
+  toggleTitle: (id: string) =>
+    apiFetch<TitleItem>('/api/titles', {
+      method: 'PATCH',
+      body: JSON.stringify({ id }),
+    }),
+
+  getLatestMood: () =>
+    apiFetch<{ latest: MoodLog | null }>('/api/mood?latest=1'),
+
+  createMood: (mood: MoodLog['mood']) =>
+    apiFetch<MoodLog>('/api/mood', {
+      method: 'POST',
+      body: JSON.stringify({ mood }),
+    }),
+
   createMilestone: (data: CreateMilestoneInput) =>
     apiFetch('/api/milestones', { method: 'POST', body: JSON.stringify(data) }),
 
@@ -578,6 +595,23 @@ export interface Milestone {
   title: string
   description?: string | null
   photo_url?: string | null
+}
+
+export interface TitleItem {
+  id: string
+  category: string
+  name: string
+  emoji: string
+  description: string
+  is_unlocked: boolean
+  unlocked_at: string | null
+}
+
+export interface MoodLog {
+  id: string
+  timestamp: string
+  mood: 'happy' | 'calm' | 'fussy' | 'crying' | 'sleepy'
+  logged_by?: string | null
 }
 
 export interface CreateMilestoneInput {

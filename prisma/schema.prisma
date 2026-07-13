@@ -197,3 +197,25 @@ model PushSubscription {
 
   @@map("push_subscriptions")
 }
+
+model MoodLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  mood      String
+  loggedBy  String?  @map("logged_by")
+
+  @@index([timestamp])
+  @@map("mood_logs")
+}
+
+model Title {
+  id          String    @id @default(cuid())
+  category    String
+  name        String
+  emoji       String
+  description String
+  isUnlocked  Boolean   @default(false) @map("is_unlocked")
+  unlockedAt  DateTime? @map("unlocked_at")
+
+  @@map("titles")
+}

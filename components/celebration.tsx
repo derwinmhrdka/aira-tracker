@@ -2,7 +2,11 @@
 
 import { motion } from 'framer-motion'
 
-export function Celebration() {
+interface CelebrationProps {
+  message?: string
+}
+
+export function Celebration({ message = 'Milestone tercapai! 🎊' }: CelebrationProps) {
   const flakes = Array.from({ length: 20 }, (_, i) => i)
 
   return (
@@ -40,9 +44,9 @@ export function Celebration() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="absolute mt-32 font-heading text-xl font-bold text-primary"
+        className="absolute mt-32 max-w-xs px-4 text-center font-heading text-xl font-bold text-primary"
       >
-        Milestone tercapai! 🎊
+        {message}
       </motion.p>
     </div>
   )

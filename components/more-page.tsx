@@ -7,6 +7,7 @@ import {
   Syringe,
   ListChecks,
   Trophy,
+  Award,
   CalendarDays,
   Settings,
   Heart,
@@ -77,6 +78,14 @@ const MENU_ITEMS: {
     desc: 'Pencapaian bayi',
     color: 'bg-amber-100 border-amber-200/80 dark:bg-amber-950/60 dark:border-amber-800/60',
     iconColor: 'text-amber-600 dark:text-amber-300',
+  },
+  {
+    id: 'achievements',
+    icon: Award,
+    label: 'Achievements',
+    desc: 'Title & badge bayi',
+    color: 'bg-cyan-100 border-cyan-200/80 dark:bg-cyan-950/60 dark:border-cyan-800/60',
+    iconColor: 'text-cyan-600 dark:text-cyan-300',
   },
   {
     id: 'events',
