@@ -57,24 +57,29 @@ export async function GET(request: NextRequest) {
       ],
     }
 
-    const [sleepLogs, feedingLogs, diaperLogs, moodLogs] = await Promise.all([
-      prisma.sleepLog.findMany({
-        where: overlapWhere,
-        orderBy: { timestampStart: 'asc' },
-      }),
-      prisma.feedingLog.findMany({
-        where: overlapWhere,
-        orderBy: { timestampStart: 'asc' },
-      }),
-      prisma.diaperLog.findMany({
-        where: { timestamp: { gte: dayStart, lt: dayEnd } },
-        orderBy: { timestamp: 'asc' },
-      }),
-      prisma.moodLog.findMany({
-        where: { timestamp: { gte: dayStart, lt: dayEnd } },
-        orderBy: { timestamp: 'asc' },
-      }),
-    ])
+    const [sleepLogs, feedingLogs, diaperLogs, moodLogsInDay, prevMood] =
+      await Promise.all([
+        prisma.sleepLog.findMany({
+          where: overlapWhere,
+          orderBy: { timestampStart: 'asc' },
+        }),
+        prisma.feedingLog.findMany({
+          where: overlapWhere,
+          orderBy: { timestampStart: 'asc' },
+        }),
+        prisma.diaperLog.findMany({
+          where: { timestamp: { gte: dayStart, lt: dayEnd } },
+          orderBy: { timestamp: 'asc' },
+        }),
+        prisma.moodLog.findMany({
+          where: { timestamp: { gte: dayStart, lt: dayEnd } },
+          orderBy: { timestamp: 'asc' },
+        }),
+        prisma.moodLog.findFirst({
+          where: { timestamp: { lt: dayStart } },
+          orderBy: { timestamp: 'desc' },
+        }),
+      ])
 
     type TimelineEvent = {
       id: string
@@ -174,18 +179,56 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    for (const log of moodLogs) {
-      const min = minutesFromDayStart(log.timestamp, dayStart)
-      events.push({
+    // Mood is a range: lasts from set time until the next mood (or now / end of day).
+    const moodSegments: {
+      id: string
+      mood: string
+      start: Date
+      end: Date
+      ongoing: boolean
+    }[] = []
+
+    const rangeEndCap = isToday ? now : dayEnd
+
+    if (prevMood) {
+      const firstChange = moodLogsInDay[0]?.timestamp ?? rangeEndCap
+      const clipped = clipRange(dayStart, firstChange, dayStart, dayEnd)
+      if (clipped && clipped.end.getTime() > clipped.start.getTime()) {
+        moodSegments.push({
+          id: `mood-carry-${prevMood.id}`,
+          mood: prevMood.mood,
+          start: clipped.start,
+          end: clipped.end,
+          ongoing: !moodLogsInDay[0] && isToday,
+        })
+      }
+    }
+
+    for (let i = 0; i < moodLogsInDay.length; i++) {
+      const log = moodLogsInDay[i]
+      const nextStart = moodLogsInDay[i + 1]?.timestamp ?? rangeEndCap
+      const clipped = clipRange(log.timestamp, nextStart, dayStart, dayEnd)
+      if (!clipped || clipped.end.getTime() <= clipped.start.getTime()) continue
+      moodSegments.push({
         id: `mood-${log.id}`,
+        mood: log.mood,
+        start: clipped.start,
+        end: clipped.end,
+        ongoing: i === moodLogsInDay.length - 1 && isToday,
+      })
+    }
+
+    for (const seg of moodSegments) {
+      events.push({
+        id: seg.id,
         kind: 'mood',
-        label: log.mood,
-        emoji: MOOD_EMOJI[log.mood] ?? '🙂',
-        start: log.timestamp.toISOString(),
-        end: null,
-        start_min: min,
-        end_min: null,
-        ongoing: false,
+        label: seg.mood,
+        emoji: MOOD_EMOJI[seg.mood] ?? '🙂',
+        start: seg.start.toISOString(),
+        end: seg.end.toISOString(),
+        start_min: minutesFromDayStart(seg.start, dayStart),
+        end_min: minutesFromDayStart(seg.end, dayStart),
+        ongoing: seg.ongoing,
       })
     }
 

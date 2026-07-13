@@ -12,6 +12,7 @@ import { FeedingEndSheet } from './feeding-end-sheet'
 import { QuickFeedSheet } from './quick-feed-sheet'
 import { ActiveTimer } from './active-timer'
 import { BabyInfoCard } from './baby-info-card'
+import { BabyLeapCard } from './baby-leap-card'
 import { BabyProfileSheet } from './baby-profile-sheet'
 import { InsightsCard } from './insights-card'
 import { NextEventCard } from './next-event-card'
@@ -317,6 +318,8 @@ export function Dashboard() {
 
       <div className="px-4">
         <BabyInfoCard summary={summary} onClick={() => setProfileOpen(true)} />
+
+        <BabyLeapCard birthDate={summary?.baby?.birth_date} />
 
         <NextEventCard />
 
