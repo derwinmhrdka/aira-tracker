@@ -67,7 +67,12 @@ export function MoodWidget({ onLogged }: MoodWidgetProps) {
     : null
 
   return (
-    <div ref={rootRef} className="relative mb-3 flex justify-end">
+    <div
+      ref={rootRef}
+      className="relative shrink-0"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
       <AnimatePresence>
         {open && (
           <motion.div
@@ -105,19 +110,16 @@ export function MoodWidget({ onLogged }: MoodWidgetProps) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={saving}
-        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm active:scale-[0.98]"
+        className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/50 px-2 py-1.5 text-xs active:scale-[0.98]"
         aria-expanded={open}
         aria-label="Pilih mood"
       >
         <span className="text-base leading-none">
           {latestMeta?.emoji ?? '🙂'}
         </span>
-        <span className="font-medium text-foreground">
-          {latestMeta?.label ?? 'Mood'}
-        </span>
         {latest && (
-          <span className="text-[10px] text-muted-foreground">
-            · {timeAgoId(latest.timestamp)}
+          <span className="max-w-[52px] truncate text-[10px] text-muted-foreground">
+            {timeAgoId(latest.timestamp)}
           </span>
         )}
       </button>

@@ -515,6 +515,7 @@ export interface StatsResponse {
   period: {
     pup: number
     pee: number
+    change: number
     feed: number
     sleepHours: number
   }
@@ -523,6 +524,7 @@ export interface StatsResponse {
     label: string
     pup: number
     pee: number
+    change: number
     feed: number
     sleepHours: number
     avgFeedingDurationMinutes: number | null
@@ -542,7 +544,7 @@ export interface StatsResponse {
 
 export interface TimelineEvent {
   id: string
-  kind: 'sleep' | 'feeding' | 'diaper' | 'mood'
+  kind: 'sleep' | 'feeding' | 'pup' | 'pee' | 'change' | 'mood'
   label: string
   emoji: string
   start: string

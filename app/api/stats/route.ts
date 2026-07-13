@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
       {
         pup: number
         pee: number
+        change: number
         feed: number
         sleepHours: number
         feedDurationMinutes: number
@@ -78,6 +79,7 @@ export async function GET(request: NextRequest) {
       dailyMap.set(dayKeyWib(d), {
         pup: 0,
         pee: 0,
+        change: 0,
         feed: 0,
         sleepHours: 0,
         feedDurationMinutes: 0,
@@ -93,6 +95,7 @@ export async function GET(request: NextRequest) {
       const counts = diaperEventCounts(log.type)
       bucket.pup += counts.pup
       bucket.pee += counts.pee
+      if (String(log.type).toUpperCase() === 'GANTI') bucket.change++
     }
 
     for (const log of feedingLogs) {
@@ -142,6 +145,7 @@ export async function GET(request: NextRequest) {
       }),
       pup: counts.pup,
       pee: counts.pee,
+      change: counts.change,
       feed: counts.feed,
       sleepHours: Math.round(counts.sleepHours * 10) / 10,
       avgFeedingDurationMinutes:
@@ -201,10 +205,12 @@ export async function GET(request: NextRequest) {
 
     let periodPup = 0
     let periodPee = 0
+    let periodChange = 0
     for (const log of diaperLogs) {
       const counts = diaperEventCounts(log.type)
       periodPup += counts.pup
       periodPee += counts.pee
+      if (String(log.type).toUpperCase() === 'GANTI') periodChange++
     }
 
     let feedLeft = 0
@@ -238,6 +244,7 @@ export async function GET(request: NextRequest) {
       period: {
         pup: periodPup,
         pee: periodPee,
+        change: periodChange,
         feed: feedsStartedInPeriod.length,
         sleepHours: Math.round(totalSleepHours * 10) / 10,
       },

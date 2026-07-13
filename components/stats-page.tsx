@@ -127,7 +127,7 @@ export function StatsPage() {
     }
   }
 
-  const period = stats?.period ?? { pup: 0, pee: 0, feed: 0, sleepHours: 0 }
+  const period = stats?.period ?? { pup: 0, pee: 0, change: 0, feed: 0, sleepHours: 0 }
   const growth = stats?.growth ?? []
   const growthHistory = useMemo(
     () => [...growth].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
@@ -138,7 +138,14 @@ export function StatsPage() {
   const dailySummaryRows = useMemo(
     () =>
       [...(stats?.daily ?? [])]
-        .filter((d) => d.pup > 0 || d.pee > 0 || d.feed > 0 || d.sleepHours > 0)
+        .filter(
+          (d) =>
+            d.pup > 0 ||
+            d.pee > 0 ||
+            (d.change ?? 0) > 0 ||
+            d.feed > 0 ||
+            d.sleepHours > 0
+        )
         .sort((a, b) => b.date.localeCompare(a.date)),
     [stats?.daily]
   )
@@ -196,16 +203,17 @@ export function StatsPage() {
           Total {days} hari
         </h2>
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+            {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="h-20 animate-pulse rounded-lg bg-secondary" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
             {[
               { emoji: '💩', value: period.pup, label: 'Pup' },
               { emoji: '💧', value: period.pee, label: 'Pee' },
+              { emoji: '🩲', value: period.change ?? 0, label: 'Popok' },
               { emoji: '🍼', value: period.feed, label: 'Susu' },
               { emoji: '😴', value: `${period.sleepHours}j`, label: 'Tidur' },
             ].map((item) => (
@@ -450,6 +458,7 @@ export function StatsPage() {
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                     <span>💩 {d.pup}</span>
                     <span>💧 {d.pee}</span>
+                    <span>🩲 {d.change ?? 0}</span>
                     <span>🍼 {d.feed}</span>
                     <span>😴 {d.sleepHours}j</span>
                   </div>

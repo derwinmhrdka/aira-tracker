@@ -14,7 +14,6 @@ import { ActiveTimer } from './active-timer'
 import { BabyInfoCard } from './baby-info-card'
 import { BabyProfileSheet } from './baby-profile-sheet'
 import { InsightsCard } from './insights-card'
-import { MoodWidget } from './mood-widget'
 import { NextEventCard } from './next-event-card'
 import { OnboardingSheet } from './onboarding-sheet'
 import { playSoundEffect } from '@/lib/sounds'
@@ -335,8 +334,6 @@ export function Dashboard() {
         />
 
         <InsightsCard summary={summary} />
-
-        <MoodWidget />
 
         <div className="pb-4">
           <DailySummary

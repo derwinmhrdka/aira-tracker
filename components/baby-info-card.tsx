@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import type { TodaySummary } from '@/lib/api-client'
+import { MoodWidget } from './mood-widget'
 
 const VACCINE_STATUS: Record<string, { label: string; className: string }> = {
   overdue: { label: 'Terlambat', className: 'text-red-600 dark:text-red-400' },
@@ -22,61 +23,47 @@ export function BabyInfoCard({ summary, onClick }: BabyInfoCardProps) {
     : null
 
   return (
-    <motion.button
-      type="button"
+    <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      onClick={onClick}
-      className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left shadow-sm transition-colors hover:bg-secondary/30 active:scale-[0.99]"
-      aria-label="Lihat profil bayi"
+      className="mb-4 flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm"
     >
-      {summary.baby.photo_url ? (
-        <img
-          src={summary.baby.photo_url}
-          alt={summary.baby.name}
-          className="h-12 w-12 rounded-full object-cover ring-2 ring-primary/30"
-        />
-      ) : (
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-xl">
-          👶
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="font-heading truncate text-base font-bold text-foreground">
-          {summary.baby.name}
-        </p>
-        <p className="text-xs text-muted-foreground">{summary.baby.age_label}</p>
-        {(summary.baby.horoscope || summary.baby.shio) && (
-          <p className="truncate text-[10px] text-muted-foreground">
-            {summary.baby.horoscope_emoji && summary.baby.horoscope
-              ? `${summary.baby.horoscope_emoji} ${summary.baby.horoscope}`
-              : null}
-            {summary.baby.horoscope && summary.baby.shio ? ' · ' : null}
-            {summary.baby.shio ?? null}
-          </p>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:opacity-90 active:scale-[0.99]"
+        aria-label="Lihat profil bayi"
+      >
+        {summary.baby.photo_url ? (
+          <img
+            src={summary.baby.photo_url}
+            alt={summary.baby.name}
+            className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-primary/30"
+          />
+        ) : (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-xl">
+            👶
+          </div>
         )}
-      </div>
-      {summary.nextVaccine ? (
-        <div
-          className={`shrink-0 rounded-xl px-2.5 py-1.5 text-center ${
-            summary.nextVaccine.status === 'overdue'
-              ? 'bg-red-100 dark:bg-red-950/30'
-              : 'bg-secondary'
-          }`}
-        >
-          <p className="text-[10px] text-muted-foreground">💉</p>
-          <p className="max-w-[72px] truncate text-[10px] font-semibold text-foreground">
-            {summary.nextVaccine.name}
+        <div className="min-w-0 flex-1">
+          <p className="font-heading truncate text-base font-bold text-foreground">
+            {summary.baby.name}
           </p>
-          {vaccineStatus && (
-            <p className={`text-[10px] font-semibold ${vaccineStatus.className}`}>
-              {vaccineStatus.label}
+          <p className="text-xs text-muted-foreground">{summary.baby.age_label}</p>
+          {summary.nextVaccine && (
+            <p
+              className={`mt-0.5 truncate text-[10px] font-medium ${
+                vaccineStatus?.className ?? 'text-muted-foreground'
+              }`}
+            >
+              💉 {summary.nextVaccine.name}
+              {vaccineStatus ? ` · ${vaccineStatus.label}` : ''}
             </p>
           )}
         </div>
-      ) : (
-        <span className="shrink-0 text-lg text-muted-foreground">›</span>
-      )}
-    </motion.button>
+      </button>
+
+      <MoodWidget />
+    </motion.div>
   )
 }

@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 
     type TimelineEvent = {
       id: string
-      kind: 'sleep' | 'feeding' | 'diaper' | 'mood'
+      kind: 'sleep' | 'feeding' | 'pup' | 'pee' | 'change' | 'mood'
       label: string
       emoji: string
       start: string
@@ -126,33 +126,52 @@ export async function GET(request: NextRequest) {
 
     for (const log of diaperLogs) {
       const counts = diaperEventCounts(log.type)
-      let label = 'Popok'
-      let emoji = '🩲'
-      if (log.type === 'PUP' || (counts.pup && !counts.pee)) {
-        label = 'Pup'
-        emoji = '💩'
-      } else if (log.type === 'PIPIS' || (!counts.pup && counts.pee)) {
-        label = 'Pee'
-        emoji = '💧'
-      } else if (log.type === 'KEDUANYA' || (counts.pup && counts.pee)) {
-        label = 'Pupee'
-        emoji = '💩💧'
-      } else if (log.type === 'GANTI' || String(log.type) === 'GANTI') {
-        label = 'Ganti popok'
-        emoji = '🩲'
-      }
       const min = minutesFromDayStart(log.timestamp, dayStart)
-      events.push({
-        id: `diaper-${log.id}`,
-        kind: 'diaper',
-        label,
-        emoji,
-        start: log.timestamp.toISOString(),
-        end: null,
-        start_min: min,
-        end_min: null,
-        ongoing: false,
-      })
+      const iso = log.timestamp.toISOString()
+      const isChange = log.type === 'GANTI' || String(log.type) === 'GANTI'
+
+      if (isChange) {
+        events.push({
+          id: `change-${log.id}`,
+          kind: 'change',
+          label: 'Popok',
+          emoji: '🩲',
+          start: iso,
+          end: null,
+          start_min: min,
+          end_min: null,
+          ongoing: false,
+        })
+        continue
+      }
+
+      // Stack separately — KEDUANYA becomes two events, not one combined marker
+      if (counts.pup > 0) {
+        events.push({
+          id: `pup-${log.id}`,
+          kind: 'pup',
+          label: 'Pup',
+          emoji: '💩',
+          start: iso,
+          end: null,
+          start_min: min,
+          end_min: null,
+          ongoing: false,
+        })
+      }
+      if (counts.pee > 0) {
+        events.push({
+          id: `pee-${log.id}`,
+          kind: 'pee',
+          label: 'Pee',
+          emoji: '💧',
+          start: iso,
+          end: null,
+          start_min: min,
+          end_min: null,
+          ongoing: false,
+        })
+      }
     }
 
     for (const log of moodLogs) {
