@@ -194,10 +194,21 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
                           {item.is_done ? '✅' : status === 'overdue' ? '⚠️' : '⬜'}
                         </button>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <p className="font-heading text-sm font-semibold text-foreground">
                               {item.vaccine_name}
+                              {item.dose_label ? (
+                                <span className="font-normal text-muted-foreground">
+                                  {' '}
+                                  · {item.dose_label}
+                                </span>
+                              ) : null}
                             </p>
+                            {item.is_national_program === false && (
+                              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                Anjuran
+                              </span>
+                            )}
                             {item.is_custom && (
                               <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
                                 Custom
@@ -216,6 +227,11 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
                           )}
                           {item.notes && (
                             <p className="mt-0.5 text-xs text-muted-foreground">{item.notes}</p>
+                          )}
+                          {!item.is_done && item.schedule_notes && (
+                            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/90">
+                              {item.schedule_notes}
+                            </p>
                           )}
                         </div>
                         <div className="flex shrink-0 flex-col gap-1">

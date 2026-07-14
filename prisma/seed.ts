@@ -1,24 +1,12 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import {
+  immunizationSeedData,
+  immunizationSeedKey,
+  weeksToScheduledMonths,
+} from './immunization-seed-data'
 
 const prisma = new PrismaClient()
-
-const IMMUNIZATIONS = [
-  { vaccineName: 'HB0 (24 jam)', scheduledAgeMonths: 0 },
-  { vaccineName: 'BCG', scheduledAgeMonths: 1 },
-  { vaccineName: 'DPT-HB-Hib 1', scheduledAgeMonths: 2 },
-  { vaccineName: 'Polio 1', scheduledAgeMonths: 2 },
-  { vaccineName: 'RV 1', scheduledAgeMonths: 2 },
-  { vaccineName: 'DPT-HB-Hib 2', scheduledAgeMonths: 3 },
-  { vaccineName: 'Polio 2', scheduledAgeMonths: 3 },
-  { vaccineName: 'RV 2', scheduledAgeMonths: 3 },
-  { vaccineName: 'DPT-HB-Hib 3', scheduledAgeMonths: 4 },
-  { vaccineName: 'Polio 3', scheduledAgeMonths: 4 },
-  { vaccineName: 'IPV', scheduledAgeMonths: 4 },
-  { vaccineName: 'RV 3', scheduledAgeMonths: 4 },
-  { vaccineName: 'Campak-Rubella', scheduledAgeMonths: 9 },
-  { vaccineName: 'Japanese Encephalitis', scheduledAgeMonths: 9 },
-]
 
 const DEVELOPMENT_ITEMS: { ageGroupMonths: number; question: string }[] = [
   // 0-3 bulan
@@ -69,16 +57,51 @@ async function main() {
     console.log('Created default baby profile')
   }
 
-  const immCount = await prisma.immunization.count()
-  if (immCount === 0) {
-    await prisma.immunization.createMany({
-      data: IMMUNIZATIONS.map((i) => ({
-        vaccineName: i.vaccineName,
-        scheduledAgeMonths: i.scheduledAgeMonths,
-      })),
-    })
-    console.log(`Seeded ${IMMUNIZATIONS.length} immunizations`)
+  const seedKeys = immunizationSeedData.map(immunizationSeedKey)
+  let immCreated = 0
+  let immUpdated = 0
+
+  for (const item of immunizationSeedData) {
+    const seedKey = immunizationSeedKey(item)
+    const scheduleData = {
+      vaccineName: item.vaccineName,
+      scheduledAgeMonths: weeksToScheduledMonths(item.scheduledAgeWeeks),
+      scheduledAgeWeeks: item.scheduledAgeWeeks,
+      doseLabel: item.doseLabel,
+      isNationalProgram: item.isNationalProgram,
+      scheduleNotes: item.notes ?? null,
+      minWeeks: item.minWeeks ?? null,
+      maxWeeks: item.maxWeeks ?? null,
+      seedKey,
+      isCustom: false,
+    }
+
+    const existing = await prisma.immunization.findUnique({ where: { seedKey } })
+    if (existing) {
+      if (!existing.isDone) {
+        await prisma.immunization.update({
+          where: { id: existing.id },
+          data: scheduleData,
+        })
+        immUpdated++
+      }
+    } else {
+      await prisma.immunization.create({ data: scheduleData })
+      immCreated++
+    }
   }
+
+  const removed = await prisma.immunization.deleteMany({
+    where: {
+      isCustom: false,
+      isDone: false,
+      OR: [{ seedKey: null }, { seedKey: { notIn: seedKeys } }],
+    },
+  })
+
+  console.log(
+    `Immunizations: +${immCreated} created, ~${immUpdated} updated, -${removed.count} obsolete`
+  )
 
   const devCount = await prisma.developmentChecklist.count()
   if (devCount === 0) {

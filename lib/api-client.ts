@@ -659,6 +659,12 @@ export interface Immunization {
   id: string
   vaccine_name: string
   scheduled_age_months: number
+  scheduled_age_weeks?: number | null
+  dose_label?: string | null
+  is_national_program?: boolean
+  schedule_notes?: string | null
+  min_weeks?: number | null
+  max_weeks?: number | null
   is_done: boolean
   date_given?: string | null
   notes?: string | null

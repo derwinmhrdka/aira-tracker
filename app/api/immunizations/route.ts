@@ -9,6 +9,12 @@ function formatItem(
     id: string
     vaccineName: string
     scheduledAgeMonths: number
+    scheduledAgeWeeks: number | null
+    doseLabel: string | null
+    isNationalProgram: boolean
+    scheduleNotes: string | null
+    minWeeks: number | null
+    maxWeeks: number | null
     isDone: boolean
     dateGiven: Date | null
     notes: string | null
@@ -20,6 +26,12 @@ function formatItem(
     id: i.id,
     vaccine_name: i.vaccineName,
     scheduled_age_months: i.scheduledAgeMonths,
+    scheduled_age_weeks: i.scheduledAgeWeeks,
+    dose_label: i.doseLabel,
+    is_national_program: i.isNationalProgram,
+    schedule_notes: i.scheduleNotes,
+    min_weeks: i.minWeeks,
+    max_weeks: i.maxWeeks,
     is_done: i.isDone,
     date_given: i.dateGiven?.toISOString().split('T')[0] ?? null,
     notes: i.notes,
@@ -32,7 +44,11 @@ export async function GET() {
   return withAuth(async () => {
     const [items, profile] = await Promise.all([
       prisma.immunization.findMany({
-        orderBy: [{ scheduledAgeMonths: 'asc' }, { vaccineName: 'asc' }],
+        orderBy: [
+          { scheduledAgeMonths: 'asc' },
+          { scheduledAgeWeeks: 'asc' },
+          { vaccineName: 'asc' },
+        ],
       }),
       prisma.babyProfile.findFirst(),
     ])
@@ -63,6 +79,7 @@ export async function POST(request: NextRequest) {
         scheduledAgeMonths: Math.round(ageMonths),
         notes: body.notes?.trim() || null,
         isCustom: true,
+        isNationalProgram: false,
       },
     })
 

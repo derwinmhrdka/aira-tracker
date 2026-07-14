@@ -89,6 +89,13 @@ export async function GET() {
       immunizations: immunizations.map((i) => ({
         vaccine_name: i.vaccineName,
         scheduled_age_months: i.scheduledAgeMonths,
+        scheduled_age_weeks: i.scheduledAgeWeeks,
+        dose_label: i.doseLabel,
+        is_national_program: i.isNationalProgram,
+        schedule_notes: i.scheduleNotes,
+        min_weeks: i.minWeeks,
+        max_weeks: i.maxWeeks,
+        seed_key: i.seedKey,
         is_done: i.isDone,
         date_given: i.dateGiven?.toISOString().split('T')[0] ?? null,
         notes: i.notes,

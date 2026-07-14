@@ -139,9 +139,12 @@ export async function POST(request: NextRequest) {
       }
 
       for (const i of backup.immunizations ?? []) {
-        const existing = await tx.immunization.findFirst({
-          where: { vaccineName: i.vaccine_name },
-        })
+        const seedKey = i.seed_key as string | undefined
+        const existing = seedKey
+          ? await tx.immunization.findFirst({ where: { seedKey } })
+          : await tx.immunization.findFirst({
+              where: { vaccineName: i.vaccine_name },
+            })
         if (existing) {
           await tx.immunization.update({
             where: { id: existing.id },
@@ -156,6 +159,13 @@ export async function POST(request: NextRequest) {
             data: {
               vaccineName: i.vaccine_name,
               scheduledAgeMonths: i.scheduled_age_months ?? 0,
+              scheduledAgeWeeks: i.scheduled_age_weeks ?? null,
+              doseLabel: i.dose_label ?? null,
+              isNationalProgram: i.is_national_program ?? true,
+              scheduleNotes: i.schedule_notes ?? null,
+              minWeeks: i.min_weeks ?? null,
+              maxWeeks: i.max_weeks ?? null,
+              seedKey: seedKey ?? null,
               isDone: i.is_done ?? false,
               dateGiven: i.date_given ? new Date(i.date_given) : null,
               notes: i.notes ?? null,

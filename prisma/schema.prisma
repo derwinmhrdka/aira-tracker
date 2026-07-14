@@ -159,15 +159,22 @@ model CalendarEvent {
 }
 
 model Immunization {
-  id                 String    @id @default(cuid())
-  vaccineName        String    @map("vaccine_name")
-  scheduledAgeMonths Int       @map("scheduled_age_months")
-  isDone             Boolean   @default(false) @map("is_done")
-  dateGiven          DateTime? @map("date_given") @db.Date
-  notes              String?
-  isCustom           Boolean   @default(false) @map("is_custom")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id                  String    @id @default(cuid())
+  vaccineName         String    @map("vaccine_name")
+  scheduledAgeMonths  Int       @map("scheduled_age_months")
+  scheduledAgeWeeks   Int?      @map("scheduled_age_weeks")
+  doseLabel           String?   @map("dose_label")
+  isNationalProgram   Boolean   @default(true) @map("is_national_program")
+  scheduleNotes       String?   @map("schedule_notes")
+  minWeeks            Int?      @map("min_weeks")
+  maxWeeks            Int?      @map("max_weeks")
+  seedKey             String?   @unique @map("seed_key")
+  isDone              Boolean   @default(false) @map("is_done")
+  dateGiven           DateTime? @map("date_given") @db.Date
+  notes               String?
+  isCustom            Boolean   @default(false) @map("is_custom")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   @@index([isDone, scheduledAgeMonths])
   @@map("immunizations")
