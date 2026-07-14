@@ -236,13 +236,13 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Notes
+                      Catatan
                     </label>
                     <input
                       type="text"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Optional"
+                      placeholder="Opsional"
                       className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
                     />
                   </div>
@@ -377,19 +377,19 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                       type="number"
                       value={amountMl}
                       onChange={(e) => setAmountMl(e.target.value)}
-                      placeholder="Optional"
+                      placeholder="Opsional"
                       className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Notes
+                      Catatan
                     </label>
                     <input
                       type="text"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Optional"
+                      placeholder="Opsional"
                       className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
                     />
                   </div>
@@ -472,13 +472,13 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Notes
+                      Catatan
                     </label>
                     <input
                       type="text"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Optional"
+                      placeholder="Opsional"
                       className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
                     />
                   </div>
@@ -510,7 +510,7 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                 }
                 className="w-full rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {saving ? '...' : 'Save'}
+                {saving ? '...' : 'Simpan'}
               </button>
             </div>
           </motion.div>

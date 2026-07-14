@@ -324,7 +324,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <h2 className="font-heading mb-3 font-semibold text-foreground">Data</h2>
-        <p className="mb-2 text-xs text-muted-foreground">History range</p>
+        <p className="mb-2 text-xs text-muted-foreground">Rentang riwayat</p>
         <div className="mb-3 flex flex-wrap gap-2">
           {EXPORT_DAYS.map((d) => (
             <button
@@ -348,7 +348,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             disabled={exporting}
             className="w-full rounded-xl bg-secondary py-3 text-sm font-semibold text-foreground disabled:opacity-50"
           >
-            {exporting ? '...' : '📥 History'}
+            {exporting ? '...' : '📥 Riwayat'}
           </button>
           <button
             type="button"
@@ -372,7 +372,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             disabled={exporting}
             className="w-full rounded-xl bg-secondary py-3 text-sm font-semibold text-foreground disabled:opacity-50"
           >
-            {exporting ? '...' : '📄 History PDF'}
+            {exporting ? '...' : '📄 Riwayat PDF'}
           </button>
           <button
             type="button"

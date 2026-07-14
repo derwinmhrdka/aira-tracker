@@ -49,35 +49,53 @@ export async function GET() {
         activeFeeding,
         activeSleep,
         profile,
-        immunizations,
+        pendingVaccines,
         lastDiaperLog,
       ] = await Promise.all([
         prisma.diaperLog.findMany({
           where: { timestamp: { gte: dayStart, lt: dayEnd } },
           orderBy: { timestamp: 'desc' },
+          select: { timestamp: true, type: true },
         }),
         prisma.feedingLog.findMany({
           where: overlapWhere,
           orderBy: { timestampStart: 'desc' },
+          select: { timestampStart: true, timestampEnd: true },
         }),
         prisma.sleepLog.findMany({
           where: overlapWhere,
           orderBy: { timestampStart: 'desc' },
+          select: { timestampStart: true, timestampEnd: true },
         }),
         prisma.feedingLog.findFirst({
           where: { timestampEnd: null },
           orderBy: { timestampStart: 'desc' },
+          select: { timestampStart: true },
         }),
         prisma.sleepLog.findFirst({
           where: { timestampEnd: null },
           orderBy: { timestampStart: 'desc' },
+          select: { timestampStart: true },
         }),
-        prisma.babyProfile.findFirst(),
+        prisma.babyProfile.findFirst({
+          select: {
+            name: true,
+            birthDate: true,
+            photoUrl: true,
+          },
+        }),
         prisma.immunization.findMany({
+          where: { isDone: false },
           orderBy: [{ scheduledAgeMonths: 'asc' }, { vaccineName: 'asc' }],
+          select: {
+            vaccineName: true,
+            scheduledAgeMonths: true,
+            isDone: true,
+          },
         }),
         prisma.diaperLog.findFirst({
           orderBy: { timestamp: 'desc' },
+          select: { timestamp: true },
         }),
       ])
 
@@ -177,7 +195,7 @@ export async function GET() {
                 shio: astrology?.shio ?? null,
               }
             : null,
-          nextVaccine: getNextVaccine(immunizations, birthDate),
+          nextVaccine: getNextVaccine(pendingVaccines, birthDate),
         },
         {
           headers: {

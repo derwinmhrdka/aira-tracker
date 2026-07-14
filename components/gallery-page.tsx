@@ -139,13 +139,13 @@ export function GalleryPage({ onBack }: GalleryPageProps) {
   return (
     <div className="px-4 pt-6 pb-8">
       <PageHeader
-        title="Gallery"
+        title="Galeri"
         subtitle="Foto & audio dari catatan & milestone"
         onBack={onBack}
       />
 
       {error ? (
-        <ErrorBanner message="Gagal memuat gallery" onRetry={loadInitial} />
+        <ErrorBanner message="Gagal memuat galeri" onRetry={loadInitial} />
       ) : loading ? (
         <div className="grid grid-cols-3 gap-1.5">
           {Array.from({ length: 9 }).map((_, i) => (

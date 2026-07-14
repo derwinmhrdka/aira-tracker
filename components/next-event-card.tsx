@@ -55,7 +55,8 @@ export function NextEventCard() {
     load()
   }, [])
 
-  useAppDataSync(load)
+  // Events change rarely — skip interval poll; refresh on action / tab focus
+  useAppDataSync(load, { poll: false })
 
   if (!event) return null
 

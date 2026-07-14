@@ -15,9 +15,9 @@ interface ConfirmDeleteSheetProps {
 
 export function ConfirmDeleteSheet({
   open,
-  title = 'Delete?',
+  title = 'Hapus?',
   message,
-  confirmLabel = 'Delete',
+  confirmLabel = 'Hapus',
   onConfirm,
   onCancel,
   loading = false,
@@ -65,7 +65,7 @@ export function ConfirmDeleteSheet({
                 disabled={loading}
                 className="w-full rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground"
               >
-                Cancel
+                Batal
               </button>
             </div>
           </motion.div>

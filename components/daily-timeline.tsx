@@ -163,7 +163,7 @@ export function DailyTimeline() {
                 className="absolute left-1/2 top-1/2 text-[10px] font-semibold tracking-wide text-muted-foreground"
                 style={{ transform: 'translate(-50%, -50%) rotate(-90deg)' }}
               >
-                Action
+                Aktivitas
               </span>
             </div>
 

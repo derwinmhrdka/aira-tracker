@@ -20,7 +20,11 @@ import { OnboardingSheet } from './onboarding-sheet'
 import { playSoundEffect } from '@/lib/sounds'
 import { api, isQueuedResponse, type TodaySummary } from '@/lib/api-client'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
-import { notifyDataSynced } from '@/lib/use-live-sync'
+import {
+  LIVE_SYNC_ACTIVE_MS,
+  LIVE_SYNC_MS,
+  notifyDataSynced,
+} from '@/lib/use-live-sync'
 
 export function Dashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -50,7 +54,10 @@ export function Dashboard() {
     fetchSummary()
   }, [fetchSummary])
 
-  useAppDataSync(() => fetchSummary({ silent: true }))
+  const hasActiveSession = !!(summary?.activeFeeding || summary?.activeSleep)
+  useAppDataSync(() => fetchSummary({ silent: true }), {
+    intervalMs: hasActiveSession ? LIVE_SYNC_ACTIVE_MS : LIVE_SYNC_MS,
+  })
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -314,7 +321,7 @@ export function Dashboard() {
             className="flex-1"
           >
             <h1 className="font-heading text-2xl font-bold text-foreground">
-              Today
+              Hari ini
             </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {new Date().toLocaleDateString('id-ID', {

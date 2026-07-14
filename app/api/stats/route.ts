@@ -7,6 +7,7 @@ import {
   distributeMinutesByDayWib,
   endOfTodayWib,
   periodStartWib,
+  sessionOverlapsWindow,
 } from '@/lib/day-boundary'
 import { diaperEventCounts } from '@/lib/log-parsers'
 
@@ -29,34 +30,42 @@ export async function GET(request: NextRequest) {
     const since = periodStartWib(days)
     const until = endOfTodayWib()
     const now = new Date()
+    const overlapWhere = sessionOverlapsWindow(since, until)
 
     const [diaperLogs, feedingLogs, sleepLogs, growthLogs] = await Promise.all([
       prisma.diaperLog.findMany({
         where: { timestamp: { gte: since, lt: until } },
+        select: { timestamp: true, type: true },
       }),
       prisma.feedingLog.findMany({
-        where: {
-          timestampStart: { lt: until },
-          OR: [
-            { timestampStart: { gte: since } },
-            { timestampEnd: { gte: since } },
-            { timestampEnd: null },
-          ],
-        },
+        where: overlapWhere,
         orderBy: { timestampStart: 'asc' },
+        select: {
+          timestampStart: true,
+          timestampEnd: true,
+          side: true,
+        },
       }),
       prisma.sleepLog.findMany({
-        where: {
-          timestampStart: { lt: until },
-          OR: [
-            { timestampStart: { gte: since } },
-            { timestampEnd: { gte: since } },
-            { timestampEnd: null },
-          ],
+        where: overlapWhere,
+        select: {
+          timestampStart: true,
+          timestampEnd: true,
         },
       }),
+      // KMS chart needs full history (0–24 mo), not the stats day window
       prisma.growthLog.findMany({
         orderBy: { date: 'asc' },
+        select: {
+          id: true,
+          date: true,
+          weightKg: true,
+          heightCm: true,
+          headCircumferenceCm: true,
+          isJaundice: true,
+          bilirubinLevel: true,
+          notes: true,
+        },
       }),
     ])
 

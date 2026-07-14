@@ -18,7 +18,7 @@ export function PageHeader({ title, subtitle, onBack }: PageHeaderProps) {
           whileTap={{ scale: 0.9 }}
           onClick={onBack}
           className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-primary"
-          aria-label="Back"
+          aria-label="Kembali"
         >
           <AppIcon icon={ChevronLeft} size={22} strokeWidth={2.25} />
         </motion.button>

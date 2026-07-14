@@ -77,7 +77,7 @@ export function NoteSheet({ open, onClose, onSave }: NoteSheetProps) {
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
 
             <h2 className="font-heading mb-3 text-lg font-bold text-foreground">
-              Add Note
+              Tambah Catatan
             </h2>
 
             <textarea
@@ -117,7 +117,7 @@ export function NoteSheet({ open, onClose, onSave }: NoteSheetProps) {
                 onClick={handleClose}
                 className="flex-1 rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="button"
@@ -125,7 +125,7 @@ export function NoteSheet({ open, onClose, onSave }: NoteSheetProps) {
                 disabled={!canSave || saving}
                 className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {saving ? '...' : 'Save'}
+                {saving ? '...' : 'Simpan'}
               </button>
             </div>
           </motion.div>

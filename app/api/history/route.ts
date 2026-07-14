@@ -7,9 +7,11 @@ import { periodStartWib } from '@/lib/day-boundary'
 const DEFAULT_LIMIT = 15
 const MAX_LIMIT = 50
 
+type HistoryCategory = 'diaper' | 'feeding' | 'sleep' | 'note'
+
 type HistoryRow = {
   id: string
-  category: 'diaper' | 'feeding' | 'sleep' | 'note'
+  category: HistoryCategory
   type: string
   timestamp: string
   timestampEnd?: string | null
@@ -23,6 +25,72 @@ type HistoryRow = {
   content?: string | null
   photo_url?: string | null
   audio_url?: string | null
+}
+
+type Cursor = { t: string; c: HistoryCategory | ''; id: string }
+
+function encodeCursor(item: HistoryRow): string {
+  return Buffer.from(
+    JSON.stringify({ t: item.timestamp, c: item.category, id: item.id }),
+    'utf8'
+  ).toString('base64url')
+}
+
+function decodeCursor(raw: string): Cursor | null {
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(raw, 'base64url').toString('utf8')
+    ) as Cursor
+    if (parsed?.t && typeof parsed.c === 'string' && parsed.id) return parsed
+  } catch {
+    // fall through — older clients sent a plain ISO timestamp
+  }
+  const d = new Date(raw)
+  if (!Number.isNaN(d.getTime())) {
+    // Strict older-than timestamp only (avoids same-ms duplicates replay)
+    return { t: d.toISOString(), c: '', id: '' }
+  }
+  return null
+}
+
+/** Prisma filter for one table after a composite cursor (timestamp DESC, category DESC, id DESC). */
+function afterCursorWhere(
+  tableCategory: HistoryCategory,
+  since: Date,
+  cursor: Cursor | null,
+  timeField: 'timestamp' | 'timestampStart'
+) {
+  const base = { [timeField]: { gte: since } }
+  if (!cursor) return base
+
+  const cursorDate = new Date(cursor.t)
+  const sameTsClause =
+    tableCategory < cursor.c
+      ? { [timeField]: cursorDate }
+      : tableCategory === cursor.c
+        ? { AND: [{ [timeField]: cursorDate }, { id: { lt: cursor.id } }] }
+        : null
+
+  return {
+    AND: [
+      base,
+      {
+        OR: [
+          { [timeField]: { lt: cursorDate } },
+          ...(sameTsClause ? [sameTsClause] : []),
+        ],
+      },
+    ],
+  }
+}
+
+function compareRows(a: HistoryRow, b: HistoryRow) {
+  const dt =
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  if (dt !== 0) return dt
+  const cat = b.category.localeCompare(a.category)
+  if (cat !== 0) return cat
+  return b.id.localeCompare(a.id)
 }
 
 function mapDiaper(l: {
@@ -124,18 +192,18 @@ function mapNote(n: {
 export async function GET(request: NextRequest) {
   return withAuth(async () => {
     const days = Math.min(90, Math.max(1, Number(request.nextUrl.searchParams.get('days') || '7')))
-    const category = request.nextUrl.searchParams.get('category')
+    const category = request.nextUrl.searchParams.get('category') as
+      | HistoryCategory
+      | null
     const limit = Math.min(
       Math.max(1, Number(request.nextUrl.searchParams.get('limit') || DEFAULT_LIMIT)),
       MAX_LIMIT
     )
-    const cursor = request.nextUrl.searchParams.get('cursor')
-    const before = cursor ? new Date(cursor) : undefined
-
+    const cursorRaw = request.nextUrl.searchParams.get('cursor')
+    const cursor = cursorRaw ? decodeCursor(cursorRaw) : null
     const since = periodStartWib(days)
-
-    const range = before ? { gte: since, lt: before } : { gte: since }
-    const fetchN = limit + 1
+    // +1 so we can detect hasMore after merge without unreliable per-table flags
+    const take = limit + 1
 
     const includeDiaper = !category || category === 'diaper'
     const includeFeeding = !category || category === 'feeding'
@@ -145,32 +213,64 @@ export async function GET(request: NextRequest) {
     const [diaperLogs, feedingLogs, sleepLogs, notes] = await Promise.all([
       includeDiaper
         ? prisma.diaperLog.findMany({
-            where: { timestamp: range },
-            orderBy: { timestamp: 'desc' },
-            take: fetchN,
+            where: afterCursorWhere('diaper', since, cursor, 'timestamp'),
+            orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+            take,
+            select: {
+              id: true,
+              type: true,
+              timestamp: true,
+              notes: true,
+              loggedBy: true,
+            },
           })
-        : [],
+        : Promise.resolve([]),
       includeFeeding
         ? prisma.feedingLog.findMany({
-            where: { timestampStart: range },
-            orderBy: { timestampStart: 'desc' },
-            take: fetchN,
+            where: afterCursorWhere('feeding', since, cursor, 'timestampStart'),
+            orderBy: [{ timestampStart: 'desc' }, { id: 'desc' }],
+            take,
+            select: {
+              id: true,
+              timestampStart: true,
+              timestampEnd: true,
+              side: true,
+              feedType: true,
+              amountMl: true,
+              notes: true,
+              loggedBy: true,
+            },
           })
-        : [],
+        : Promise.resolve([]),
       includeSleep
         ? prisma.sleepLog.findMany({
-            where: { timestampStart: range },
-            orderBy: { timestampStart: 'desc' },
-            take: fetchN,
+            where: afterCursorWhere('sleep', since, cursor, 'timestampStart'),
+            orderBy: [{ timestampStart: 'desc' }, { id: 'desc' }],
+            take,
+            select: {
+              id: true,
+              timestampStart: true,
+              timestampEnd: true,
+              notes: true,
+              loggedBy: true,
+            },
           })
-        : [],
+        : Promise.resolve([]),
       includeNote
         ? prisma.dailyNote.findMany({
-            where: { timestamp: range },
-            orderBy: { timestamp: 'desc' },
-            take: fetchN,
+            where: afterCursorWhere('note', since, cursor, 'timestamp'),
+            orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+            take,
+            select: {
+              id: true,
+              timestamp: true,
+              content: true,
+              photoUrl: true,
+              audioUrl: true,
+              loggedBy: true,
+            },
           })
-        : [],
+        : Promise.resolve([]),
     ])
 
     const merged = [
@@ -178,21 +278,12 @@ export async function GET(request: NextRequest) {
       ...feedingLogs.map(mapFeeding),
       ...sleepLogs.map(mapSleep),
       ...notes.map(mapNote),
-    ].sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    )
+    ].sort(compareRows)
 
-    const hasMore =
-      merged.length > limit ||
-      diaperLogs.length === fetchN ||
-      feedingLogs.length === fetchN ||
-      sleepLogs.length === fetchN ||
-      notes.length === fetchN
-
+    const hasMore = merged.length > limit
     const items = merged.slice(0, limit)
     const nextCursor =
-      hasMore && items.length > 0 ? items[items.length - 1].timestamp : null
+      hasMore && items.length > 0 ? encodeCursor(items[items.length - 1]) : null
 
     return NextResponse.json({ items, hasMore, nextCursor, nextOffset: null })
   })

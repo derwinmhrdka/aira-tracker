@@ -1,12 +1,6 @@
-const CACHE_NAME = 'baby-tracker-v12'
+/** Bump when deploy needs a hard cache reset. Activate also clears older names. */
+const CACHE_NAME = 'baby-tracker-v13'
 const STATIC_ASSETS = ['/', '/manifest.json', '/icon.svg']
-
-let reminderSettings = {
-  feedingEnabled: false,
-  feedingIntervalMinutes: 180,
-  diaperEnabled: false,
-  diaperIntervalMinutes: 180,
-}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -26,6 +20,25 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
+function shouldCache(request, response) {
+  if (!response.ok) return false
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return false
+  if (url.pathname.startsWith('/api/')) return false
+
+  if (STATIC_ASSETS.includes(url.pathname)) return true
+  if (url.pathname.startsWith('/_next/static/')) return true
+  if (url.pathname.startsWith('/icon')) return true
+  if (url.pathname === '/manifest.json') return true
+
+  // App shell only — avoid unbounded caching of every navigation URL
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    return url.pathname === '/'
+  }
+
+  return false
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
@@ -33,19 +46,24 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
   if (url.pathname.startsWith('/api/')) return
 
-  // Network-first: always try fresh content when online so deploys show up on reload.
-  // Fall back to cache only when offline.
+  // Network-first: fresh content when online; cache fallback when offline.
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (response.ok) {
+        if (shouldCache(request, response)) {
           const clone = response.clone()
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
         }
         return response
       })
       .catch(() =>
-        caches.match(request).then((cached) => cached || Response.error())
+        caches.match(request).then((cached) => {
+          if (cached) return cached
+          if (request.mode === 'navigate') {
+            return caches.match('/')
+          }
+          return Response.error()
+        })
       )
   )
 })
@@ -72,26 +90,6 @@ self.addEventListener('push', (event) => {
 })
 
 self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SYNC_REMINDER_SETTINGS') {
-    const incoming = event.data.settings || {}
-    reminderSettings = {
-      feedingEnabled:
-        incoming.feedingEnabled ?? incoming.enabled ?? reminderSettings.feedingEnabled,
-      feedingIntervalMinutes:
-        incoming.feedingIntervalMinutes ??
-        (incoming.feedingIntervalHours != null
-          ? Math.round(incoming.feedingIntervalHours * 60)
-          : reminderSettings.feedingIntervalMinutes),
-      diaperEnabled: incoming.diaperEnabled ?? reminderSettings.diaperEnabled,
-      diaperIntervalMinutes:
-        incoming.diaperIntervalMinutes ??
-        (incoming.diaperIntervalHours != null
-          ? Math.round(incoming.diaperIntervalHours * 60)
-          : reminderSettings.diaperIntervalMinutes),
-    }
-    return
-  }
-
   if (event.data?.type === 'SHOW_FEEDING_REMINDER') {
     const { title, body, tag } = event.data
     self.registration.showNotification(title || 'Waktunya menyusui 🍼', {

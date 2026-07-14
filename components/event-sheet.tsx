@@ -125,7 +125,7 @@ export function EventSheet({
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
             <h2 className="font-heading mb-4 text-lg font-bold text-foreground">
-              {mode === 'edit' ? 'Edit Event' : 'Tambah Event'}
+              {mode === 'edit' ? 'Edit Jadwal' : 'Tambah Event'}
             </h2>
 
             <div className="space-y-3">

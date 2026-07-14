@@ -1,11 +1,19 @@
 import { useEffect, useRef } from 'react'
-import { useLiveSync } from '@/lib/use-live-sync'
+import { useLiveSync, type LiveSyncOptions } from '@/lib/use-live-sync'
 
-export function useAppDataSync(onSync: () => void, enabled = true) {
+export type AppDataSyncOptions = LiveSyncOptions
+
+export function useAppDataSync(
+  onSync: () => void,
+  options: boolean | AppDataSyncOptions = true
+) {
   const onSyncRef = useRef(onSync)
   onSyncRef.current = onSync
 
-  useLiveSync(() => onSyncRef.current(), enabled)
+  const enabled =
+    typeof options === 'boolean' ? options : options.enabled !== false
+
+  useLiveSync(() => onSyncRef.current(), options)
 
   useEffect(() => {
     if (!enabled) return

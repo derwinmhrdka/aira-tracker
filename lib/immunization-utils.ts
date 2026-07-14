@@ -63,10 +63,10 @@ export function getNextVaccine(
 }
 
 export const STATUS_LABEL: Record<VaccineStatus, string> = {
-  done: 'Done',
-  overdue: 'Overdue',
-  due: 'Due',
-  upcoming: 'Upcoming',
+  done: 'Selesai',
+  overdue: 'Terlambat',
+  due: 'Jatuh tempo',
+  upcoming: 'Mendatang',
 }
 
 export const STATUS_STYLE: Record<VaccineStatus, string> = {

@@ -12,16 +12,50 @@ export interface QueuedRequest {
   createdAt: number
 }
 
-const QUEUEABLE_PREFIXES = [
+/** Exact POST paths that can be replayed offline */
+const QUEUEABLE_POST_EXACT = new Set([
   '/api/logs/diaper',
   '/api/logs/feeding',
   '/api/logs/sleep',
   '/api/notes',
-]
+  '/api/mood',
+  '/api/growth',
+  '/api/events',
+  '/api/milestones',
+  '/api/immunizations',
+])
+
+const QUEUEABLE_PATCH_EXACT = new Set([
+  '/api/immunizations',
+  '/api/baby-profile',
+  '/api/development-checklist',
+  '/api/titles',
+])
+
+const QUEUEABLE_ENTITY =
+  /^\/api\/(logs\/(diaper|feeding|sleep|note)|growth|events|milestones|immunizations|notes)\/[^/]+$/
+
+function pathOnly(url: string) {
+  return url.split('?')[0]
+}
 
 export function isQueueableUrl(url: string, method: string) {
-  if (method !== 'POST') return false
-  return QUEUEABLE_PREFIXES.some((p) => url.startsWith(p))
+  const path = pathOnly(url)
+  const m = method.toUpperCase()
+
+  if (m === 'POST') {
+    return QUEUEABLE_POST_EXACT.has(path)
+  }
+
+  if (m === 'PATCH') {
+    return QUEUEABLE_PATCH_EXACT.has(path) || QUEUEABLE_ENTITY.test(path)
+  }
+
+  if (m === 'DELETE') {
+    return QUEUEABLE_ENTITY.test(path)
+  }
+
+  return false
 }
 
 export function getQueue(): QueuedRequest[] {
@@ -63,22 +97,21 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
   let synced = 0
   const remaining: QueuedRequest[] = []
 
-  for (const item of queue) {
+  for (let i = 0; i < queue.length; i++) {
+    const item = queue[i]
     try {
       let body = item.body
-      if (body && item.url.startsWith('/api/notes')) {
+      if (body && pathOnly(item.url) === '/api/notes') {
         const parsed = JSON.parse(body) as {
           photo_url?: string
           audio_url?: string
           content?: string
         }
         if (parsed.photo_url && isLocalPhotoUrl(parsed.photo_url)) {
-          const serverUrl = await resolvePhotoUrl(parsed.photo_url)
-          parsed.photo_url = serverUrl
+          parsed.photo_url = await resolvePhotoUrl(parsed.photo_url)
         }
         if (parsed.audio_url && isLocalAudioUrl(parsed.audio_url)) {
-          const serverUrl = await resolveAudioUrl(parsed.audio_url)
-          parsed.audio_url = serverUrl
+          parsed.audio_url = await resolveAudioUrl(parsed.audio_url)
         }
         body = JSON.stringify(parsed)
       }
@@ -86,18 +119,18 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
       const res = await fetch(item.url, {
         method: item.method,
         headers: item.headers,
-        body,
+        body: body ?? undefined,
       })
       if (res.ok) {
         synced++
       } else if (res.status === 401) {
-        remaining.push(item, ...queue.slice(queue.indexOf(item) + 1))
+        remaining.push(...queue.slice(i))
         break
       } else {
         remaining.push(item)
       }
     } catch {
-      remaining.push(item, ...queue.slice(queue.indexOf(item) + 1))
+      remaining.push(...queue.slice(i))
       break
     }
   }

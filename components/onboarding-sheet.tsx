@@ -133,7 +133,7 @@ export function OnboardingSheet({ open, onComplete }: OnboardingSheetProps) {
                   disabled={!name.trim() || saving}
                   className="w-full rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground disabled:opacity-50"
                 >
-                  {saving ? '...' : 'Save'}
+                  {saving ? '...' : 'Simpan'}
                 </button>
               </div>
             )}

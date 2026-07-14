@@ -74,7 +74,7 @@ export function PwaInstallPrompt() {
               type="button"
               onClick={dismiss}
               className="text-xs text-muted-foreground"
-              aria-label="Close"
+              aria-label="Tutup"
             >
               ✕
             </button>

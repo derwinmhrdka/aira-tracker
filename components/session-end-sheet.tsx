@@ -206,7 +206,7 @@ export function SessionEndSheet({
                 disabled={saving}
                 className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {saving ? '...' : 'Confirm'}
+                {saving ? '...' : 'Konfirmasi'}
               </button>
               <button
                 type="button"
@@ -214,7 +214,7 @@ export function SessionEndSheet({
                 disabled={saving}
                 className="w-full rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground"
               >
-                Cancel
+                Batal
               </button>
             </div>
           </motion.div>

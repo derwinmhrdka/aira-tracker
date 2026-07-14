@@ -216,7 +216,7 @@ function EventCard({
           type="button"
           onClick={onEdit}
           className="shrink-0 rounded-lg px-2 py-1 opacity-60 hover:opacity-100"
-          aria-label="Edit"
+          aria-label="Ubah"
         >
           ✏️
         </button>
@@ -224,7 +224,7 @@ function EventCard({
           type="button"
           onClick={onDelete}
           className="shrink-0 rounded-lg px-2 py-1 text-destructive opacity-60 hover:opacity-100"
-          aria-label="Delete"
+          aria-label="Hapus"
         >
           🗑️
         </button>

@@ -68,8 +68,8 @@ export function AchievementsPage({ onBack }: AchievementsPageProps) {
   return (
     <div className="px-4 pt-6 pb-8">
       <PageHeader
-        title="Achievements"
-        subtitle="Tap untuk unlock title bayi"
+        title="Pencapaian"
+        subtitle="Ketuk untuk unlock title bayi"
         onBack={onBack}
       />
 

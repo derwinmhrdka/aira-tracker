@@ -34,7 +34,7 @@ const MENU_ITEMS: {
   {
     id: 'profile',
     icon: Baby,
-    label: 'Profile',
+    label: 'Profil',
     desc: 'Nama, lahir, foto',
     color: 'bg-rose-100 border-rose-200/80 dark:bg-rose-950/60 dark:border-rose-800/60',
     iconColor: 'text-rose-600 dark:text-rose-300',
@@ -42,7 +42,7 @@ const MENU_ITEMS: {
   {
     id: 'notes',
     icon: FileText,
-    label: 'Notes',
+    label: 'Catatan',
     desc: 'Tummy time, dll',
     color: 'bg-sky-100 border-sky-200/80 dark:bg-sky-950/60 dark:border-sky-800/60',
     iconColor: 'text-sky-600 dark:text-sky-300',
@@ -50,7 +50,7 @@ const MENU_ITEMS: {
   {
     id: 'gallery',
     icon: Images,
-    label: 'Gallery',
+    label: 'Galeri',
     desc: 'Foto & audio catatan',
     color: 'bg-fuchsia-100 border-fuchsia-200/80 dark:bg-fuchsia-950/60 dark:border-fuchsia-800/60',
     iconColor: 'text-fuchsia-600 dark:text-fuchsia-300',
@@ -82,7 +82,7 @@ const MENU_ITEMS: {
   {
     id: 'achievements',
     icon: Award,
-    label: 'Achievements',
+    label: 'Pencapaian',
     desc: 'Title & badge bayi',
     color: 'bg-cyan-100 border-cyan-200/80 dark:bg-cyan-950/60 dark:border-cyan-800/60',
     iconColor: 'text-cyan-600 dark:text-cyan-300',
@@ -98,7 +98,7 @@ const MENU_ITEMS: {
   {
     id: 'settings',
     icon: Settings,
-    label: 'Settings',
+    label: 'Pengaturan',
     desc: 'Notifikasi & export',
     color: 'bg-teal-100 border-teal-200/80 dark:bg-teal-950/60 dark:border-teal-800/60',
     iconColor: 'text-teal-600 dark:text-teal-300',
@@ -110,7 +110,7 @@ export function MorePage({ onNavigate }: MorePageProps) {
 
   return (
     <div className="px-4 pt-6 pb-8">
-      <PageHeader title="More" subtitle="Profile, notes, pertumbuhan & lainnya" />
+      <PageHeader title="Lainnya" subtitle="Profil, catatan, pertumbuhan & lainnya" />
 
       <div className="grid grid-cols-2 gap-3">
         {MENU_ITEMS.map((item) => (

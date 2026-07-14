@@ -200,7 +200,7 @@ export function GrowthSheet({
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-foreground">
-                  Notes (optional)
+                  Catatan (opsional)
                 </label>
                 <input
                   type="text"
@@ -218,7 +218,7 @@ export function GrowthSheet({
                 onClick={onClose}
                 className="flex-1 rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="button"
@@ -226,7 +226,7 @@ export function GrowthSheet({
                 disabled={!isValidDecimal(weight) || !isValidDecimal(height) || saving}
                 className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {saving ? '...' : 'Save'}
+                {saving ? '...' : 'Simpan'}
               </button>
             </div>
           </motion.div>

@@ -272,7 +272,7 @@ export function StatsPage() {
               onClick={() => setGrowthOpen(true)}
               className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
             >
-              Add
+              Tambah
             </button>
           </div>
         </div>
@@ -290,7 +290,7 @@ export function StatsPage() {
 
       {!loading && growth.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <h2 className="font-heading mb-3 font-semibold text-foreground">History</h2>
+          <h2 className="font-heading mb-3 font-semibold text-foreground">Riwayat</h2>
           <div className="space-y-2">
             {visibleGrowthHistory.map((g) => (
               <div
@@ -332,7 +332,7 @@ export function StatsPage() {
                   type="button"
                   onClick={() => setEditingLog(g)}
                   className="shrink-0 rounded-lg px-2 py-2 opacity-60 hover:opacity-100"
-                  aria-label="Edit"
+                  aria-label="Ubah"
                 >
                   ✏️
                 </button>
@@ -341,7 +341,7 @@ export function StatsPage() {
                   onClick={() => setPendingDelete(g)}
                   disabled={deletingId === g.id}
                   className="shrink-0 rounded-lg px-2 py-2 text-destructive opacity-60 hover:opacity-100"
-                  aria-label="Delete"
+                  aria-label="Hapus"
                 >
                   {deletingId === g.id ? '...' : '🗑️'}
                 </button>

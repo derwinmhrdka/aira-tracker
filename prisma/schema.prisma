@@ -74,6 +74,7 @@ model FeedingLog {
   createdAt      DateTime  @default(now()) @map("created_at")
 
   @@index([timestampStart])
+  @@index([timestampEnd, timestampStart])
   @@map("feeding_logs")
 }
 
@@ -86,6 +87,7 @@ model SleepLog {
   createdAt      DateTime  @default(now()) @map("created_at")
 
   @@index([timestampStart])
+  @@index([timestampEnd, timestampStart])
   @@map("sleep_logs")
 }
 
@@ -167,6 +169,7 @@ model Immunization {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
+  @@index([isDone, scheduledAgeMonths])
   @@map("immunizations")
 }
 
@@ -179,6 +182,7 @@ model DevelopmentChecklist {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
+  @@index([ageGroupMonths])
   @@map("development_checklist")
 }
 

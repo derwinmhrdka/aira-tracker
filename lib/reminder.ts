@@ -138,7 +138,6 @@ export function getReminderSettings(): ReminderSettings {
 export function setReminderSettings(settings: Partial<ReminderSettings>) {
   const next = normalizeSettings({ ...getReminderSettings(), ...settings })
   localStorage.setItem(KEY, JSON.stringify(next))
-  syncReminderToServiceWorker(next)
   return next
 }
 
@@ -161,14 +160,6 @@ async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration
   } catch {
     return null
   }
-}
-
-function syncReminderToServiceWorker(settings: ReminderSettings) {
-  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return
-  navigator.serviceWorker.controller.postMessage({
-    type: 'SYNC_REMINDER_SETTINGS',
-    settings,
-  })
 }
 
 async function showLocalNotification(
@@ -207,13 +198,8 @@ export async function showDiaperReminder(babyName?: string) {
 export async function registerServiceWorker(): Promise<void> {
   if (!('serviceWorker' in navigator)) return
   try {
-    const registration = await navigator.serviceWorker.register('/sw.js')
+    await navigator.serviceWorker.register('/sw.js')
     await navigator.serviceWorker.ready
-    const settings = getReminderSettings()
-    registration.active?.postMessage({
-      type: 'SYNC_REMINDER_SETTINGS',
-      settings,
-    })
   } catch {
     // SW registration optional
   }

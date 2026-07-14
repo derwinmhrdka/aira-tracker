@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   type AppPage,
@@ -10,21 +11,97 @@ import {
   navPageFor,
 } from '@/lib/navigation'
 import { Dashboard } from '@/components/dashboard'
-import { HistoryPage } from '@/components/history-page'
-import { StatsPage } from '@/components/stats-page'
-import { MorePage } from '@/components/more-page'
-import { NotesPage } from '@/components/notes-page'
-import { ImmunizationsPage } from '@/components/immunizations-page'
-import { DevelopmentPage } from '@/components/development-page'
-import { ProfilePage } from '@/components/profile-page'
-import { MilestonesPage } from '@/components/milestones-page'
-import { AchievementsPage } from '@/components/achievements-page'
-import { EventsPage } from '@/components/events-page'
-import { GalleryPage } from '@/components/gallery-page'
-import { SettingsPage } from '@/components/settings-page'
 import { BottomNav } from '@/components/bottom-nav'
 import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
 import { notifyDataSynced } from '@/lib/use-live-sync'
+
+function PageFallback() {
+  return (
+    <div className="space-y-3 px-4 pt-8">
+      <div className="h-7 w-40 animate-pulse rounded-lg bg-secondary" />
+      <div className="h-4 w-56 animate-pulse rounded bg-secondary" />
+      <div className="mt-4 h-24 animate-pulse rounded-xl bg-secondary" />
+      <div className="h-24 animate-pulse rounded-xl bg-secondary" />
+    </div>
+  )
+}
+
+const pageLoading = { loading: () => <PageFallback /> }
+
+const HistoryPage = dynamic(
+  () =>
+    import('@/components/history-page').then((m) => ({ default: m.HistoryPage })),
+  pageLoading
+)
+const StatsPage = dynamic(
+  () =>
+    import('@/components/stats-page').then((m) => ({ default: m.StatsPage })),
+  pageLoading
+)
+const MorePage = dynamic(
+  () =>
+    import('@/components/more-page').then((m) => ({ default: m.MorePage })),
+  pageLoading
+)
+const NotesPage = dynamic(
+  () =>
+    import('@/components/notes-page').then((m) => ({ default: m.NotesPage })),
+  pageLoading
+)
+const ImmunizationsPage = dynamic(
+  () =>
+    import('@/components/immunizations-page').then((m) => ({
+      default: m.ImmunizationsPage,
+    })),
+  pageLoading
+)
+const DevelopmentPage = dynamic(
+  () =>
+    import('@/components/development-page').then((m) => ({
+      default: m.DevelopmentPage,
+    })),
+  pageLoading
+)
+const ProfilePage = dynamic(
+  () =>
+    import('@/components/profile-page').then((m) => ({
+      default: m.ProfilePage,
+    })),
+  pageLoading
+)
+const MilestonesPage = dynamic(
+  () =>
+    import('@/components/milestones-page').then((m) => ({
+      default: m.MilestonesPage,
+    })),
+  pageLoading
+)
+const AchievementsPage = dynamic(
+  () =>
+    import('@/components/achievements-page').then((m) => ({
+      default: m.AchievementsPage,
+    })),
+  pageLoading
+)
+const EventsPage = dynamic(
+  () =>
+    import('@/components/events-page').then((m) => ({ default: m.EventsPage })),
+  pageLoading
+)
+const GalleryPage = dynamic(
+  () =>
+    import('@/components/gallery-page').then((m) => ({
+      default: m.GalleryPage,
+    })),
+  pageLoading
+)
+const SettingsPage = dynamic(
+  () =>
+    import('@/components/settings-page').then((m) => ({
+      default: m.SettingsPage,
+    })),
+  pageLoading
+)
 
 export function AppShell() {
   const router = useRouter()

@@ -118,7 +118,7 @@ export function MilestonesPage({ onBack }: MilestonesPageProps) {
         }}
         className="mb-4 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
       >
-        {showForm ? 'Close' : '+ Add'}
+        {showForm ? 'Tutup' : '+ Tambah'}
       </button>
 
       <AnimatePresence>
@@ -156,7 +156,7 @@ export function MilestonesPage({ onBack }: MilestonesPageProps) {
               disabled={!title.trim() || saving}
               className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50"
             >
-              {saving ? '...' : editing ? 'Save' : '🎉 Save'}
+              {saving ? '...' : editing ? 'Simpan' : '🎉 Simpan'}
             </button>
           </motion.div>
         )}
@@ -202,7 +202,7 @@ export function MilestonesPage({ onBack }: MilestonesPageProps) {
                     type="button"
                     onClick={() => openEdit(m)}
                     className="rounded-lg px-2 py-1 opacity-60 hover:opacity-100"
-                    aria-label="Edit"
+                    aria-label="Ubah"
                   >
                     ✏️
                   </button>
@@ -211,7 +211,7 @@ export function MilestonesPage({ onBack }: MilestonesPageProps) {
                     onClick={() => setPendingDelete(m)}
                     disabled={deletingId === m.id}
                     className="rounded-lg px-2 py-1 text-destructive opacity-60 hover:opacity-100"
-                    aria-label="Delete"
+                    aria-label="Hapus"
                   >
                     {deletingId === m.id ? '...' : '🗑️'}
                   </button>
@@ -232,7 +232,7 @@ export function MilestonesPage({ onBack }: MilestonesPageProps) {
       {celebrate && <Celebration />}
       <ConfirmDeleteSheet
         open={!!pendingDelete}
-        title="Delete?"
+        title="Hapus?"
         message={
           pendingDelete
             ? `Milestone "${pendingDelete.title}" akan dihapus permanen.`

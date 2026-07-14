@@ -187,7 +187,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
                 onClick={handleCancelEdit}
                 className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="button"
@@ -195,7 +195,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
                 disabled={saving}
                 className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {saving ? '...' : 'Save'}
+                {saving ? '...' : 'Simpan'}
               </button>
             </div>
           </div>

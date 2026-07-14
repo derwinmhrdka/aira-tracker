@@ -99,7 +99,7 @@ export function QuickFeedSheet({
                 onClick={onClose}
                 className="flex-1 rounded-xl border border-border bg-background py-3 text-sm font-semibold text-foreground"
               >
-                Cancel
+                Batal
               </button>
               <button
                 type="button"
@@ -107,7 +107,7 @@ export function QuickFeedSheet({
                 disabled={saving || (feedType === 'PUMPED' && !amount)}
                 className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {saving ? '...' : 'Save'}
+                {saving ? '...' : 'Simpan'}
               </button>
             </div>
           </motion.div>

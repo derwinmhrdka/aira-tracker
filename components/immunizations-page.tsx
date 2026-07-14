@@ -224,7 +224,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
                               type="button"
                               onClick={() => startEdit(item)}
                               className="rounded-lg px-2 py-1 text-xs opacity-60 hover:opacity-100"
-                              aria-label="Edit"
+                              aria-label="Ubah"
                             >
                               ✏️
                             </button>
@@ -234,7 +234,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
                               type="button"
                               onClick={() => removeCustom(item)}
                               className="rounded-lg px-2 py-1 text-xs text-destructive opacity-60 hover:opacity-100"
-                              aria-label="Delete"
+                              aria-label="Hapus"
                             >
                               🗑️
                             </button>
@@ -262,7 +262,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
                               onClick={() => confirmDate(item.id)}
                               className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
                             >
-                              Save
+                              Simpan
                             </button>
                             {item.is_done && (
                               <button

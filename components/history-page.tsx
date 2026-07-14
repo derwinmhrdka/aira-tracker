@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { api, isQueuedResponse, type HistoryItem, type UpdateLogInput } from '@/lib/api-client'
+import { formatDurationLabel } from '@/lib/baby-utils'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { EditLogSheet } from './edit-log-sheet'
 import { Toast } from './toast'
@@ -43,6 +44,19 @@ function formatTime(iso: string) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function itemDurationMinutes(item: HistoryItem): number | null {
+  if (
+    (item.category !== 'feeding' && item.category !== 'sleep') ||
+    !item.timestampEnd
+  ) {
+    return null
+  }
+  const ms =
+    new Date(item.timestampEnd).getTime() - new Date(item.timestamp).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return null
+  return Math.round(ms / 60000)
 }
 
 function groupByDay(items: HistoryItem[]) {
@@ -118,7 +132,13 @@ export function HistoryPage() {
         cursor: nextCursor,
       })
       if (requestId !== requestIdRef.current) return
-      setItems((prev) => [...prev, ...data.items])
+      setItems((prev) => {
+        const seen = new Set(prev.map((i) => `${i.category}-${i.id}`))
+        const next = data.items.filter(
+          (i) => !seen.has(`${i.category}-${i.id}`)
+        )
+        return [...prev, ...next]
+      })
       setHasMore(data.hasMore)
       setNextCursor(data.nextCursor)
     } catch {
@@ -151,6 +171,33 @@ export function HistoryPage() {
   const handleEdit = async (data: UpdateLogInput) => {
     if (!editingItem) return
     const updated = await api.updateLog(editingItem.category, editingItem.id, data)
+    if (isQueuedResponse(updated)) {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === editingItem.id && i.category === editingItem.category
+            ? {
+                ...i,
+                timestamp: data.timestamp ?? i.timestamp,
+                timestampEnd:
+                  data.timestamp_end !== undefined
+                    ? data.timestamp_end
+                    : i.timestampEnd,
+                notes: data.notes !== undefined ? data.notes : i.notes,
+                side: data.side ?? i.side,
+                feed_type: data.feed_type ?? i.feed_type,
+                amount_ml:
+                  data.amount_ml !== undefined ? data.amount_ml : i.amount_ml,
+                diaper_type: data.type ?? i.diaper_type,
+                content: data.content ?? i.content,
+                details: data.content ?? i.details,
+              }
+            : i
+        )
+      )
+      setToast('📡 Menunggu sync...')
+      setTimeout(() => setToast(null), 2000)
+      return
+    }
     setItems((prev) =>
       prev.map((i) =>
         i.id === editingItem.id && i.category === editingItem.category ? updated : i
@@ -165,12 +212,12 @@ export function HistoryPage() {
     const item = pendingDelete
     setDeletingId(item.id)
     try {
-      await api.deleteLog(item.category, item.id)
+      const result = await api.deleteLog(item.category, item.id)
       setItems((prev) =>
         prev.filter((i) => !(i.id === item.id && i.category === item.category))
       )
       setPendingDelete(null)
-      setToast('🗑️ Dihapus')
+      setToast(isQueuedResponse(result) ? '📡 Hapus menunggu sync...' : '🗑️ Dihapus')
       setTimeout(() => setToast(null), 2000)
     } finally {
       setDeletingId(null)
@@ -239,7 +286,9 @@ export function HistoryPage() {
                 {group.label}
               </p>
               <div className="space-y-2">
-                {group.items.map((item) => (
+                {group.items.map((item) => {
+                  const durationMins = itemDurationMinutes(item)
+                  return (
                   <motion.div
                     key={`${item.category}-${item.id}`}
                     layout
@@ -254,6 +303,11 @@ export function HistoryPage() {
                         {formatTime(item.timestamp)}
                         {item.loggedBy && ` · ${item.loggedBy}`}
                       </p>
+                      {durationMins != null && (
+                        <p className="mt-0.5 text-xs font-medium text-foreground">
+                          {formatDurationLabel(durationMins)}
+                        </p>
+                      )}
                       {item.details && (
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">
                           {item.details}
@@ -280,7 +334,7 @@ export function HistoryPage() {
                         type="button"
                         onClick={() => setEditingItem(item)}
                         className="rounded-lg px-2 py-2 text-xs opacity-60 hover:opacity-100"
-                        aria-label="Edit"
+                        aria-label="Ubah"
                       >
                         ✏️
                       </button>
@@ -289,13 +343,14 @@ export function HistoryPage() {
                         onClick={() => setPendingDelete(item)}
                         disabled={deletingId === item.id}
                         className="rounded-lg px-2 py-2 text-xs opacity-60 hover:opacity-100"
-                        aria-label="Delete"
+                        aria-label="Hapus"
                       >
                         🗑️
                       </button>
                     </div>
                   </motion.div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           ))}

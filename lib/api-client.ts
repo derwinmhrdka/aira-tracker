@@ -83,7 +83,13 @@ async function apiFetch<T>(
     throw new Error(msg)
   }
 
-  return res.json()
+  const text = await res.text()
+  if (!text) return {} as T
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return {} as T
+  }
 }
 
 function isTodaySummary(data: unknown): data is TodaySummary {
@@ -184,13 +190,7 @@ export const api = {
   },
 
   deleteLog: (category: string, id: string) =>
-    fetch(`/api/logs/${category}/${id}`, { method: 'DELETE' }).then(async (res) => {
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Delete failed')
-      }
-      return res.json()
-    }),
+    apiFetch(`/api/logs/${category}/${id}`, { method: 'DELETE' }),
 
   updateLog: (category: string, id: string, data: UpdateLogInput) =>
     apiFetch<HistoryItem>(`/api/logs/${category}/${id}`, {
@@ -217,13 +217,7 @@ export const api = {
     }),
 
   deleteGrowth: (id: string) =>
-    fetch(`/api/growth/${id}`, { method: 'DELETE' }).then(async (res) => {
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Delete failed')
-      }
-      return res.json()
-    }),
+    apiFetch(`/api/growth/${id}`, { method: 'DELETE' }),
 
   getNotes: (options?: { limit?: number; cursor?: string }) => {
     const params = new URLSearchParams()
@@ -280,13 +274,7 @@ export const api = {
     }),
 
   deleteMilestone: (id: string) =>
-    fetch(`/api/milestones/${id}`, { method: 'DELETE' }).then(async (res) => {
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Delete failed')
-      }
-      return res.json()
-    }),
+    apiFetch(`/api/milestones/${id}`, { method: 'DELETE' }),
 
   getEvents: (upcomingOnly = false) =>
     apiFetch<CalendarEvent[]>(
@@ -306,13 +294,7 @@ export const api = {
     }),
 
   deleteEvent: (id: string) =>
-    fetch(`/api/events/${id}`, { method: 'DELETE' }).then(async (res) => {
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Delete failed')
-      }
-      return res.json()
-    }),
+    apiFetch(`/api/events/${id}`, { method: 'DELETE' }),
 
   changePin: (oldPin: string, newPin: string) =>
     apiFetch('/api/auth/change-pin', {
@@ -339,13 +321,7 @@ export const api = {
     }),
 
   deleteImmunization: (id: string) =>
-    fetch(`/api/immunizations/${id}`, { method: 'DELETE' }).then(async (res) => {
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Delete failed')
-      }
-      return res.json()
-    }),
+    apiFetch(`/api/immunizations/${id}`, { method: 'DELETE' }),
 
   getDevelopmentChecklist: () =>
     apiFetch<DevelopmentItem[]>('/api/development-checklist'),

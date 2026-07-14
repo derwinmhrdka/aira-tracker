@@ -6,11 +6,13 @@ import { flushQueue, getQueue, queueLength } from '@/lib/offline-queue'
 
 export function OfflineSyncProvider() {
   const [pending, setPending] = useState(0)
+  const [offline, setOffline] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
   const refresh = useCallback(() => {
     setPending(queueLength())
+    setOffline(typeof navigator !== 'undefined' && !navigator.onLine)
   }, [])
 
   const sync = useCallback(async () => {
@@ -32,10 +34,15 @@ export function OfflineSyncProvider() {
   useEffect(() => {
     refresh()
     const onUpdate = () => refresh()
-    const onOnline = () => sync()
+    const onOnline = () => {
+      refresh()
+      sync()
+    }
+    const onOffline = () => refresh()
 
     window.addEventListener('offline-queue-updated', onUpdate)
     window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
 
     const id = setInterval(() => {
       if (navigator.onLine && getQueue().length > 0) sync()
@@ -44,27 +51,32 @@ export function OfflineSyncProvider() {
     return () => {
       window.removeEventListener('offline-queue-updated', onUpdate)
       window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
       clearInterval(id)
     }
   }, [refresh, sync])
 
+  const showBanner = offline || pending > 0
+
   return (
     <AnimatePresence>
-      {pending > 0 && (
+      {showBanner && (
         <motion.button
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -40, opacity: 0 }}
           type="button"
           onClick={sync}
-          disabled={syncing || !navigator.onLine}
+          disabled={syncing || offline || pending === 0}
           className="fixed left-4 right-4 top-2 z-50 mx-auto max-w-screen-sm rounded-xl border border-amber-300/50 bg-amber-50 px-4 py-2.5 text-center text-xs font-semibold text-amber-900 shadow-md dark:bg-amber-950/80 dark:text-amber-200"
         >
           {syncing
             ? 'Sync...'
-            : navigator.onLine
-              ? `📡 ${pending} pending`
-              : `📴 Offline · ${pending}`}
+            : offline
+              ? pending > 0
+                ? `📴 Offline · ${pending} menunggu`
+                : '📴 Offline'
+              : `📡 ${pending} menunggu — ketuk untuk sync`}
         </motion.button>
       )}
       {toast && (
