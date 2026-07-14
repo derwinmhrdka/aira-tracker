@@ -8,10 +8,10 @@
     "start": "next start",
     "lint": "eslint .",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
+    "db:push": "prisma db push --accept-data-loss",
     "db:seed": "prisma db seed",
     "db:dummy": "npx tsx prisma/seed-dummy.ts",
-    "db:setup": "prisma db push && prisma db seed",
+    "db:setup": "prisma db push --accept-data-loss && prisma db seed",
     "db:studio": "prisma studio",
     "icons:generate": "node scripts/generate-pwa-icons.mjs",
     "postinstall": "prisma generate"
