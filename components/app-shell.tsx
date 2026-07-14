@@ -26,81 +26,79 @@ function PageFallback() {
   )
 }
 
-const pageLoading = { loading: () => <PageFallback /> }
-
 const HistoryPage = dynamic(
   () =>
     import('@/components/history-page').then((m) => ({ default: m.HistoryPage })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const StatsPage = dynamic(
   () =>
     import('@/components/stats-page').then((m) => ({ default: m.StatsPage })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const MorePage = dynamic(
   () =>
     import('@/components/more-page').then((m) => ({ default: m.MorePage })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const NotesPage = dynamic(
   () =>
     import('@/components/notes-page').then((m) => ({ default: m.NotesPage })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const ImmunizationsPage = dynamic(
   () =>
     import('@/components/immunizations-page').then((m) => ({
       default: m.ImmunizationsPage,
     })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const DevelopmentPage = dynamic(
   () =>
     import('@/components/development-page').then((m) => ({
       default: m.DevelopmentPage,
     })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const ProfilePage = dynamic(
   () =>
     import('@/components/profile-page').then((m) => ({
       default: m.ProfilePage,
     })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const MilestonesPage = dynamic(
   () =>
     import('@/components/milestones-page').then((m) => ({
       default: m.MilestonesPage,
     })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const AchievementsPage = dynamic(
   () =>
     import('@/components/achievements-page').then((m) => ({
       default: m.AchievementsPage,
     })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const EventsPage = dynamic(
   () =>
     import('@/components/events-page').then((m) => ({ default: m.EventsPage })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const GalleryPage = dynamic(
   () =>
     import('@/components/gallery-page').then((m) => ({
       default: m.GalleryPage,
     })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 const SettingsPage = dynamic(
   () =>
     import('@/components/settings-page').then((m) => ({
       default: m.SettingsPage,
     })),
-  pageLoading
+  { loading: () => <PageFallback /> }
 )
 
 export function AppShell() {
