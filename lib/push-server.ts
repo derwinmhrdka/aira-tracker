@@ -1,6 +1,6 @@
 import webpush from 'web-push'
 import { prisma } from '@/lib/prisma'
-import { ageInMonths } from '@/lib/baby-utils'
+import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
 import { getVaccineStatus } from '@/lib/immunization-utils'
 
 const publicKey = process.env.VAPID_PUBLIC_KEY
@@ -67,6 +67,7 @@ export async function shouldSendVaccineReminder() {
 
   const birthDate = profile.birthDate.toISOString().split('T')[0]
   const babyAge = ageInMonths(birthDate)
+  const babyAgeWeeks = ageInWeeks(birthDate)
 
   const overdue = await prisma.immunization.findMany({
     where: { isDone: false },
@@ -74,7 +75,12 @@ export async function shouldSendVaccineReminder() {
   })
 
   const overdueList = overdue.filter(
-    (v) => getVaccineStatus(false, v.scheduledAgeMonths, babyAge) === 'overdue'
+    (v) =>
+      getVaccineStatus(false, v.scheduledAgeMonths, babyAge, {
+        scheduledAgeWeeks: v.scheduledAgeWeeks,
+        maxWeeks: v.maxWeeks,
+        babyAgeWeeks,
+      }) === 'overdue'
   )
 
   if (overdueList.length === 0) {

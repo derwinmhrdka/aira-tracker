@@ -183,7 +183,9 @@ model Immunization {
 model DevelopmentChecklist {
   id             String    @id @default(cuid())
   ageGroupMonths Int       @map("age_group_months")
+  category       String?   // physical | cognitive | linguistic | social
   question       String
+  seedKey        String?   @unique @map("seed_key")
   isChecked      Boolean   @default(false) @map("is_checked")
   dateChecked    DateTime? @map("date_checked") @db.Date
   createdAt      DateTime  @default(now()) @map("created_at")

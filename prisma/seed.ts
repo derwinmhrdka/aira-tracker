@@ -3,34 +3,15 @@ import bcrypt from 'bcryptjs'
 import {
   immunizationSeedData,
   immunizationSeedKey,
+  legacyImmunizationTargetKey,
   weeksToScheduledMonths,
 } from './immunization-seed-data'
+import {
+  developmentChecklistSeedData,
+  developmentSeedKey,
+} from './development-seed-data'
 
 const prisma = new PrismaClient()
-
-const DEVELOPMENT_ITEMS: { ageGroupMonths: number; question: string }[] = [
-  // 0-3 bulan
-  { ageGroupMonths: 0, question: 'Mengangkat kepala sebentar saat tengkurap' },
-  { ageGroupMonths: 0, question: 'Mengikuti wajah dengan mata' },
-  { ageGroupMonths: 0, question: 'Merespons suara dengan hening' },
-  { ageGroupMonths: 0, question: 'Tersenyum spontan' },
-  // 3-6 bulan
-  { ageGroupMonths: 3, question: 'Tertawa keras' },
-  { ageGroupMonths: 3, question: 'Membalik badan dari tengkurap ke terlentang' },
-  { ageGroupMonths: 3, question: 'Menggapai dan memegang mainan' },
-  { ageGroupMonths: 3, question: 'Mengenali suara orang tua' },
-  // 6-9 bulan
-  { ageGroupMonths: 6, question: 'Duduk tanpa bantuan' },
-  { ageGroupMonths: 6, question: 'Bergumam "mama" atau "papa"' },
-  { ageGroupMonths: 6, question: 'Memindahkan mainan antar tangan' },
-  { ageGroupMonths: 6, question: 'Merespons namanya' },
-  // 9-12 bulan
-  { ageGroupMonths: 9, question: 'Merangkak atau bergerak aktif' },
-  { ageGroupMonths: 9, question: 'Berdiri berpegangan' },
-  { ageGroupMonths: 9, question: 'Bertepuk tangan' },
-  { ageGroupMonths: 9, question: 'Melambai bye-bye' },
-  { ageGroupMonths: 9, question: 'Memahami kata "tidak"' },
-]
 
 async function main() {
   const pin = process.env.INITIAL_PIN || '1234'
@@ -91,6 +72,58 @@ async function main() {
     }
   }
 
+  // Merge duplikat jadwal lama / custom → entri IDAI baru, lalu hapus sumber
+  const allImm = await prisma.immunization.findMany()
+  const bySeedKey = new Map(
+    allImm.filter((i) => i.seedKey).map((i) => [i.seedKey as string, i])
+  )
+  const deleteIds: string[] = []
+  let immMerged = 0
+
+  for (const legacy of allImm) {
+    const isCurrentSeed =
+      !!legacy.seedKey && seedKeys.includes(legacy.seedKey)
+    if (isCurrentSeed) continue
+
+    const targetKey = legacyImmunizationTargetKey({
+      vaccineName: legacy.vaccineName,
+      notes: legacy.notes,
+      isCustom: legacy.isCustom,
+    })
+    if (!targetKey) continue
+
+    const target = bySeedKey.get(targetKey)
+    if (!target || target.id === legacy.id) continue
+
+    if (legacy.isDone) {
+      const dates = [target.dateGiven, legacy.dateGiven].filter(
+        (d): d is Date => !!d
+      )
+      const earliest =
+        dates.length > 0
+          ? dates.reduce((a, b) => (a.getTime() <= b.getTime() ? a : b))
+          : null
+      await prisma.immunization.update({
+        where: { id: target.id },
+        data: {
+          isDone: true,
+          dateGiven: earliest,
+          notes: target.notes?.trim() || legacy.notes,
+        },
+      })
+      target.isDone = true
+      target.dateGiven = earliest
+      target.notes = target.notes?.trim() || legacy.notes
+      immMerged++
+    }
+
+    deleteIds.push(legacy.id)
+  }
+
+  if (deleteIds.length > 0) {
+    await prisma.immunization.deleteMany({ where: { id: { in: deleteIds } } })
+  }
+
   const removed = await prisma.immunization.deleteMany({
     where: {
       isCustom: false,
@@ -100,19 +133,22 @@ async function main() {
   })
 
   console.log(
-    `Immunizations: +${immCreated} created, ~${immUpdated} updated, -${removed.count} obsolete`
+    `Immunizations: +${immCreated} created, ~${immUpdated} updated, ↔${immMerged} merged, -${deleteIds.length + removed.count} duplicates/obsolete`
   )
 
-  const devCount = await prisma.developmentChecklist.count()
-  if (devCount === 0) {
-    await prisma.developmentChecklist.createMany({
-      data: DEVELOPMENT_ITEMS.map((d) => ({
-        ageGroupMonths: d.ageGroupMonths,
-        question: d.question,
-      })),
-    })
-    console.log(`Seeded ${DEVELOPMENT_ITEMS.length} development items`)
-  }
+  // Ganti checklist lama → CDC milestones (abaikan data sebelumnya)
+  const removedDev = await prisma.developmentChecklist.deleteMany({})
+  await prisma.developmentChecklist.createMany({
+    data: developmentChecklistSeedData.map((d) => ({
+      ageGroupMonths: d.ageGroupMonths,
+      category: d.category,
+      question: d.question,
+      seedKey: developmentSeedKey(d),
+    })),
+  })
+  console.log(
+    `Development: replaced ${removedDev.count} old → ${developmentChecklistSeedData.length} CDC items`
+  )
 
   const titleCount = await prisma.title.count()
   if (titleCount === 0) {

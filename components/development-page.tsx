@@ -10,11 +10,28 @@ interface DevelopmentPageProps {
 }
 
 const AGE_LABELS: Record<number, string> = {
-  0: '0-3 bulan',
-  3: '3-6 bulan',
-  6: '6-9 bulan',
-  9: '9-12 bulan',
+  2: '2 bulan',
+  4: '4 bulan',
+  6: '6 bulan',
+  9: '9 bulan',
+  12: '12 bulan',
+  15: '15 bulan',
+  18: '18 bulan',
+  24: '2 tahun',
+  30: '2,5 tahun',
+  36: '3 tahun',
+  48: '4 tahun',
+  60: '5 tahun',
 }
+
+const CATEGORY_LABEL: Record<string, string> = {
+  physical: 'Fisik',
+  cognitive: 'Kognitif',
+  linguistic: 'Bahasa',
+  social: 'Sosial',
+}
+
+const CATEGORY_ORDER = ['social', 'linguistic', 'cognitive', 'physical']
 
 export function DevelopmentPage({ onBack }: DevelopmentPageProps) {
   const [items, setItems] = useState<DevelopmentItem[]>([])
@@ -56,9 +73,21 @@ export function DevelopmentPage({ onBack }: DevelopmentPageProps) {
     return acc
   }, {})
 
+  const checkedCount = items.filter((i) => i.is_checked).length
+
   return (
     <div className="px-4 pt-6 pb-8">
-      <PageHeader title="Perkembangan" subtitle="Checklist skill per usia" onBack={onBack} />
+      <PageHeader
+        title="Perkembangan"
+        subtitle="Checklist CDC · bukan diagnosis medis"
+        onBack={onBack}
+      />
+
+      {!loading && items.length > 0 && (
+        <p className="mb-4 text-xs text-muted-foreground">
+          {checkedCount}/{items.length} tercapai
+        </p>
+      )}
 
       {loading ? (
         <div className="space-y-2">
@@ -69,40 +98,58 @@ export function DevelopmentPage({ onBack }: DevelopmentPageProps) {
       ) : (
         Object.entries(grouped)
           .sort(([a], [b]) => Number(a) - Number(b))
-          .map(([age, questions]) => (
-            <div key={age} className="mb-5">
-              <h2 className="font-heading mb-2 text-sm font-semibold text-primary">
-                {AGE_LABELS[Number(age)] ?? `${age} bulan`}
-              </h2>
-              <div className="space-y-2">
-                {questions.map((item) => (
-                  <motion.button
-                    key={item.id}
-                    type="button"
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => toggle(item)}
-                    className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left shadow-sm transition-colors ${
-                      item.is_checked
-                        ? 'border-green-300/50 bg-green-50/30 dark:bg-green-950/20'
-                        : 'border-border bg-card'
-                    }`}
-                  >
-                    <span className="mt-0.5 text-lg">
-                      {item.is_checked ? '✅' : '⬜'}
-                    </span>
-                    <div>
-                      <p className="text-sm text-foreground">{item.question}</p>
-                      {item.date_checked && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {new Date(item.date_checked).toLocaleDateString('id-ID')}
-                        </p>
-                      )}
+          .map(([age, questions]) => {
+            const byCategory = CATEGORY_ORDER.map((cat) => ({
+              cat,
+              items: questions.filter((q) => q.category === cat),
+            })).filter((g) => g.items.length > 0)
+
+            return (
+              <div key={age} className="mb-5">
+                <h2 className="font-heading mb-2 text-sm font-semibold text-primary">
+                  {AGE_LABELS[Number(age)] ?? `${age} bulan`}
+                </h2>
+                <div className="space-y-3">
+                  {byCategory.map(({ cat, items: catItems }) => (
+                    <div key={cat}>
+                      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {CATEGORY_LABEL[cat] ?? cat}
+                      </p>
+                      <div className="space-y-2">
+                        {catItems.map((item) => (
+                          <motion.button
+                            key={item.id}
+                            type="button"
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => toggle(item)}
+                            className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left shadow-sm transition-colors ${
+                              item.is_checked
+                                ? 'border-green-300/50 bg-green-50/30 dark:bg-green-950/20'
+                                : 'border-border bg-card'
+                            }`}
+                          >
+                            <span className="mt-0.5 text-lg">
+                              {item.is_checked ? '✅' : '⬜'}
+                            </span>
+                            <div>
+                              <p className="text-sm text-foreground">{item.question}</p>
+                              {item.date_checked && (
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  {new Date(item.date_checked).toLocaleDateString(
+                                    'id-ID'
+                                  )}
+                                </p>
+                              )}
+                            </div>
+                          </motion.button>
+                        ))}
+                      </div>
                     </div>
-                  </motion.button>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
       )}
     </div>
   )

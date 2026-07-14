@@ -1,13 +1,45 @@
-import { ageInMonths } from '@/lib/baby-utils'
+import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
 
 export type VaccineStatus = 'done' | 'overdue' | 'due' | 'upcoming'
 
+export type VaccineScheduleHints = {
+  scheduledAgeWeeks?: number | null
+  maxWeeks?: number | null
+  babyAgeWeeks?: number | null
+}
+
+/**
+ * Status vaksin.
+ * Jika ada usia minggu + jadwal minggu: hormati jendela maxWeeks (mis. BCG 0–4 minggu).
+ * Fallback bulan: usia 0 bulan tidak langsung "terlambat" sampai ~1 bulan.
+ */
 export function getVaccineStatus(
   isDone: boolean,
   scheduledAgeMonths: number,
-  babyAgeMonths: number
+  babyAgeMonths: number,
+  hints?: VaccineScheduleHints
 ): VaccineStatus {
   if (isDone) return 'done'
+
+  const babyWeeks = hints?.babyAgeWeeks
+  const scheduledWeeks = hints?.scheduledAgeWeeks
+  const maxWeeks = hints?.maxWeeks
+
+  if (babyWeeks != null && scheduledWeeks != null) {
+    const overdueAfter = maxWeeks != null ? maxWeeks : scheduledWeeks
+    if (babyWeeks > overdueAfter) return 'overdue'
+    if (babyWeeks >= scheduledWeeks) return 'due'
+    // Window "akan jatuh tempo": 4 minggu sebelum jadwal
+    if (babyWeeks >= Math.max(0, scheduledWeeks - 4)) return 'due'
+    return 'upcoming'
+  }
+
+  // Month fallback — jangan overdue-kan vaksin newborn (bulan 0) terlalu agresif
+  if (scheduledAgeMonths <= 0) {
+    if (babyAgeMonths >= 1) return 'overdue'
+    return 'due'
+  }
+
   if (babyAgeMonths >= scheduledAgeMonths) return 'overdue'
   if (babyAgeMonths >= scheduledAgeMonths - 1) return 'due'
   return 'upcoming'
@@ -17,20 +49,31 @@ export function getNextVaccine(
   vaccines: {
     vaccineName: string
     scheduledAgeMonths: number
+    scheduledAgeWeeks?: number | null
+    maxWeeks?: number | null
     isDone: boolean
   }[],
   birthDate: string | null
 ) {
   if (!birthDate) return null
 
-  const age = ageInMonths(birthDate)
+  const ageMonths = ageInMonths(birthDate)
+  const ageWeeks = ageInWeeks(birthDate)
   const pending = vaccines
     .filter((v) => !v.isDone)
     .map((v) => ({
       ...v,
-      status: getVaccineStatus(false, v.scheduledAgeMonths, age),
+      status: getVaccineStatus(false, v.scheduledAgeMonths, ageMonths, {
+        scheduledAgeWeeks: v.scheduledAgeWeeks,
+        maxWeeks: v.maxWeeks,
+        babyAgeWeeks: ageWeeks,
+      }),
     }))
-    .sort((a, b) => a.scheduledAgeMonths - b.scheduledAgeMonths)
+    .sort((a, b) => {
+      const wa = a.scheduledAgeWeeks ?? a.scheduledAgeMonths * 4
+      const wb = b.scheduledAgeWeeks ?? b.scheduledAgeMonths * 4
+      return wa - wb
+    })
 
   const overdue = pending.find((v) => v.status === 'overdue')
   if (overdue) {

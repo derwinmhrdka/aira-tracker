@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
-import { ageInMonths } from '@/lib/baby-utils'
+import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
 import { getVaccineStatus } from '@/lib/immunization-utils'
 
 function formatItem(
@@ -20,7 +20,8 @@ function formatItem(
     notes: string | null
     isCustom: boolean
   },
-  babyAgeMonths: number
+  babyAgeMonths: number,
+  babyAgeWeeks: number
 ) {
   return {
     id: i.id,
@@ -36,7 +37,11 @@ function formatItem(
     date_given: i.dateGiven?.toISOString().split('T')[0] ?? null,
     notes: i.notes,
     is_custom: i.isCustom,
-    status: getVaccineStatus(i.isDone, i.scheduledAgeMonths, babyAgeMonths),
+    status: getVaccineStatus(i.isDone, i.scheduledAgeMonths, babyAgeMonths, {
+      scheduledAgeWeeks: i.scheduledAgeWeeks,
+      maxWeeks: i.maxWeeks,
+      babyAgeWeeks,
+    }),
   }
 }
 
@@ -55,8 +60,11 @@ export async function GET() {
 
     const birthDate = profile?.birthDate.toISOString().split('T')[0] ?? null
     const babyAgeMonths = birthDate ? ageInMonths(birthDate) : 0
+    const babyAgeWeeks = birthDate ? ageInWeeks(birthDate) : 0
 
-    return NextResponse.json(items.map((i) => formatItem(i, babyAgeMonths)))
+    return NextResponse.json(
+      items.map((i) => formatItem(i, babyAgeMonths, babyAgeWeeks))
+    )
   })
 }
 
@@ -86,8 +94,9 @@ export async function POST(request: NextRequest) {
     const profile = await prisma.babyProfile.findFirst()
     const birthDate = profile?.birthDate.toISOString().split('T')[0] ?? null
     const babyAgeMonths = birthDate ? ageInMonths(birthDate) : 0
+    const babyAgeWeeks = birthDate ? ageInWeeks(birthDate) : 0
 
-    return NextResponse.json(formatItem(item, babyAgeMonths))
+    return NextResponse.json(formatItem(item, babyAgeMonths, babyAgeWeeks))
   })
 }
 
@@ -116,7 +125,8 @@ export async function PATCH(request: NextRequest) {
     const profile = await prisma.babyProfile.findFirst()
     const birthDate = profile?.birthDate.toISOString().split('T')[0] ?? null
     const babyAgeMonths = birthDate ? ageInMonths(birthDate) : 0
+    const babyAgeWeeks = birthDate ? ageInWeeks(birthDate) : 0
 
-    return NextResponse.json(formatItem(item, babyAgeMonths))
+    return NextResponse.json(formatItem(item, babyAgeMonths, babyAgeWeeks))
   })
 }

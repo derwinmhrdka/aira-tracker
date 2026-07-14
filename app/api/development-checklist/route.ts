@@ -5,13 +5,18 @@ import { withAuth } from '@/lib/api-helpers'
 export async function GET() {
   return withAuth(async () => {
     const items = await prisma.developmentChecklist.findMany({
-      orderBy: [{ ageGroupMonths: 'asc' }, { question: 'asc' }],
+      orderBy: [
+        { ageGroupMonths: 'asc' },
+        { category: 'asc' },
+        { question: 'asc' },
+      ],
     })
 
     return NextResponse.json(
       items.map((i) => ({
         id: i.id,
         age_group_months: i.ageGroupMonths,
+        category: i.category,
         question: i.question,
         is_checked: i.isChecked,
         date_checked: i.dateChecked?.toISOString().split('T')[0] ?? null,

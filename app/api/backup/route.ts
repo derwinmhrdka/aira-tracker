@@ -103,7 +103,9 @@ export async function GET() {
       })),
       development: development.map((d) => ({
         age_group_months: d.ageGroupMonths,
+        category: d.category,
         question: d.question,
+        seed_key: d.seedKey,
         is_checked: d.isChecked,
         date_checked: d.dateChecked?.toISOString().split('T')[0] ?? null,
       })),

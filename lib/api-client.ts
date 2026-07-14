@@ -675,6 +675,7 @@ export interface Immunization {
 export interface DevelopmentItem {
   id: string
   age_group_months: number
+  category?: string | null
   question: string
   is_checked: boolean
   date_checked?: string | null

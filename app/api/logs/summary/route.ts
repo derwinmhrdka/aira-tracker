@@ -90,6 +90,8 @@ export async function GET() {
           select: {
             vaccineName: true,
             scheduledAgeMonths: true,
+            scheduledAgeWeeks: true,
+            maxWeeks: true,
             isDone: true,
           },
         }),

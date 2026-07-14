@@ -8,6 +8,14 @@ export function ageInMonths(birthDate: string, refDate?: string): number {
   return Math.max(0, Math.round(months * 10) / 10)
 }
 
+/** Completed whole weeks since birth (floor). */
+export function ageInWeeks(birthDate: string, refDate?: string): number {
+  const birth = new Date(birthDate)
+  const ref = refDate ? new Date(refDate) : new Date()
+  const ms = ref.getTime() - birth.getTime()
+  return Math.max(0, Math.floor(ms / (7 * 24 * 60 * 60 * 1000)))
+}
+
 export function formatAge(birthDate: string): string {
   const birth = new Date(birthDate)
   const now = new Date()

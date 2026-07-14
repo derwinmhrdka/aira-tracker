@@ -36,6 +36,133 @@ export function immunizationSeedKey(item: ImmunizationSeed): string {
   return `${item.vaccineName}|${item.doseLabel}|${item.scheduledAgeWeeks}`
 }
 
+/** Target seedKey untuk nama jadwal lama / custom agar bisa merge status Selesai. */
+export function legacyImmunizationTargetKey(input: {
+  vaccineName: string
+  notes?: string | null
+  isCustom?: boolean
+}): string | null {
+  const name = input.vaccineName.trim()
+  const notes = (input.notes ?? '').toLowerCase()
+  const lower = name.toLowerCase()
+
+  const byExactName: Record<string, string> = {
+    'HB0 (24 jam)': immunizationSeedKey({
+      vaccineName: 'Hepatitis B0 (monovalen)',
+      scheduledAgeWeeks: 0,
+      doseLabel: 'Dosis 0',
+      isNationalProgram: true,
+    }),
+    BCG: immunizationSeedKey({
+      vaccineName: 'BCG',
+      scheduledAgeWeeks: 0,
+      doseLabel: 'Dosis Tunggal',
+      isNationalProgram: true,
+    }),
+    'DPT-HB-Hib 1': immunizationSeedKey({
+      vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
+      scheduledAgeWeeks: 8,
+      doseLabel: 'Dosis 1',
+      isNationalProgram: true,
+    }),
+    'Polio 1': immunizationSeedKey({
+      vaccineName: 'Polio 1 (OPV)',
+      scheduledAgeWeeks: 8,
+      doseLabel: 'Dosis 1',
+      isNationalProgram: true,
+    }),
+    'RV 1': immunizationSeedKey({
+      vaccineName: 'Rotavirus (Monovalen atau Pentavalen)',
+      scheduledAgeWeeks: 8,
+      doseLabel: 'Dosis 1',
+      isNationalProgram: true,
+    }),
+    'DPT-HB-Hib 2': immunizationSeedKey({
+      vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
+      scheduledAgeWeeks: 12,
+      doseLabel: 'Dosis 2',
+      isNationalProgram: true,
+    }),
+    'Polio 2': immunizationSeedKey({
+      vaccineName: 'Polio 2 (OPV)',
+      scheduledAgeWeeks: 12,
+      doseLabel: 'Dosis 2',
+      isNationalProgram: true,
+    }),
+    'RV 2': immunizationSeedKey({
+      vaccineName: 'Rotavirus (Monovalen)',
+      scheduledAgeWeeks: 12,
+      doseLabel: 'Dosis 2 (dosis terakhir monovalen)',
+      isNationalProgram: true,
+    }),
+    'DPT-HB-Hib 3': immunizationSeedKey({
+      vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
+      scheduledAgeWeeks: 16,
+      doseLabel: 'Dosis 3 (skema DTPw) / Dosis 2 (skema DTPa)',
+      isNationalProgram: true,
+    }),
+    'Polio 3': immunizationSeedKey({
+      vaccineName: 'Polio 3 (OPV)',
+      scheduledAgeWeeks: 16,
+      doseLabel: 'Dosis 3',
+      isNationalProgram: true,
+    }),
+    IPV: immunizationSeedKey({
+      vaccineName: 'IPV (Polio suntik)',
+      scheduledAgeWeeks: 16,
+      doseLabel: 'Dosis 1',
+      isNationalProgram: true,
+    }),
+    'RV 3': immunizationSeedKey({
+      vaccineName: 'Rotavirus (Pentavalen)',
+      scheduledAgeWeeks: 16,
+      doseLabel: 'Dosis 3 dari 3',
+      isNationalProgram: true,
+    }),
+    'Campak-Rubella': immunizationSeedKey({
+      vaccineName: 'Campak/MR',
+      scheduledAgeWeeks: 36,
+      doseLabel: 'Dosis 1',
+      isNationalProgram: true,
+    }),
+    'Japanese Encephalitis': immunizationSeedKey({
+      vaccineName: 'Japanese Encephalitis',
+      scheduledAgeWeeks: 36,
+      doseLabel: 'Dosis 1',
+      isNationalProgram: false,
+    }),
+  }
+
+  if (byExactName[name]) return byExactName[name]
+
+  // Custom / nama bebas yang masih merujuk dosis jadwal
+  if (
+    /hb0|hepatitis\s*b0|hep\.?\s*b0/i.test(lower) ||
+    (/hepatitis\s*b/i.test(lower) && /24\s*jam|dosis\s*0|monovalen/i.test(notes + ' ' + lower))
+  ) {
+    return immunizationSeedKey({
+      vaccineName: 'Hepatitis B0 (monovalen)',
+      scheduledAgeWeeks: 0,
+      doseLabel: 'Dosis 0',
+      isNationalProgram: true,
+    })
+  }
+
+  if (
+    /polio\s*0|opv\s*0/i.test(lower) ||
+    (/^polio$/i.test(name) && /opv\s*0|polio\s*0|dosis\s*0/i.test(notes))
+  ) {
+    return immunizationSeedKey({
+      vaccineName: 'Polio 0 (OPV)',
+      scheduledAgeWeeks: 0,
+      doseLabel: 'Dosis 0',
+      isNationalProgram: true,
+    })
+  }
+
+  return null
+}
+
 export const immunizationSeedData: ImmunizationSeed[] = [
   // ===================== BARU LAHIR (0 minggu) =====================
   {

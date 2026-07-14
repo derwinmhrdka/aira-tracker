@@ -176,22 +176,28 @@ export async function POST(request: NextRequest) {
       }
 
       for (const d of backup.development ?? []) {
-        const existing = await tx.developmentChecklist.findFirst({
-          where: { question: d.question },
-        })
+        const seedKey = d.seed_key as string | undefined
+        const existing = seedKey
+          ? await tx.developmentChecklist.findFirst({ where: { seedKey } })
+          : await tx.developmentChecklist.findFirst({
+              where: { question: d.question },
+            })
         if (existing) {
           await tx.developmentChecklist.update({
             where: { id: existing.id },
             data: {
               isChecked: d.is_checked ?? false,
               dateChecked: d.date_checked ? new Date(d.date_checked) : null,
+              category: d.category ?? existing.category,
             },
           })
         } else {
           await tx.developmentChecklist.create({
             data: {
               ageGroupMonths: d.age_group_months ?? 0,
+              category: d.category ?? null,
               question: d.question,
+              seedKey: seedKey ?? null,
               isChecked: d.is_checked ?? false,
               dateChecked: d.date_checked ? new Date(d.date_checked) : null,
             },
