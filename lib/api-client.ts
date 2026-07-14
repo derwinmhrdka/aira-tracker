@@ -124,17 +124,27 @@ export const api = {
 
   logFeeding: (
     action: 'start' | 'end' | 'quick',
-    data?: { side?: string; amount_ml?: number; notes?: string; feed_type?: string }
+    data?: {
+      side?: string
+      amount_ml?: number
+      notes?: string
+      feed_type?: string
+      duration_minutes?: number
+      timestamp_end?: string
+    }
   ) =>
     apiFetch('/api/logs/feeding', {
       method: 'POST',
       body: JSON.stringify({ action, ...data }),
     }),
 
-  logSleep: (action: 'start' | 'end', notes?: string) =>
+  logSleep: (
+    action: 'start' | 'end',
+    data?: { notes?: string; duration_minutes?: number; timestamp_end?: string }
+  ) =>
     apiFetch('/api/logs/sleep', {
       method: 'POST',
-      body: JSON.stringify({ action, notes }),
+      body: JSON.stringify({ action, ...data }),
     }),
 
   getTodaySummary: async () => {

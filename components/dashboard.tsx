@@ -8,7 +8,7 @@ import { Toast } from './toast'
 import { ThemeToggle } from './theme-toggle'
 import { LoggedBySelector } from './logged-by-selector'
 import { NoteSheet } from './note-sheet'
-import { FeedingEndSheet } from './feeding-end-sheet'
+import { SessionEndSheet, type SessionEndData } from './session-end-sheet'
 import { QuickFeedSheet } from './quick-feed-sheet'
 import { ActiveTimer } from './active-timer'
 import { BabyInfoCard } from './baby-info-card'
@@ -29,6 +29,7 @@ export function Dashboard() {
   const [summaryError, setSummaryError] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [feedEndOpen, setFeedEndOpen] = useState(false)
+  const [sleepEndOpen, setSleepEndOpen] = useState(false)
   const [quickFeedOpen, setQuickFeedOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -90,7 +91,7 @@ export function Dashboard() {
     fetchSummary({ silent: true })
   }
 
-  const optimisticUpdate = (action: string) => {
+  const optimisticUpdate = (action: string, durationMinutes?: number) => {
     if (!summary) return
     const now = new Date().toISOString()
     const nowMs = Date.now()
@@ -130,7 +131,9 @@ export function Dashboard() {
         break
       case 'feed-end': {
         next.activeFeeding = false
-        if (summary.activeFeedingStart) {
+        if (durationMinutes != null) {
+          next.lastDurations.feed = Math.max(0, durationMinutes)
+        } else if (summary.activeFeedingStart) {
           next.lastDurations.feed = Math.max(
             0,
             Math.round((nowMs - new Date(summary.activeFeedingStart).getTime()) / 60000)
@@ -147,7 +150,9 @@ export function Dashboard() {
         break
       case 'sleep-end': {
         next.activeSleep = false
-        if (summary.activeSleepStart) {
+        if (durationMinutes != null) {
+          next.lastDurations.sleep = Math.max(0, durationMinutes)
+        } else if (summary.activeSleepStart) {
           next.lastDurations.sleep = Math.max(
             0,
             Math.round((nowMs - new Date(summary.activeSleepStart).getTime()) / 60000)
@@ -180,19 +185,22 @@ export function Dashboard() {
       return
     }
 
+    if ((action === 'sleep' && wasSleeping) || action === 'wake') {
+      setSleepEndOpen(true)
+      return
+    }
+
     const messages: Record<string, string> = {
       pup: '💩 Tercatat!',
       pee: '💧 Tercatat!',
       both: '💩💧 Tercatat!',
       change: 'Popok tercatat!',
       feed: '🍼 Mulai menyusui!',
-      sleep: wasSleeping ? '☀️ Bangun!' : '😴 Mulai tidur!',
-      wake: '☀️ Bangun!',
+      sleep: '😴 Mulai tidur!',
     }
 
     if (action === 'feed') optimisticUpdate('feed-start')
-    else if (action === 'sleep') optimisticUpdate(wasSleeping ? 'sleep-end' : 'sleep-start')
-    else if (action === 'wake') optimisticUpdate('sleep-end')
+    else if (action === 'sleep') optimisticUpdate('sleep-start')
     else optimisticUpdate(action)
 
     try {
@@ -214,10 +222,7 @@ export function Dashboard() {
           result = await api.logFeeding('start')
           break
         case 'sleep':
-          result = await api.logSleep(wasSleeping ? 'end' : 'start')
-          break
-        case 'wake':
-          result = await api.logSleep('end')
+          result = await api.logSleep('start')
           break
         default:
           result = null
@@ -235,13 +240,9 @@ export function Dashboard() {
     }
   }
 
-  const handleFeedEnd = async (data: {
-    side?: string
-    amount_ml?: number
-    feed_type?: string
-  }) => {
+  const handleFeedEnd = async (data: SessionEndData) => {
     showToast('🍼 Selesai menyusui!')
-    optimisticUpdate('feed-end')
+    optimisticUpdate('feed-end', data.duration_minutes)
     setFeedEndOpen(false)
     try {
       const current = await api.getTodaySummary()
@@ -251,7 +252,32 @@ export function Dashboard() {
         setTimeout(() => setToastMessage(null), 3000)
         return
       }
-      await api.logFeeding('end', data)
+      await api.logFeeding('end', {
+        side: data.side,
+        amount_ml: data.amount_ml,
+        feed_type: data.feed_type,
+        duration_minutes: data.duration_minutes,
+      })
+      fetchSummary()
+      notifyDataSynced()
+    } catch (err) {
+      showLogError(err)
+    }
+  }
+
+  const handleSleepEnd = async (data: SessionEndData) => {
+    showToast('☀️ Bangun!')
+    optimisticUpdate('sleep-end', data.duration_minutes)
+    setSleepEndOpen(false)
+    try {
+      const current = await api.getTodaySummary()
+      if (!current.activeSleep) {
+        setSummary(current)
+        setToastMessage('ℹ️ Tidur sudah dihentikan di perangkat lain')
+        setTimeout(() => setToastMessage(null), 3000)
+        return
+      }
+      await api.logSleep('end', { duration_minutes: data.duration_minutes })
       fetchSummary()
       notifyDataSynced()
     } catch (err) {
@@ -437,10 +463,19 @@ export function Dashboard() {
         onClose={() => setNoteOpen(false)}
         onSave={handleSaveNote}
       />
-      <FeedingEndSheet
+      <SessionEndSheet
         open={feedEndOpen}
+        type="feeding"
+        startTime={summary?.activeFeedingStart ?? null}
         onClose={() => setFeedEndOpen(false)}
-        onSave={handleFeedEnd}
+        onConfirm={handleFeedEnd}
+      />
+      <SessionEndSheet
+        open={sleepEndOpen}
+        type="sleep"
+        startTime={summary?.activeSleepStart ?? null}
+        onClose={() => setSleepEndOpen(false)}
+        onConfirm={handleSleepEnd}
       />
       <QuickFeedSheet
         open={quickFeedOpen}

@@ -55,7 +55,6 @@ export function BabyLeapCard({ birthDate }: BabyLeapCardProps) {
         >
           {isActive ? 'Active' : 'Soon'}
         </span>
-        <span className="text-[10px] text-muted-foreground">{open ? '▴' : '▾'}</span>
       </button>
 
       <AnimatePresence initial={false}>

@@ -15,6 +15,21 @@ function fromDatetimeLocal(value: string) {
   return new Date(value).toISOString()
 }
 
+function minutesBetweenLocal(startLocal: string, endLocal: string): number | null {
+  if (!startLocal || !endLocal) return null
+  const ms = new Date(endLocal).getTime() - new Date(startLocal).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return null
+  return Math.round(ms / 60000)
+}
+
+function endFromDuration(startLocal: string, totalMinutes: number): string {
+  const start = new Date(startLocal)
+  const end = new Date(start.getTime() + Math.max(0, totalMinutes) * 60000)
+  return toDatetimeLocal(end.toISOString())
+}
+
+type EndMode = 'time' | 'duration'
+
 interface EditLogSheetProps {
   item: HistoryItem | null
   open: boolean
@@ -25,6 +40,9 @@ interface EditLogSheetProps {
 export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps) {
   const [timestamp, setTimestamp] = useState('')
   const [timestampEnd, setTimestampEnd] = useState('')
+  const [endMode, setEndMode] = useState<EndMode>('time')
+  const [durationHours, setDurationHours] = useState('0')
+  const [durationMinutes, setDurationMinutes] = useState('0')
   const [diaperType, setDiaperType] = useState<'pup' | 'pee' | 'both' | 'change'>('pee')
   const [side, setSide] = useState('LEFT')
   const [feedType, setFeedType] = useState<FeedTypeValue>('DIRECT')
@@ -35,8 +53,19 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
 
   useEffect(() => {
     if (!item) return
-    setTimestamp(toDatetimeLocal(item.timestamp))
-    setTimestampEnd(item.timestampEnd ? toDatetimeLocal(item.timestampEnd) : '')
+    const startLocal = toDatetimeLocal(item.timestamp)
+    const endLocal = item.timestampEnd ? toDatetimeLocal(item.timestampEnd) : ''
+    setTimestamp(startLocal)
+    setTimestampEnd(endLocal)
+    setEndMode('time')
+    const mins = endLocal ? minutesBetweenLocal(startLocal, endLocal) : null
+    if (mins != null) {
+      setDurationHours(String(Math.floor(mins / 60)))
+      setDurationMinutes(String(mins % 60))
+    } else {
+      setDurationHours('0')
+      setDurationMinutes('0')
+    }
     setDiaperType(item.diaper_type ?? (item.type as 'pup' | 'pee' | 'both' | 'change') ?? 'pee')
     setSide(item.side ?? 'LEFT')
     setFeedType((item.feed_type as FeedTypeValue) ?? 'DIRECT')
@@ -45,23 +74,74 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
     setContent(item.content ?? item.details ?? '')
   }, [item])
 
+  const applyDuration = (hoursStr: string, minutesStr: string, startLocal = timestamp) => {
+    const h = Math.max(0, parseInt(hoursStr || '0', 10) || 0)
+    const m = Math.max(0, Math.min(59, parseInt(minutesStr || '0', 10) || 0))
+    setDurationHours(String(h))
+    setDurationMinutes(String(m))
+    if (!startLocal) return
+    const total = h * 60 + m
+    if (total <= 0) {
+      setTimestampEnd('')
+      return
+    }
+    setTimestampEnd(endFromDuration(startLocal, total))
+  }
+
+  const handleStartChange = (value: string) => {
+    setTimestamp(value)
+    if (endMode === 'duration') {
+      applyDuration(durationHours, durationMinutes, value)
+    } else if (timestampEnd) {
+      const mins = minutesBetweenLocal(value, timestampEnd)
+      if (mins != null) {
+        setDurationHours(String(Math.floor(mins / 60)))
+        setDurationMinutes(String(mins % 60))
+      }
+    }
+  }
+
+  const handleEndChange = (value: string) => {
+    setTimestampEnd(value)
+    if (timestamp && value) {
+      const mins = minutesBetweenLocal(timestamp, value)
+      if (mins != null) {
+        setDurationHours(String(Math.floor(mins / 60)))
+        setDurationMinutes(String(mins % 60))
+      }
+    }
+  }
+
   const handleSave = async () => {
     if (!item) return
     setSaving(true)
     try {
-      const data: UpdateLogInput = { timestamp: fromDatetimeLocal(timestamp) }
+      let startLocal = timestamp
+      let endLocal = timestampEnd
+
+      if (
+        (item.category === 'feeding' || item.category === 'sleep') &&
+        endMode === 'duration'
+      ) {
+        const h = Math.max(0, parseInt(durationHours || '0', 10) || 0)
+        const m = Math.max(0, Math.min(59, parseInt(durationMinutes || '0', 10) || 0))
+        const total = h * 60 + m
+        endLocal = total > 0 && startLocal ? endFromDuration(startLocal, total) : ''
+      }
+
+      const data: UpdateLogInput = { timestamp: fromDatetimeLocal(startLocal) }
 
       if (item.category === 'diaper') {
         data.type = diaperType
         data.notes = notes || null
       } else if (item.category === 'feeding') {
-        data.timestamp_end = timestampEnd ? fromDatetimeLocal(timestampEnd) : null
+        data.timestamp_end = endLocal ? fromDatetimeLocal(endLocal) : null
         data.side = side
         data.feed_type = feedType
         data.amount_ml = amountMl ? parseInt(amountMl, 10) : null
         data.notes = notes || null
       } else if (item.category === 'sleep') {
-        data.timestamp_end = timestampEnd ? fromDatetimeLocal(timestampEnd) : null
+        data.timestamp_end = endLocal ? fromDatetimeLocal(endLocal) : null
         data.notes = notes || null
       } else if (item.category === 'note') {
         data.content = content.trim()
@@ -120,7 +200,7 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                 <input
                   type="datetime-local"
                   value={timestamp}
-                  onChange={(e) => setTimestamp(e.target.value)}
+                  onChange={(e) => handleStartChange(e.target.value)}
                   className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
                 />
               </div>
@@ -194,14 +274,75 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      End
+                      Selesai
                     </label>
-                    <input
-                      type="datetime-local"
-                      value={timestampEnd}
-                      onChange={(e) => setTimestampEnd(e.target.value)}
-                      className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
-                    />
+                    <div className="mb-2 flex gap-2">
+                      {(
+                        [
+                          { id: 'time' as const, label: 'Waktu selesai' },
+                          { id: 'duration' as const, label: 'Durasi' },
+                        ] as const
+                      ).map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setEndMode(m.id)
+                            if (m.id === 'duration') {
+                              applyDuration(durationHours, durationMinutes)
+                            }
+                          }}
+                          className={`flex-1 rounded-xl py-2 text-sm font-medium ${
+                            endMode === m.id
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-secondary text-foreground'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    {endMode === 'time' ? (
+                      <input
+                        type="datetime-local"
+                        value={timestampEnd}
+                        onChange={(e) => handleEndChange(e.target.value)}
+                        className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
+                      />
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="mb-1 block text-[10px] text-muted-foreground">
+                            Jam
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={24}
+                            value={durationHours}
+                            onChange={(e) =>
+                              applyDuration(e.target.value, durationMinutes)
+                            }
+                            className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] text-muted-foreground">
+                            Menit
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={59}
+                            value={durationMinutes}
+                            onChange={(e) =>
+                              applyDuration(durationHours, e.target.value)
+                            }
+                            className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -261,12 +402,73 @@ export function EditLogSheet({ item, open, onClose, onSave }: EditLogSheetProps)
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
                       Bangun
                     </label>
-                    <input
-                      type="datetime-local"
-                      value={timestampEnd}
-                      onChange={(e) => setTimestampEnd(e.target.value)}
-                      className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
-                    />
+                    <div className="mb-2 flex gap-2">
+                      {(
+                        [
+                          { id: 'time' as const, label: 'Waktu selesai' },
+                          { id: 'duration' as const, label: 'Durasi' },
+                        ] as const
+                      ).map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setEndMode(m.id)
+                            if (m.id === 'duration') {
+                              applyDuration(durationHours, durationMinutes)
+                            }
+                          }}
+                          className={`flex-1 rounded-xl py-2 text-sm font-medium ${
+                            endMode === m.id
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-secondary text-foreground'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    {endMode === 'time' ? (
+                      <input
+                        type="datetime-local"
+                        value={timestampEnd}
+                        onChange={(e) => handleEndChange(e.target.value)}
+                        className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
+                      />
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="mb-1 block text-[10px] text-muted-foreground">
+                            Jam
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={24}
+                            value={durationHours}
+                            onChange={(e) =>
+                              applyDuration(e.target.value, durationMinutes)
+                            }
+                            className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] text-muted-foreground">
+                            Menit
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={59}
+                            value={durationMinutes}
+                            onChange={(e) =>
+                              applyDuration(durationHours, e.target.value)
+                            }
+                            className="w-full rounded-xl border border-input bg-background px-3 py-3 text-base"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
