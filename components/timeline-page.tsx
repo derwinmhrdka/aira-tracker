@@ -287,13 +287,6 @@ export function TimelinePage({ onBack }: TimelinePageProps) {
     [events, selectedId]
   )
 
-  const progressPct =
-    events.length <= 1
-      ? 100
-      : selectedIndex < 0
-        ? 0
-        : (selectedIndex / (events.length - 1)) * 100
-
   const cardBg =
     selected?.photoUrl != null
       ? getDisplayPhotoUrl(selected.photoUrl)
@@ -377,7 +370,7 @@ export function TimelinePage({ onBack }: TimelinePageProps) {
           perkembangan.
         </p>
       ) : (
-        <div className="relative mt-2 overflow-hidden rounded-[1.75rem] border border-white/20 shadow-[0_20px_50px_-28px_rgba(14,116,144,0.55)]">
+        <div className="relative mt-2 min-h-[36rem] overflow-hidden rounded-[1.75rem] border border-white/20 shadow-[0_20px_50px_-28px_rgba(14,116,144,0.55)]">
           {/* Washed-out selected photo as card backdrop */}
           <AnimatePresence mode="wait">
             {cardBg ? (
@@ -413,41 +406,50 @@ export function TimelinePage({ onBack }: TimelinePageProps) {
 
           <div className="relative px-1 pb-5 pt-5 sm:px-2">
             <div className="relative mb-5 min-w-0">
-              {/* Track aligns with photo row (~ titles 2.25rem + month 1.5rem + gaps) */}
-              <div className="pointer-events-none absolute left-4 right-4 top-[6.85rem] h-[3px] rounded-full bg-white/20" />
-              <div
-                className="pointer-events-none absolute left-4 top-[6.85rem] h-[3px] origin-left rounded-full bg-gradient-to-r from-cyan-300 via-sky-400 to-indigo-300 transition-transform duration-500 ease-out"
-                style={{
-                  width: 'calc(100% - 2rem)',
-                  transform: `scaleX(${Math.max(0.02, progressPct / 100)})`,
-                }}
-              />
-
               <div
                 ref={scrollerRef}
                 onPointerDown={onLanePointerDown}
                 onPointerMove={onLanePointerMove}
                 onPointerUp={onLanePointerUp}
                 onPointerCancel={onLanePointerUp}
-                className="flex cursor-grab touch-pan-x items-start gap-8 overflow-x-auto px-4 pb-3 pt-1 active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex cursor-grab touch-pan-x items-start gap-10 overflow-x-auto px-4 pb-4 pt-1 active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 {monthGroups.map((group) => (
                   <div
                     key={group.key}
-                    className="flex shrink-0 flex-col items-center"
+                    className="flex w-max shrink-0 flex-col items-center"
                   >
-                    <p className="mb-2 text-center font-heading text-xs font-semibold capitalize tracking-wide text-white/90">
+                    <p className="mb-2.5 h-7 w-full text-center font-heading text-base font-semibold capitalize leading-7 tracking-wide text-white/90">
                       {group.label}
                     </p>
 
-                    <div className="flex gap-5">
+                    <div className="flex items-end gap-4">
                       {group.events.map((event) => {
-                        const flatIndex = events.findIndex(
-                          (e) => e.id === event.id
-                        )
                         const active = event.id === selectedId
-                        const past =
-                          selectedIndex >= 0 && flatIndex <= selectedIndex
+                        return (
+                          <button
+                            key={`${event.id}-title`}
+                            type="button"
+                            onClick={() => selectEvent(event.id)}
+                            className={`flex h-9 w-[4.5rem] shrink-0 items-end justify-center text-center text-[10px] font-semibold leading-tight transition-colors ${
+                              active ? 'text-white' : 'text-white/65'
+                            }`}
+                          >
+                            <span className="line-clamp-2 w-full">{event.title}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div className="relative mt-3 flex items-start gap-4">
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute left-[1.4rem] right-[1.4rem] top-7 h-[3px] -translate-y-1/2 rounded-full bg-white/25"
+                      />
+                      {group.events.map((event) => {
+                        const flatIndex = events.findIndex((e) => e.id === event.id)
+                        const active = event.id === selectedId
+                        const past = selectedIndex >= 0 && flatIndex <= selectedIndex
                         const photoSrc = event.photoUrl
                           ? getDisplayPhotoUrl(event.photoUrl)
                           : null
@@ -460,24 +462,13 @@ export function TimelinePage({ onBack }: TimelinePageProps) {
                               nodeRefs.current[event.id] = el
                             }}
                             onClick={() => selectEvent(event.id)}
-                            className="group relative flex w-[4.75rem] shrink-0 flex-col items-center gap-2"
+                            className="relative z-[1] flex h-[4.25rem] w-[4.5rem] shrink-0 items-start justify-center pt-0"
                           >
-                            <span
-                              className={`line-clamp-2 min-h-[2.25rem] text-center text-[10px] font-semibold leading-tight transition-colors ${
-                                active
-                                  ? 'text-white'
-                                  : 'text-white/65'
-                              }`}
-                            >
-                              {event.title}
-                            </span>
-
-                            <span className="relative mt-0.5">
-                              <motion.span
-                                layout
-                                className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-[3px] shadow-md transition-all ${
+                            <span className="relative h-14 w-14 shrink-0">
+                              <span
+                                className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-[3px] shadow-md transition-[box-shadow,border-color] ${
                                   active
-                                    ? 'scale-110 border-white ring-4 ring-white/30'
+                                    ? 'border-white shadow-[0_0_0_4px_rgba(255,255,255,0.28)]'
                                     : past
                                       ? 'border-cyan-300/90'
                                       : 'border-white/40'
@@ -505,7 +496,7 @@ export function TimelinePage({ onBack }: TimelinePageProps) {
                                             : '✨')}
                                   </span>
                                 )}
-                              </motion.span>
+                              </span>
                               <SourceBadge source={event.source} />
                             </span>
                           </button>
@@ -521,19 +512,18 @@ export function TimelinePage({ onBack }: TimelinePageProps) {
               {selected && (
                 <motion.div
                   key={selected.id}
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
                   transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-                  className="overflow-hidden px-2 sm:px-3"
+                  className="px-2 sm:px-3"
                 >
-                  <motion.button
-                    type="button"
-                    layout
-                    onClick={() => setExpanded((v) => !v)}
-                    className="w-full overflow-hidden rounded-2xl border border-white/20 bg-white/12 text-left shadow-sm backdrop-blur-md"
-                  >
-                    <div className="flex items-center justify-between gap-2 border-b border-white/15 px-4 py-2.5">
+                  <div className="w-full overflow-hidden rounded-2xl border border-white/20 bg-white/12 text-left shadow-sm backdrop-blur-md">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((v) => !v)}
+                      className="flex w-full items-center justify-between gap-2 border-b border-white/15 px-4 py-2.5 text-left"
+                    >
                       <div className="min-w-0">
                         <p className="truncate font-heading text-sm font-semibold text-white">
                           {selected.title}
@@ -546,59 +536,53 @@ export function TimelinePage({ onBack }: TimelinePageProps) {
                       <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white">
                         {expanded ? 'Tutup' : 'Buka'}
                       </span>
-                    </div>
+                    </button>
 
-                    <AnimatePresence initial={false}>
-                      {expanded && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.28, ease: 'easeOut' }}
-                          className="overflow-hidden"
-                        >
-                          <div className="space-y-3 p-4">
-                            {selected.photoUrl ? (
-                              <motion.div
-                                layoutId={`photo-${selected.id}`}
-                                className="overflow-hidden rounded-xl"
-                                initial={{ scale: 0.92, opacity: 0.7 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{
-                                  type: 'spring',
-                                  stiffness: 260,
-                                  damping: 22,
-                                }}
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={getDisplayPhotoUrl(selected.photoUrl)}
-                                  alt=""
-                                  className="max-h-64 w-full object-cover"
-                                />
-                              </motion.div>
-                            ) : (
-                              <div
-                                className={`flex h-28 items-center justify-center rounded-xl bg-gradient-to-br text-5xl text-white ${SOURCE_TINT[selected.source]}`}
-                              >
-                                {selected.emoji ??
-                                  (selected.source === 'milestone'
-                                    ? '🏆'
-                                    : selected.source === 'note'
-                                      ? '📝'
-                                      : selected.source === 'achievement'
-                                        ? '🏅'
-                                        : '✨')}
-                              </div>
-                            )}
-                            <p className="text-sm leading-relaxed text-white/90">
-                              {selected.detail}
-                            </p>
+                    {/* Tinggi tetap — tutup hanya menyembunyikan isi, card besar tidak mengecil */}
+                    <div className="relative min-h-[20rem] p-4">
+                      <motion.div
+                        initial={false}
+                        animate={{
+                          opacity: expanded ? 1 : 0,
+                          y: expanded ? 0 : 6,
+                        }}
+                        transition={{ duration: 0.22, ease: 'easeOut' }}
+                        className={`space-y-3 ${
+                          expanded
+                            ? 'pointer-events-auto'
+                            : 'pointer-events-none'
+                        }`}
+                        aria-hidden={!expanded}
+                      >
+                        {selected.photoUrl ? (
+                          <div className="overflow-hidden rounded-xl">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={getDisplayPhotoUrl(selected.photoUrl)}
+                              alt=""
+                              className="h-56 w-full object-cover"
+                            />
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.button>
+                        ) : (
+                          <div
+                            className={`flex h-56 items-center justify-center rounded-xl bg-gradient-to-br text-5xl text-white ${SOURCE_TINT[selected.source]}`}
+                          >
+                            {selected.emoji ??
+                              (selected.source === 'milestone'
+                                ? '🏆'
+                                : selected.source === 'note'
+                                  ? '📝'
+                                  : selected.source === 'achievement'
+                                    ? '🏅'
+                                    : '✨')}
+                          </div>
+                        )}
+                        <p className="text-sm leading-relaxed text-white/90">
+                          {selected.detail}
+                        </p>
+                      </motion.div>
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
