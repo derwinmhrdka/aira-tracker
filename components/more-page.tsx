@@ -12,6 +12,7 @@ import {
   Settings,
   Heart,
   Images,
+  Waypoints,
   type LucideIcon,
 } from 'lucide-react'
 import { PageHeader } from './page-header'
@@ -86,6 +87,14 @@ const MENU_ITEMS: {
     desc: 'Badge dari checklist Perkembangan',
     color: 'bg-cyan-100 border-cyan-200/80 dark:bg-cyan-950/60 dark:border-cyan-800/60',
     iconColor: 'text-cyan-600 dark:text-cyan-300',
+  },
+  {
+    id: 'timeline',
+    icon: Waypoints,
+    label: 'Timeline',
+    desc: 'Jejak catatan & milestone',
+    color: 'bg-emerald-100 border-emerald-200/80 dark:bg-emerald-950/60 dark:border-emerald-800/60',
+    iconColor: 'text-emerald-600 dark:text-emerald-300',
   },
   {
     id: 'events',

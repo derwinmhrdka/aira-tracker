@@ -83,8 +83,6 @@ export function AchievementsPage({ onBack }: AchievementsPageProps) {
     }
   }
 
-  const unlockedCount = titles.filter((t) => t.is_unlocked).length
-
   const byAge = titles.reduce<Record<number, TitleItem[]>>((acc, t) => {
     const age = t.age_group_months
     if (!acc[age]) acc[age] = []
@@ -99,14 +97,6 @@ export function AchievementsPage({ onBack }: AchievementsPageProps) {
         subtitle="Badge per usia dari checklist Perkembangan"
         onBack={onBack}
       />
-
-      {!loading && !error && titles.length > 0 && (
-        <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
-          {unlockedCount}/{titles.length} terbuka · Centang semua item checklist
-          di usia + kategori yang sama untuk unlock otomatis. Ketuk untuk unlock
-          manual.
-        </p>
-      )}
 
       {error ? (
         <ErrorBanner message="Gagal memuat title" onRetry={load} />

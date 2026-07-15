@@ -93,6 +93,13 @@ const GalleryPage = dynamic(
     })),
   { loading: () => <PageFallback /> }
 )
+const TimelinePage = dynamic(
+  () =>
+    import('@/components/timeline-page').then((m) => ({
+      default: m.TimelinePage,
+    })),
+  { loading: () => <PageFallback /> }
+)
 const SettingsPage = dynamic(
   () =>
     import('@/components/settings-page').then((m) => ({
@@ -163,6 +170,7 @@ export function AppShell() {
         {currentPage === 'achievements' && (
           <AchievementsPage onBack={goBack} />
         )}
+        {currentPage === 'timeline' && <TimelinePage onBack={goBack} />}
         {currentPage === 'events' && <EventsPage onBack={goBack} />}
         {currentPage === 'settings' && <SettingsPage onBack={goBack} />}
       </div>
