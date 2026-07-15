@@ -92,14 +92,13 @@ export function DevelopmentPage({ onBack }: DevelopmentPageProps) {
     <div className="px-4 pt-6 pb-8">
       <PageHeader
         title="Perkembangan"
-        subtitle="Checklist CDC · buka badge per usia di Pencapaian"
+        subtitle="Checklist CDC · bukan diagnosis medis"
         onBack={onBack}
       />
 
       {!loading && items.length > 0 && (
         <p className="mb-4 text-xs text-muted-foreground">
-          {checkedCount}/{items.length} tercapai · lengkapi usia+kategori → badge
-          di Pencapaian
+          {checkedCount}/{items.length} tercapai
         </p>
       )}
 

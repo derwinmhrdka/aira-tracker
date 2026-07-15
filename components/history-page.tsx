@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { api, isQueuedResponse, type HistoryItem, type UpdateLogInput } from '@/lib/api-client'
 import { formatDurationLabel } from '@/lib/baby-utils'
+import { loggedByEmoji } from '@/lib/logged-by'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { EditLogSheet } from './edit-log-sheet'
 import { Toast } from './toast'
@@ -288,6 +289,7 @@ export function HistoryPage() {
               <div className="space-y-2">
                 {group.items.map((item) => {
                   const durationMins = itemDurationMinutes(item)
+                  const who = loggedByEmoji(item.loggedBy)
                   return (
                   <motion.div
                     key={`${item.category}-${item.id}`}
@@ -301,7 +303,7 @@ export function HistoryPage() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatTime(item.timestamp)}
-                        {item.loggedBy && ` · ${item.loggedBy}`}
+                        {who && ` · ${who}`}
                       </p>
                       {durationMins != null && (
                         <p className="mt-0.5 text-xs font-medium text-foreground">

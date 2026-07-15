@@ -4,12 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { LoggedBy } from '@/lib/types'
 import { getLoggedBy, setLoggedBy } from '@/lib/api-client'
-
-const OPTIONS: { value: LoggedBy; icon: string; label: string }[] = [
-  { value: 'AYAH', icon: '👨', label: 'Ayah' },
-  { value: 'IBU', icon: '👩', label: 'Ibu' },
-  { value: 'PENGASUH', icon: '🧑‍🍼', label: 'Pengasuh' },
-]
+import { LOGGED_BY_OPTIONS } from '@/lib/logged-by'
 
 interface LoggedBySelectorProps {
   value?: LoggedBy
@@ -43,7 +38,8 @@ export function LoggedBySelector({ value, onChange }: LoggedBySelectorProps) {
     setOpen(false)
   }
 
-  const currentOption = OPTIONS.find((o) => o.value === current) ?? OPTIONS[1]
+  const currentOption =
+    LOGGED_BY_OPTIONS.find((o) => o.value === current) ?? LOGGED_BY_OPTIONS[1]
 
   return (
     <div ref={ref} className="relative">
@@ -71,7 +67,7 @@ export function LoggedBySelector({ value, onChange }: LoggedBySelectorProps) {
             role="listbox"
             aria-label="Select logged by"
           >
-            {OPTIONS.map((opt) => (
+            {LOGGED_BY_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
