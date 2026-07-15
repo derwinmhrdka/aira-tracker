@@ -13,10 +13,28 @@ interface AchievementsPageProps {
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
-  physical: 'Physical',
-  cognitive: 'Cognitive',
-  linguistic: 'Linguistic',
-  social: 'Social',
+  physical: 'Fisik',
+  cognitive: 'Kognitif',
+  linguistic: 'Bahasa',
+  social: 'Sosial',
+}
+
+const CATEGORY_ORDER = ['social', 'linguistic', 'cognitive', 'physical']
+
+const AGE_LABELS: Record<number, string> = {
+  0: 'Baru lahir',
+  2: '2 bulan',
+  4: '4 bulan',
+  6: '6 bulan',
+  9: '9 bulan',
+  12: '12 bulan',
+  15: '15 bulan',
+  18: '18 bulan',
+  24: '2 tahun',
+  30: '2,5 tahun',
+  36: '3 tahun',
+  48: '4 tahun',
+  60: '5 tahun',
 }
 
 export function AchievementsPage({ onBack }: AchievementsPageProps) {
@@ -65,13 +83,30 @@ export function AchievementsPage({ onBack }: AchievementsPageProps) {
     }
   }
 
+  const unlockedCount = titles.filter((t) => t.is_unlocked).length
+
+  const byAge = titles.reduce<Record<number, TitleItem[]>>((acc, t) => {
+    const age = t.age_group_months
+    if (!acc[age]) acc[age] = []
+    acc[age].push(t)
+    return acc
+  }, {})
+
   return (
     <div className="px-4 pt-6 pb-8">
       <PageHeader
         title="Pencapaian"
-        subtitle="Ketuk untuk unlock title bayi"
+        subtitle="Badge per usia dari checklist Perkembangan"
         onBack={onBack}
       />
+
+      {!loading && !error && titles.length > 0 && (
+        <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+          {unlockedCount}/{titles.length} terbuka · Centang semua item checklist
+          di usia + kategori yang sama untuk unlock otomatis. Ketuk untuk unlock
+          manual.
+        </p>
+      )}
 
       {error ? (
         <ErrorBanner message="Gagal memuat title" onRetry={load} />
@@ -86,47 +121,95 @@ export function AchievementsPage({ onBack }: AchievementsPageProps) {
           Belum ada title. Jalankan seed database.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {titles.map((title) => {
-            const unlocked = title.is_unlocked
+        Object.entries(byAge)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([ageStr, ageTitles]) => {
+            const age = Number(ageStr)
+            const sorted = CATEGORY_ORDER.map((cat) =>
+              ageTitles.find((t) => t.category === cat)
+            ).filter(Boolean) as TitleItem[]
+
             return (
-              <motion.button
-                key={title.id}
-                type="button"
-                whileTap={{ scale: 0.97 }}
-                disabled={busyId === title.id}
-                onClick={() => handleToggle(title)}
-                className={`rounded-2xl border p-4 text-left shadow-sm transition-all ${
-                  unlocked
-                    ? 'border-sky-200/80 bg-sky-50 dark:border-sky-800/60 dark:bg-sky-950/40'
-                    : 'border-border bg-secondary/40 opacity-55 grayscale'
-                }`}
-              >
-                <div
-                  className={`mb-2 text-4xl ${unlocked ? '' : 'opacity-70'}`}
-                >
-                  {title.emoji}
+              <div key={age} className="mb-6">
+                <h2 className="font-heading mb-2 text-sm font-semibold text-primary">
+                  {AGE_LABELS[age] ?? `${age} bulan`}
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {sorted.map((title) => {
+                    const unlocked = title.is_unlocked
+                    const checked = title.progress_checked ?? 0
+                    const need = title.unlock_at ?? title.progress_total ?? 1
+                    const pct =
+                      need > 0
+                        ? Math.min(100, Math.round((checked / need) * 100))
+                        : 0
+                    return (
+                      <motion.button
+                        key={title.id}
+                        type="button"
+                        whileTap={{ scale: 0.97 }}
+                        disabled={busyId === title.id}
+                        onClick={() => handleToggle(title)}
+                        className={`rounded-2xl border p-3.5 text-left shadow-sm transition-all ${
+                          unlocked
+                            ? 'border-sky-200/80 bg-sky-50 dark:border-sky-800/60 dark:bg-sky-950/40'
+                            : 'border-border bg-secondary/40 opacity-55 grayscale'
+                        }`}
+                      >
+                        <div
+                          className={`mb-1.5 text-3xl ${unlocked ? '' : 'opacity-70'}`}
+                        >
+                          {title.emoji}
+                        </div>
+                        <p className="font-heading text-[13px] font-semibold leading-snug text-foreground">
+                          {title.name}
+                        </p>
+                        <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {CATEGORY_LABEL[title.category] ?? title.category}
+                        </p>
+                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                          {title.description}
+                        </p>
+
+                        <div className="mt-2">
+                          <div className="mb-1 flex items-center justify-between gap-1">
+                            <span className="text-[10px] text-muted-foreground">
+                              Checklist
+                            </span>
+                            <span className="text-[10px] font-medium text-foreground">
+                              {checked}/{need}
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                unlocked ? 'bg-sky-500' : 'bg-primary/70'
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <p
+                          className={`mt-1.5 text-[10px] font-semibold ${
+                            unlocked
+                              ? 'text-sky-600 dark:text-sky-300'
+                              : 'text-muted-foreground'
+                          }`}
+                        >
+                          {unlocked
+                            ? 'Unlocked ✓'
+                            : need > 0 && checked >= need
+                              ? 'Siap dibuka'
+                              : 'Tap untuk unlock'}
+                        </p>
+                      </motion.button>
+                    )
+                  })}
                 </div>
-                <p className="font-heading text-sm font-semibold text-foreground">
-                  {title.name}
-                </p>
-                <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {CATEGORY_LABEL[title.category] ?? title.category}
-                </p>
-                <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
-                  {title.description}
-                </p>
-                <p
-                  className={`mt-2 text-[10px] font-semibold ${
-                    unlocked ? 'text-sky-600 dark:text-sky-300' : 'text-muted-foreground'
-                  }`}
-                >
-                  {unlocked ? 'Unlocked ✓' : 'Tap untuk unlock'}
-                </p>
-              </motion.button>
+              </div>
             )
-          })}
-        </div>
+          })
       )}
 
       {celebrate && (

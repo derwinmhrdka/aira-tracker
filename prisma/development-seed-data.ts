@@ -1,4 +1,4 @@
-// Checklist perkembangan (CDC Learn the Signs. Act Early.) — 2 bulan s/d 5 tahun.
+// Checklist perkembangan — usia 0 bulan (pantau dini) + CDC Learn the Signs (2 bln–5 thn).
 // Digunakan oleh prisma/seed.ts. Bukan alat diagnosis medis.
 
 export type DevelopmentCategory =
@@ -18,7 +18,39 @@ export function developmentSeedKey(item: DevelopmentChecklistSeed): string {
 }
 
 export const developmentChecklistSeedData: DevelopmentChecklistSeed[] = [
-    // ===================== 2 BULAN =====================
+  // ===================== 0 BULAN (newborn — pantau dini, bukan CDC resmi) =====================
+  {
+    ageGroupMonths: 0,
+    category: 'social',
+    question: 'Bisa tenang saat digendong atau didekap?',
+  },
+  {
+    ageGroupMonths: 0,
+    category: 'social',
+    question: 'Menatap wajah orang tua/pengasuh sebentar?',
+  },
+  {
+    ageGroupMonths: 0,
+    category: 'linguistic',
+    question: 'Bereaksi terhadap suara keras (terkejut/berhenti sebentar)?',
+  },
+  {
+    ageGroupMonths: 0,
+    category: 'cognitive',
+    question: 'Mengikuti wajah atau cahaya dengan pandangan sebentar?',
+  },
+  {
+    ageGroupMonths: 0,
+    category: 'physical',
+    question: 'Menggerakkan kedua lengan dan kedua kakinya?',
+  },
+  {
+    ageGroupMonths: 0,
+    category: 'physical',
+    question: 'Mengangkat kepala sebentar saat tengkurap?',
+  },
+
+  // ===================== 2 BULAN =====================
     { ageGroupMonths: 2, category: "social", question: "Bisa tenang saat diajak bicara atau digendong?" },
     { ageGroupMonths: 2, category: "social", question: "Menatap wajah orang tua/pengasuh?" },
     { ageGroupMonths: 2, category: "social", question: "Terlihat senang saat orang tua/pengasuh mendekat?" },

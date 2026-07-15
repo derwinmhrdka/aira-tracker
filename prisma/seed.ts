@@ -10,6 +10,7 @@ import {
   developmentChecklistSeedData,
   developmentSeedKey,
 } from './development-seed-data'
+import { titleSeedData, titleSeedKey } from './title-seed-data'
 
 const prisma = new PrismaClient()
 
@@ -150,38 +151,38 @@ async function main() {
     `Development: replaced ${removedDev.count} old → ${developmentChecklistSeedData.length} CDC items`
   )
 
-  const titleCount = await prisma.title.count()
-  if (titleCount === 0) {
-    await prisma.title.createMany({
-      data: [
-        {
-          category: 'physical',
-          name: 'Snowball Roller',
-          emoji: '⛄',
-          description: 'Bisa berguling/bergerak aktif sendiri',
-        },
-        {
-          category: 'cognitive',
-          name: 'Little Snowflake Thinker',
-          emoji: '❄️',
-          description: 'Mulai memahami sebab-akibat sederhana',
-        },
-        {
-          category: 'linguistic',
-          name: 'Winter Whisperer',
-          emoji: '🌬️',
-          description: 'Mengucapkan kata pertama yang jelas',
-        },
-        {
-          category: 'social',
-          name: 'Cozy Cuddler',
-          emoji: '🤗',
-          description: 'Mulai tersenyum & merespons secara sosial',
-        },
-      ],
+  const titleSeeds = titleSeedData
+  const titleKeys = titleSeeds.map(titleSeedKey)
+
+  for (const seed of titleSeeds) {
+    await prisma.title.upsert({
+      where: { seedKey: titleSeedKey(seed) },
+      create: {
+        seedKey: titleSeedKey(seed),
+        ageGroupMonths: seed.ageGroupMonths,
+        category: seed.category,
+        name: seed.name,
+        emoji: seed.emoji,
+        description: seed.description,
+      },
+      update: {
+        ageGroupMonths: seed.ageGroupMonths,
+        category: seed.category,
+        name: seed.name,
+        emoji: seed.emoji,
+        description: seed.description,
+      },
     })
-    console.log('Seeded 4 titles')
   }
+
+  const removedTitles = await prisma.title.deleteMany({
+    where: {
+      OR: [{ seedKey: null }, { seedKey: { notIn: titleKeys } }],
+    },
+  })
+  console.log(
+    `Titles: synced ${titleSeeds.length} age badges (removed ${removedTitles.count} legacy)`
+  )
 }
 
 main()

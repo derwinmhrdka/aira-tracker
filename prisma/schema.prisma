@@ -222,13 +222,16 @@ model MoodLog {
 }
 
 model Title {
-  id          String    @id @default(cuid())
-  category    String
-  name        String
-  emoji       String
-  description String
-  isUnlocked  Boolean   @default(false) @map("is_unlocked")
-  unlockedAt  DateTime? @map("unlocked_at")
+  id             String    @id @default(cuid())
+  category       String
+  name           String
+  emoji          String
+  description    String
+  ageGroupMonths Int       @default(0) @map("age_group_months")
+  seedKey        String?   @unique @map("seed_key")
+  isUnlocked     Boolean   @default(false) @map("is_unlocked")
+  unlockedAt     DateTime? @map("unlocked_at")
 
+  @@index([ageGroupMonths, category])
   @@map("titles")
 }

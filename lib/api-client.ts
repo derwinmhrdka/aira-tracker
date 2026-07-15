@@ -327,13 +327,14 @@ export const api = {
     apiFetch<DevelopmentItem[]>('/api/development-checklist'),
 
   updateDevelopmentChecklist: (id: string, isChecked: boolean) =>
-    apiFetch<Pick<DevelopmentItem, 'is_checked' | 'date_checked'>>(
-      '/api/development-checklist',
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ id, is_checked: isChecked }),
+    apiFetch<
+      Pick<DevelopmentItem, 'is_checked' | 'date_checked'> & {
+        newly_unlocked?: TitleItem[]
       }
-    ),
+    >('/api/development-checklist', {
+      method: 'PATCH',
+      body: JSON.stringify({ id, is_checked: isChecked }),
+    }),
 
   uploadPhoto: async (file: File): Promise<{ photo_url: string }> => {
     const formData = new FormData()
@@ -618,8 +619,14 @@ export interface TitleItem {
   name: string
   emoji: string
   description: string
+  age_group_months: number
   is_unlocked: boolean
   unlocked_at: string | null
+  /** Progress checklist usia+kategori yang sama */
+  progress_checked?: number
+  progress_total?: number
+  /** Ambang unlock (= total item checklist bucket itu) */
+  unlock_at?: number
 }
 
 export interface MoodLog {

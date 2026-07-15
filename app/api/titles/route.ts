@@ -1,33 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
-
-function formatTitle(t: {
-  id: string
-  category: string
-  name: string
-  emoji: string
-  description: string
-  isUnlocked: boolean
-  unlockedAt: Date | null
-}) {
-  return {
-    id: t.id,
-    category: t.category,
-    name: t.name,
-    emoji: t.emoji,
-    description: t.description,
-    is_unlocked: t.isUnlocked,
-    unlocked_at: t.unlockedAt?.toISOString() ?? null,
-  }
-}
+import {
+  formatTitleWithProgress,
+  listTitlesWithProgress,
+} from '@/lib/development-titles'
 
 export async function GET() {
   return withAuth(async () => {
-    const titles = await prisma.title.findMany({
-      orderBy: { category: 'asc' },
-    })
-    return NextResponse.json(titles.map(formatTitle))
+    const titles = await listTitlesWithProgress()
+    return NextResponse.json(titles)
   })
 }
 
@@ -54,6 +36,6 @@ export async function PATCH(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(formatTitle(updated))
+    return NextResponse.json(await formatTitleWithProgress(updated))
   })
 }

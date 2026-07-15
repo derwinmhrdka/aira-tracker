@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { PageHeader } from './page-header'
+import { Celebration } from './celebration'
 import { api, type DevelopmentItem } from '@/lib/api-client'
+import { playSoundEffect } from '@/lib/sounds'
 
 interface DevelopmentPageProps {
   onBack: () => void
 }
 
 const AGE_LABELS: Record<number, string> = {
+  0: 'Baru lahir (0 bulan)',
   2: '2 bulan',
   4: '4 bulan',
   6: '6 bulan',
@@ -36,6 +39,8 @@ const CATEGORY_ORDER = ['social', 'linguistic', 'cognitive', 'physical']
 export function DevelopmentPage({ onBack }: DevelopmentPageProps) {
   const [items, setItems] = useState<DevelopmentItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [celebrate, setCelebrate] = useState(false)
+  const [celebrateName, setCelebrateName] = useState('')
 
   useEffect(() => {
     api.getDevelopmentChecklist().then(setItems).finally(() => setLoading(false))
@@ -57,6 +62,14 @@ export function DevelopmentPage({ onBack }: DevelopmentPageProps) {
             : i
         )
       )
+
+      const unlocked = updated.newly_unlocked ?? []
+      if (unlocked.length > 0) {
+        playSoundEffect('success')
+        setCelebrateName(unlocked.map((t) => t.name).join(', '))
+        setCelebrate(true)
+        setTimeout(() => setCelebrate(false), 2500)
+      }
     } catch {
       setItems((prev) =>
         prev.map((i) =>
@@ -79,13 +92,14 @@ export function DevelopmentPage({ onBack }: DevelopmentPageProps) {
     <div className="px-4 pt-6 pb-8">
       <PageHeader
         title="Perkembangan"
-        subtitle="Checklist CDC · bukan diagnosis medis"
+        subtitle="Checklist CDC · buka badge per usia di Pencapaian"
         onBack={onBack}
       />
 
       {!loading && items.length > 0 && (
         <p className="mb-4 text-xs text-muted-foreground">
-          {checkedCount}/{items.length} tercapai
+          {checkedCount}/{items.length} tercapai · lengkapi usia+kategori → badge
+          di Pencapaian
         </p>
       )}
 
@@ -150,6 +164,10 @@ export function DevelopmentPage({ onBack }: DevelopmentPageProps) {
               </div>
             )
           })
+      )}
+
+      {celebrate && (
+        <Celebration message={`Badge baru: ${celebrateName} 🎊`} />
       )}
     </div>
   )

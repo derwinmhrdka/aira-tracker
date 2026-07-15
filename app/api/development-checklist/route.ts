@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
+import { syncTitlesFromDevelopment } from '@/lib/development-titles'
 
 export async function GET() {
   return withAuth(async () => {
@@ -43,10 +44,15 @@ export async function PATCH(request: NextRequest) {
       },
     })
 
+    const { newlyUnlocked } = isChecked
+      ? await syncTitlesFromDevelopment()
+      : { newlyUnlocked: [] }
+
     return NextResponse.json({
       id: item.id,
       is_checked: item.isChecked,
       date_checked: item.dateChecked?.toISOString().split('T')[0] ?? null,
+      newly_unlocked: newlyUnlocked,
     })
   })
 }

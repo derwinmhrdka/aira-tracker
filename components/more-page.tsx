@@ -83,7 +83,7 @@ const MENU_ITEMS: {
     id: 'achievements',
     icon: Award,
     label: 'Pencapaian',
-    desc: 'Title & badge bayi',
+    desc: 'Badge dari checklist Perkembangan',
     color: 'bg-cyan-100 border-cyan-200/80 dark:bg-cyan-950/60 dark:border-cyan-800/60',
     iconColor: 'text-cyan-600 dark:text-cyan-300',
   },
