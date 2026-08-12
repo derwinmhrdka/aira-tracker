@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   api,
@@ -9,7 +9,6 @@ import {
 } from '@/lib/api-client'
 import {
   formatMilkExpiryRemaining,
-  formatMilkTime,
   getMilkExpiryStatus,
   MILK_BOTTLE_MAX_ML,
   MILK_EXPIRY_WARN_HOURS,
@@ -23,6 +22,43 @@ import { LIVE_SYNC_MS } from '@/lib/use-live-sync'
 
 const SCALE_MARKS = [60, 120, 180, 240] as const
 
+const BOTTLE_PATH =
+  'M14 2h12l2 6 4 4v18c0 2-1 3.5-2.5 4.5v2c0 1.2-.8 2.2-2 2.5v1.5c0 4.5-3.5 8-8 8s-8-3.5-8-8v-1.5c-1.2-.3-2-1.3-2-2.5v-2C10.5 33.5 9.5 32 9.5 30V12l4-4 2-6z'
+
+function FrostVapor() {
+  const puffs = [
+    { left: '8%', delay: 0, w: 28 },
+    { left: '32%', delay: 1.2, w: 22 },
+    { left: '58%', delay: 0.6, w: 26 },
+    { left: '78%', delay: 1.8, w: 20 },
+    { left: '45%', delay: 2.4, w: 18 },
+  ]
+
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      {puffs.map((p, i) => (
+        <motion.div
+          key={i}
+          className="absolute bottom-2 rounded-full bg-white/25 blur-md dark:bg-cyan-200/15"
+          style={{ left: p.left, width: p.w, height: p.w * 0.55 }}
+          initial={{ opacity: 0, y: 8, scale: 0.85 }}
+          animate={{
+            opacity: [0, 0.45, 0.25, 0],
+            y: [8, -18, -36, -52],
+            scale: [0.85, 1, 1.15, 1.25],
+          }}
+          transition={{
+            duration: 5.5,
+            repeat: Infinity,
+            ease: 'easeOut',
+            delay: p.delay,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 function BottleVisual({
   filled,
   amountMl,
@@ -34,20 +70,21 @@ function BottleVisual({
   active?: boolean
   expiryStatus: MilkExpiryStatus
 }) {
+  const clipId = useId().replace(/:/g, '')
   const ml = filled && amountMl != null ? amountMl : 0
   const ratio = Math.min(1, Math.max(0, ml / MILK_BOTTLE_MAX_ML))
-  const fillPct = ratio * 100
+  const fillPct = Math.max(8, ratio * 88)
 
-  const borderTone =
+  const glassStroke =
     expiryStatus === 'expired'
-      ? 'border-red-300 dark:border-red-600'
+      ? '#f87171'
       : expiryStatus === 'soon'
-        ? 'border-amber-300 dark:border-amber-500'
-        : 'border-sky-200/90 dark:border-sky-700'
+        ? '#fbbf24'
+        : 'rgba(148,163,184,0.85)'
 
   return (
     <motion.div
-      className="relative mx-auto flex h-[4.5rem] w-[2.85rem] flex-col items-center justify-end sm:h-[5.75rem] sm:w-[3.25rem]"
+      className="relative mx-auto h-[4.75rem] w-[2.6rem] sm:h-[5.5rem] sm:w-[3rem]"
       animate={filled ? { y: [0, -1.5, 0] } : { y: 0 }}
       transition={
         filled
@@ -57,111 +94,121 @@ function BottleVisual({
       whileHover={{ scale: 1.04 }}
       style={active ? { scale: 1.06 } : undefined}
     >
-      <div className="relative h-[4rem] w-10 sm:h-[5.25rem] sm:w-11">
-        <div className="pointer-events-none absolute -left-0.5 top-1 bottom-2 z-[3] flex w-3.5 flex-col justify-between py-0.5">
-          {[...SCALE_MARKS].reverse().map((mark) => (
-            <span
-              key={mark}
-              className="text-[6px] font-bold leading-none tabular-nums text-sky-700/70 dark:text-sky-300/70"
-            >
-              {mark}
-            </span>
-          ))}
-        </div>
+      <svg
+        viewBox="0 0 40 80"
+        className="h-full w-full drop-shadow-sm"
+        aria-hidden
+      >
+        <defs>
+          <clipPath id={`bottle-clip-${clipId}`}>
+            <rect x="6" y={80 - (fillPct / 100) * 68} width="28" height={(fillPct / 100) * 68} />
+          </clipPath>
+          <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
+            <stop offset="35%" stopColor="rgba(255,255,255,0.22)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0.04)" />
+          </linearGradient>
+          <linearGradient id="milkGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#e7e5e4" />
+            <stop offset="55%" stopColor="#fafaf9" />
+            <stop offset="100%" stopColor="#ffffff" />
+          </linearGradient>
+        </defs>
 
-        {/* Open bottle body (no cap) */}
-        <div
-          className={`absolute inset-y-0 left-3 right-0 overflow-hidden rounded-b-[1.15rem] rounded-t-[0.35rem] border-2 bg-gradient-to-b from-white/55 to-sky-50/30 dark:from-sky-950/30 dark:to-sky-950/50 ${borderTone}`}
-        >
-          <div className="pointer-events-none absolute inset-y-1.5 right-0.5 z-[2] flex flex-col justify-between">
-            {SCALE_MARKS.map((mark) => (
-              <span
-                key={mark}
-                className="block h-px w-1.5 bg-sky-400/50 dark:bg-sky-500/40"
-              />
-            ))}
-          </div>
+        {/* Bottle body outline with waist indent */}
+        <path
+          d={BOTTLE_PATH}
+          fill="url(#glassGrad)"
+          stroke={glassStroke}
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
 
-          {filled && ml > 0 && (
-            <motion.div
-              key={`fill-${ml}`}
-              initial={{ height: 0, opacity: 0.6 }}
-              animate={{ height: `${Math.max(8, fillPct * 0.92)}%`, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 180, damping: 18 }}
-              className="absolute inset-x-0 bottom-0 overflow-hidden"
-            >
-              {/* White milk */}
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-100 via-white to-white dark:from-stone-200/90 dark:via-white/85 dark:to-white/75" />
+        {/* Grip indent / lekukan */}
+        <ellipse
+          cx="20"
+          cy="44"
+          rx="9.5"
+          ry="2.2"
+          fill="none"
+          stroke="rgba(100,116,139,0.35)"
+          strokeWidth="1"
+        />
+        <path
+          d="M11 44 Q20 40.5 29 44"
+          fill="none"
+          stroke="rgba(255,255,255,0.12)"
+          strokeWidth="0.8"
+        />
+        <path
+          d="M11 46.5 Q20 50 29 46.5"
+          fill="none"
+          stroke="rgba(15,23,42,0.12)"
+          strokeWidth="0.8"
+        />
 
-              <motion.div
-                className="absolute -top-1 left-[-20%] h-3 w-[140%] rounded-[40%]"
-                style={{
-                  background:
-                    'radial-gradient(ellipse at center, rgba(255,255,255,0.98) 0%, rgba(245,245,244,0.85) 55%, transparent 70%)',
-                }}
-                animate={{ x: ['0%', '8%', '-4%', '0%'], rotate: [0, 2, -1, 0] }}
-                transition={{
-                  duration: 2.8,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              />
-              <motion.div
-                className="absolute -top-0.5 left-[-10%] h-2 w-[120%] bg-white/50"
-                animate={{ x: ['0%', '-6%', '4%', '0%'] }}
-                transition={{
-                  duration: 2.2,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                  delay: 0.3,
-                }}
-              />
-
-              <motion.span
-                className="absolute bottom-[35%] left-[28%] h-1 w-1 rounded-full bg-stone-300/60"
-                animate={{ y: [0, -10, -18], opacity: [0.5, 0.7, 0] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: 'easeOut' }}
-              />
-              <motion.span
-                className="absolute bottom-[22%] left-[58%] h-1.5 w-1.5 rounded-full bg-stone-200/50"
-                animate={{ y: [0, -12, -22], opacity: [0.4, 0.6, 0] }}
-                transition={{
-                  duration: 3.1,
-                  repeat: Infinity,
-                  ease: 'easeOut',
-                  delay: 0.8,
-                }}
-              />
-            </motion.div>
-          )}
-
-          {!filled && (
-            <motion.div
-              className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-              animate={{ x: ['-120%', '120%'] }}
-              transition={{
-                duration: 2.8,
-                repeat: Infinity,
-                ease: 'easeInOut',
-                repeatDelay: 1.4,
-              }}
+        {/* Milk fill */}
+        {filled && ml > 0 && (
+          <g clipPath={`url(#bottle-clip-${clipId})`}>
+            <path d={BOTTLE_PATH} fill="url(#milkGrad)" />
+            <ellipse
+              cx="20"
+              cy={80 - (fillPct / 100) * 68}
+              rx="10"
+              ry="2.5"
+              fill="rgba(255,255,255,0.85)"
             />
-          )}
+          </g>
+        )}
 
-          <div className="pointer-events-none absolute inset-y-2 left-1 w-1 rounded-full bg-white/45" />
-        </div>
-      </div>
+        {/* Highlight */}
+        <path
+          d="M13 14 L13 68"
+          stroke="rgba(255,255,255,0.35)"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+
+        {/* Scale marks inside */}
+        {SCALE_MARKS.map((mark, i) => {
+          const y = 68 - (mark / MILK_BOTTLE_MAX_ML) * 52
+          return (
+            <g key={mark}>
+              <line
+                x1="28"
+                y1={y}
+                x2="31"
+                y2={y}
+                stroke="rgba(100,116,139,0.45)"
+                strokeWidth="0.8"
+              />
+              {i % 2 === 0 && (
+                <text
+                  x="6"
+                  y={y + 2}
+                  fontSize="4"
+                  fill="rgba(100,116,139,0.7)"
+                  fontWeight="600"
+                >
+                  {mark}
+                </text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
     </motion.div>
   )
 }
 
 function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
-  if (!filled) return 'border-white/70 bg-white/35 dark:border-cyan-800/40 dark:bg-slate-900/30'
+  if (!filled)
+    return 'border-slate-400/25 bg-slate-700/20 dark:border-slate-500/30 dark:bg-slate-900/40'
   if (status === 'expired')
-    return 'border-red-300/80 bg-red-50/70 shadow-sm dark:border-red-700/50 dark:bg-red-950/35'
+    return 'border-red-400/50 bg-red-950/30 shadow-sm dark:border-red-700/50'
   if (status === 'soon')
-    return 'border-amber-300/80 bg-amber-50/60 shadow-sm dark:border-amber-600/45 dark:bg-amber-950/35'
-  return 'border-sky-200/70 bg-white/55 shadow-sm dark:border-sky-700/40 dark:bg-slate-900/45'
+    return 'border-amber-400/45 bg-amber-950/25 shadow-sm dark:border-amber-600/45'
+  return 'border-slate-400/30 bg-slate-800/25 shadow-sm dark:border-slate-500/35'
 }
 
 export function MilkStorageCard() {
@@ -172,6 +219,14 @@ export function MilkStorageCard() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<MilkStorageSlot | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const hasExpiry = slots.some((s) => s.is_filled && s.expires_at)
+    if (!hasExpiry) return
+    const id = window.setInterval(() => setTick((t) => t + 1), 30_000)
+    return () => window.clearInterval(id)
+  }, [slots])
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
@@ -240,169 +295,146 @@ export function MilkStorageCard() {
     gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`,
   }
 
+  const totalSlots = layout.rows * layout.cols
+  const emptySlots = slots.filter((s) => !s.is_filled).length
+
   return (
-    <div className="relative isolate mb-4 overflow-hidden rounded-2xl border border-cyan-200/70 shadow-[0_12px_40px_-20px_rgba(14,116,144,0.45)] dark:border-cyan-800/50">
-      <div className="flex items-center justify-between gap-2 border-b border-cyan-300/40 bg-gradient-to-r from-slate-200 via-cyan-100 to-slate-200 px-4 py-2.5 dark:border-cyan-800/40 dark:from-slate-800 dark:via-cyan-950 dark:to-slate-800">
-        <div className="flex items-center gap-2">
-          <span className="text-base" aria-hidden>
-            ❄️
-          </span>
-          <div>
-            <h2 className="font-heading text-sm font-bold tracking-wide text-slate-700 dark:text-cyan-100">
+    <>
+      <div className="relative mb-4 overflow-hidden rounded-2xl border border-slate-600/40 shadow-[0_12px_40px_-20px_rgba(15,23,42,0.55)] dark:border-slate-500/30">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-600/30 bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 px-4 py-2.5 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="text-base" aria-hidden>
+              ❄️
+            </span>
+            <h2 className="font-heading text-sm font-bold tracking-wide text-slate-100">
               Milk Storage
             </h2>
-            <p className="text-[10px] font-medium text-slate-500 dark:text-cyan-300/70">
-              Freezer · ASI
-            </p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-md border border-cyan-400/40 bg-cyan-50/80 px-2 py-0.5 font-mono text-[10px] font-bold tabular-nums text-cyan-800 dark:border-cyan-600/50 dark:bg-cyan-950/80 dark:text-cyan-200">
-            −18°C
-          </span>
-          <span className="text-[10px] font-medium text-slate-500 dark:text-cyan-400/70">
-            {layout.rows}×{layout.cols}
+          <span className="text-[10px] font-medium tabular-nums text-slate-300/90">
+            Available : {emptySlots}/{totalSlots}
           </span>
         </div>
-      </div>
 
-      <div
-        className="relative max-h-[min(22rem,52vh)] overflow-y-auto overscroll-contain px-3 py-3 sm:max-h-none sm:overflow-visible sm:py-4"
-        style={{
-          background: `
-            linear-gradient(180deg, rgba(224,242,254,0.95) 0%, rgba(186,230,253,0.55) 45%, rgba(207,232,245,0.9) 100%)
-          `,
-        }}
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 hidden dark:block"
-          style={{
-            background:
-              'linear-gradient(180deg, rgba(15,23,42,0.92) 0%, rgba(8,47,73,0.85) 50%, rgba(15,23,42,0.95) 100%)',
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-40 mix-blend-soft-light dark:opacity-25"
-          style={{
-            backgroundImage: `
-              radial-gradient(circle at 12% 18%, rgba(255,255,255,0.7) 0 1px, transparent 2px),
-              radial-gradient(circle at 78% 32%, rgba(255,255,255,0.55) 0 1px, transparent 2px),
-              radial-gradient(circle at 34% 72%, rgba(255,255,255,0.45) 0 1.5px, transparent 2.5px),
-              radial-gradient(circle at 88% 78%, rgba(255,255,255,0.5) 0 1px, transparent 2px),
-              radial-gradient(circle at 55% 12%, rgba(255,255,255,0.35) 0 1px, transparent 2px)
-            `,
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-white/50 to-transparent dark:from-cyan-950/60"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-white/50 to-transparent dark:from-cyan-950/60"
-        />
-        <motion.div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-6 top-2 h-8 rounded-full bg-white/30 blur-md dark:bg-cyan-400/10"
-          animate={{ opacity: [0.25, 0.5, 0.25], x: [0, 6, -4, 0] }}
-          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-        />
+        <div className="relative max-h-[min(22rem,52vh)] overflow-y-auto overscroll-contain px-3 py-3 sm:max-h-none sm:overflow-visible sm:py-4">
+          {/* Dark freezer interior — contrasts with white milk */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(180deg, #334155 0%, #1e293b 42%, #0f172a 100%)',
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-30"
+            style={{
+              backgroundImage: `
+                radial-gradient(circle at 15% 20%, rgba(255,255,255,0.12) 0 1px, transparent 2px),
+                radial-gradient(circle at 72% 35%, rgba(255,255,255,0.1) 0 1px, transparent 2px),
+                radial-gradient(circle at 40% 68%, rgba(255,255,255,0.08) 0 1.5px, transparent 2.5px),
+                radial-gradient(circle at 85% 75%, rgba(255,255,255,0.09) 0 1px, transparent 2px)
+              `,
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-black/25 to-transparent"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-black/25 to-transparent"
+          />
+          <FrostVapor />
 
-        <div className="relative z-[1]">
-          {loading && slots.length === 0 ? (
-            <div className="grid gap-3" style={gridStyle}>
-              {Array.from({ length: layout.rows * layout.cols }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-32 animate-pulse rounded-xl bg-white/40 dark:bg-slate-800/50"
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {Array.from({ length: layout.rows }).map((_, rowIdx) => {
-                const rowSlots = slots.slice(
-                  rowIdx * layout.cols,
-                  rowIdx * layout.cols + layout.cols
-                )
-                return (
-                  <div key={rowIdx} className="relative">
-                    <div
-                      aria-hidden
-                      className="absolute inset-x-1 bottom-1 h-2 rounded-sm border border-slate-300/80 bg-gradient-to-b from-slate-200/90 to-slate-300/70 shadow-sm dark:border-slate-600 dark:from-slate-700/80 dark:to-slate-800/90"
-                    />
-                    <div
-                      aria-hidden
-                      className="absolute inset-x-2 bottom-0.5 h-px bg-slate-400/40 dark:bg-slate-500/40"
-                    />
+          <div className="relative z-[1]">
+            {loading && slots.length === 0 ? (
+              <div className="grid gap-3" style={gridStyle}>
+                {Array.from({ length: totalSlots }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-32 animate-pulse rounded-xl bg-slate-600/30"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {Array.from({ length: layout.rows }).map((_, rowIdx) => {
+                  const rowSlots = slots.slice(
+                    rowIdx * layout.cols,
+                    rowIdx * layout.cols + layout.cols
+                  )
+                  return (
+                    <div key={rowIdx} className="relative">
+                      <div
+                        aria-hidden
+                        className="absolute inset-x-1 bottom-1 h-2 rounded-sm border border-slate-500/50 bg-gradient-to-b from-slate-600/80 to-slate-700/90 shadow-sm"
+                      />
 
-                    <div className="relative grid gap-2 pb-3" style={gridStyle}>
-                      {rowSlots.map((slot) => {
-                        const expiry = getMilkExpiryStatus(slot.expires_at)
-                        return (
-                          <motion.button
-                            key={slot.slot_index}
-                            type="button"
-                            whileTap={{ scale: 0.96 }}
-                            onClick={() => openSlot(slot)}
-                            className={`rounded-xl border px-1 py-1.5 text-center backdrop-blur-[2px] transition-colors sm:py-2 ${slotBorderClass(slot.is_filled, expiry)}`}
-                          >
-                            <BottleVisual
-                              filled={slot.is_filled}
-                              amountMl={slot.amount_ml}
-                              expiryStatus={expiry}
-                              active={
-                                selected?.slot_index === slot.slot_index &&
-                                sheetOpen
-                              }
-                            />
-                            <motion.p
-                              key={
-                                slot.is_filled ? `ml-${slot.amount_ml}` : 'empty'
-                              }
-                              initial={{ opacity: 0, y: 4 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className={`mt-1.5 text-[11px] font-bold tabular-nums ${
-                                slot.is_filled
-                                  ? 'text-slate-700 dark:text-slate-100'
-                                  : 'text-slate-500 dark:text-cyan-200/60'
-                              }`}
+                      <div className="relative grid gap-2 pb-3" style={gridStyle}>
+                        {rowSlots.map((slot) => {
+                          const expiry = getMilkExpiryStatus(slot.expires_at)
+                          return (
+                            <motion.button
+                              key={slot.slot_index}
+                              type="button"
+                              whileTap={{ scale: 0.96 }}
+                              onClick={() => openSlot(slot)}
+                              className={`rounded-xl border px-1 py-1.5 text-center backdrop-blur-[1px] transition-colors sm:py-2 ${slotBorderClass(slot.is_filled, expiry)}`}
                             >
-                              {slot.is_filled
-                                ? `${slot.amount_ml} ml`
-                                : 'Kosong'}
-                            </motion.p>
-                            {slot.is_filled && slot.filled_at && (
-                              <p className="mt-0.5 line-clamp-1 text-[9px] text-slate-500 dark:text-cyan-300/50">
-                                {formatMilkTime(slot.filled_at)}
+                              <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-400/90">
+                                Bottle {slot.slot_index + 1}
                               </p>
-                            )}
-                            {slot.is_filled && slot.expires_at && (
-                              <p
-                                className={`mt-0.5 line-clamp-1 text-[9px] font-semibold ${
-                                  expiry === 'expired'
-                                    ? 'text-red-600 dark:text-red-400'
-                                    : expiry === 'soon'
-                                      ? 'text-amber-700 dark:text-amber-300'
-                                      : 'text-slate-500 dark:text-cyan-300/60'
+                              <BottleVisual
+                                filled={slot.is_filled}
+                                amountMl={slot.amount_ml}
+                                expiryStatus={expiry}
+                                active={
+                                  selected?.slot_index === slot.slot_index &&
+                                  sheetOpen
+                                }
+                              />
+                              <motion.p
+                                key={
+                                  slot.is_filled ? `ml-${slot.amount_ml}` : 'empty'
+                                }
+                                initial={{ opacity: 0, y: 4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`mt-1.5 text-[11px] font-bold tabular-nums ${
+                                  slot.is_filled
+                                    ? 'text-slate-100'
+                                    : 'text-slate-400'
                                 }`}
                               >
-                                {expiry === 'expired'
-                                  ? '⚠️ Kadaluarsa'
-                                  : `⏳ ${formatMilkExpiryRemaining(slot.expires_at)}`}
-                              </p>
-                            )}
-                          </motion.button>
-                        )
-                      })}
+                                {slot.is_filled
+                                  ? `${slot.amount_ml} ml`
+                                  : 'Kosong'}
+                              </motion.p>
+                              {slot.is_filled && slot.expires_at && (
+                                <p
+                                  className={`mt-0.5 line-clamp-1 text-[9px] font-semibold tabular-nums ${
+                                    expiry === 'expired'
+                                      ? 'text-red-400'
+                                      : expiry === 'soon'
+                                        ? 'text-amber-300'
+                                        : 'text-slate-400'
+                                  }`}
+                                >
+                                  {expiry === 'expired'
+                                    ? 'Kadaluarsa'
+                                    : formatMilkExpiryRemaining(slot.expires_at)}
+                                </p>
+                              )}
+                            </motion.button>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -413,6 +445,6 @@ export function MilkStorageCard() {
         onSave={handleSave}
         onClear={handleClear}
       />
-    </div>
+    </>
   )
 }

@@ -497,6 +497,9 @@ export interface TodaySummary {
     name: string
     age_months: number
     status?: 'overdue' | 'due' | 'upcoming'
+    schedule_label?: string
+    scheduled_age_weeks?: number | null
+    vaccines?: { name: string; dose_label: string | null }[]
   } | null
 }
 

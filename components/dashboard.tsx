@@ -14,6 +14,7 @@ import { ActiveTimer } from './active-timer'
 import { BabyInfoCard } from './baby-info-card'
 import { BabyLeapCard } from './baby-leap-card'
 import { BabyProfileSheet } from './baby-profile-sheet'
+import { VaccineInfoSheet } from './vaccine-info-sheet'
 import { InsightsCard } from './insights-card'
 import { NextEventCard } from './next-event-card'
 import { MilkStorageCard } from './milk-storage-card'
@@ -44,6 +45,7 @@ export function Dashboard() {
   const [quickFeedOpen, setQuickFeedOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [vaccineOpen, setVaccineOpen] = useState(false)
   const [homeLocal, setHomeLocal] = useState(getLocalHomeVisibility)
   const [homeGlobal, setHomeGlobal] = useState<HomeVisibility>(
     HOME_VISIBILITY_DEFAULTS
@@ -386,6 +388,7 @@ export function Dashboard() {
             summary={summary}
             showMood={homeVis.mood}
             onClick={() => setProfileOpen(true)}
+            onVaccineClick={() => setVaccineOpen(true)}
           />
         )}
 
@@ -549,6 +552,11 @@ export function Dashboard() {
         }}
       />
       <BabyProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <VaccineInfoSheet
+        open={vaccineOpen}
+        brief={summary?.nextVaccine}
+        onClose={() => setVaccineOpen(false)}
+      />
 
       {toastMessage && <Toast message={toastMessage} />}
     </div>

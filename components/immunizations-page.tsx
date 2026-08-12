@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useMemo, useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { PageHeader } from './page-header'
 import { api, type Immunization } from '@/lib/api-client'
 import {
@@ -9,9 +9,205 @@ import {
   STATUS_STYLE,
   type VaccineStatus,
 } from '@/lib/immunization-utils'
+import {
+  DOSE_KIND_LABEL,
+  DOSE_KIND_STYLE,
+  IDAI_CATCHUP_RULES,
+  formatVaccineWindow,
+  getDoseKind,
+  groupImmunizationsTimeline,
+} from '@/lib/immunization-idai'
 
 interface ImmunizationsPageProps {
   onBack: () => void
+}
+
+function VaccineCard({
+  item,
+  editingId,
+  dateGiven,
+  notes,
+  onToggle,
+  onStartEdit,
+  onConfirm,
+  onUncheck,
+  onRemove,
+  setDateGiven,
+  setNotes,
+}: {
+  item: Immunization
+  editingId: string | null
+  dateGiven: string
+  notes: string
+  onToggle: (item: Immunization) => void
+  onStartEdit: (item: Immunization) => void
+  onConfirm: (id: string) => void
+  onUncheck: (item: Immunization) => void
+  onRemove: (item: Immunization) => void
+  setDateGiven: (v: string) => void
+  setNotes: (v: string) => void
+}) {
+  const status = (item.status ?? (item.is_done ? 'done' : 'upcoming')) as VaccineStatus
+  const doseKind = getDoseKind(item.dose_label)
+  const windowLabel = formatVaccineWindow(
+    item.min_weeks,
+    item.max_weeks,
+    item.scheduled_age_weeks
+  )
+
+  return (
+    <motion.div
+      layout
+      className={`rounded-xl border p-3 shadow-sm ${
+        item.is_done
+          ? 'border-green-300/50 bg-green-50/50 dark:bg-green-950/20'
+          : status === 'overdue'
+            ? 'border-red-300/50 bg-red-50/30 dark:bg-red-950/10'
+            : 'border-border bg-card'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => onToggle(item)}
+          className="mt-0.5 text-xl leading-none"
+        >
+          {item.is_done ? '✅' : status === 'overdue' ? '⚠️' : '⬜'}
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="font-heading text-sm font-semibold text-foreground">
+              {item.vaccine_name}
+              {item.dose_label ? (
+                <span className="font-normal text-muted-foreground">
+                  {' '}
+                  · {item.dose_label}
+                </span>
+              ) : null}
+            </p>
+          </div>
+
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLE[status]}`}
+            >
+              {STATUS_LABEL[status]}
+            </span>
+            {doseKind !== 'routine' && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${DOSE_KIND_STYLE[doseKind]}`}
+              >
+                {DOSE_KIND_LABEL[doseKind]}
+              </span>
+            )}
+            {item.is_national_program === false && (
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                Anjuran
+              </span>
+            )}
+            {item.is_national_program !== false && !item.is_custom && (
+              <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] text-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+                Program
+              </span>
+            )}
+            {item.is_custom && (
+              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                Custom
+              </span>
+            )}
+          </div>
+
+          {windowLabel && (
+            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+              {windowLabel}
+            </p>
+          )}
+
+          {item.date_given && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Diberikan:{' '}
+              {new Date(item.date_given).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </p>
+          )}
+
+          {!item.is_done && item.schedule_notes && (
+            <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground/90">
+              {item.schedule_notes}
+            </p>
+          )}
+
+          {item.notes && (
+            <p className="mt-1 text-[11px] italic text-muted-foreground">
+              Catatan: {item.notes}
+            </p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-col gap-1">
+          {item.is_done && (
+            <button
+              type="button"
+              onClick={() => onStartEdit(item)}
+              className="rounded-lg px-2 py-1 text-xs opacity-60 hover:opacity-100"
+              aria-label="Ubah"
+            >
+              ✏️
+            </button>
+          )}
+          {item.is_custom && (
+            <button
+              type="button"
+              onClick={() => onRemove(item)}
+              className="rounded-lg px-2 py-1 text-xs text-destructive opacity-60 hover:opacity-100"
+              aria-label="Hapus"
+            >
+              🗑️
+            </button>
+          )}
+        </div>
+      </div>
+
+      {editingId === item.id && (
+        <div className="mt-2 space-y-2 border-t border-border/50 pt-2">
+          <input
+            type="date"
+            value={dateGiven}
+            onChange={(e) => setDateGiven(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+          />
+          <input
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Catatan (lokasi, batch, dll)"
+            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => onConfirm(item.id)}
+              className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+            >
+              Simpan
+            </button>
+            {item.is_done && (
+              <button
+                type="button"
+                onClick={() => onUncheck(item)}
+                className="rounded-lg border border-destructive/30 px-3 py-2 text-xs font-semibold text-destructive"
+              >
+                Uncheck
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  )
 }
 
 export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
@@ -21,6 +217,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
   const [dateGiven, setDateGiven] = useState('')
   const [notes, setNotes] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [showCatchUp, setShowCatchUp] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAge, setNewAge] = useState('0')
   const [newNotes, setNewNotes] = useState('')
@@ -30,6 +227,10 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     api.getImmunizations().then(setItems).finally(() => setLoading(false))
   }, [])
 
+  const timeline = useMemo(() => groupImmunizationsTimeline(items), [items])
+  const overdueCount = items.filter((i) => i.status === 'overdue').length
+  const doneCount = items.filter((i) => i.is_done).length
+
   const startEdit = (item: Immunization) => {
     setEditingId(item.id)
     setDateGiven(item.date_given || new Date().toISOString().split('T')[0])
@@ -37,10 +238,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
   }
 
   const toggle = async (item: Immunization) => {
-    if (!item.is_done) {
-      startEdit(item)
-      return
-    }
+    if (!item.is_done) startEdit(item)
   }
 
   const confirmDate = async (id: string) => {
@@ -49,9 +247,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
       date_given: dateGiven,
       notes: notes.trim() || undefined,
     })
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, ...updated } : i))
-    )
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)))
     setEditingId(null)
   }
 
@@ -76,9 +272,11 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
         scheduled_age_months: Number(newAge) || 0,
         notes: newNotes.trim() || undefined,
       })
-      setItems((prev) => [...prev, created].sort(
-        (a, b) => a.scheduled_age_months - b.scheduled_age_months
-      ))
+      setItems((prev) =>
+        [...prev, created].sort(
+          (a, b) => a.scheduled_age_months - b.scheduled_age_months
+        )
+      )
       setNewName('')
       setNewAge('0')
       setNewNotes('')
@@ -95,22 +293,28 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     setItems((prev) => prev.filter((i) => i.id !== item.id))
   }
 
-  const grouped = items.reduce<Record<number, Immunization[]>>((acc, item) => {
-    const age = item.scheduled_age_months
-    if (!acc[age]) acc[age] = []
-    acc[age].push(item)
-    return acc
-  }, {})
-
-  const overdueCount = items.filter((i) => i.status === 'overdue').length
-
   return (
     <div className="px-4 pt-6 pb-8">
-      <PageHeader title="Imunisasi" subtitle="Jadwal vaksin Kemenkes/IDAI" onBack={onBack} />
+      <PageHeader
+        title="Imunisasi"
+        subtitle="Timeline jadwal IDAI · Program & anjuran"
+        onBack={onBack}
+      />
+
+      <div className="mb-4 flex gap-2 text-[11px]">
+        <span className="rounded-full bg-secondary px-2.5 py-1 font-semibold text-foreground">
+          {doneCount}/{items.length} selesai
+        </span>
+        {overdueCount > 0 && (
+          <span className="rounded-full bg-red-100 px-2.5 py-1 font-semibold text-red-800 dark:bg-red-950/40 dark:text-red-300">
+            {overdueCount} terlambat
+          </span>
+        )}
+      </div>
 
       {overdueCount > 0 && (
         <div className="mb-4 rounded-xl border border-red-300/50 bg-red-50/50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/20 dark:text-red-300">
-          ⚠️ {overdueCount} vaksin terlambat — segera konsultasi ke dokter
+          ⚠️ Ada vaksin terlambat — konsultasikan catch-up ke dokter/anak.
         </div>
       )}
 
@@ -119,7 +323,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
         onClick={() => setShowAdd((v) => !v)}
         className="mb-4 w-full rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-foreground"
       >
-        {showAdd ? 'Batal' : '+ Tambah Vaksin'}
+        {showAdd ? 'Batal' : '+ Tambah Vaksin Custom'}
       </button>
 
       {showAdd && (
@@ -163,142 +367,128 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
           ))}
         </div>
       ) : (
-        Object.entries(grouped)
-          .sort(([a], [b]) => Number(a) - Number(b))
-          .map(([age, vaccines]) => (
-            <div key={age} className="mb-4">
-              <h2 className="font-heading mb-2 text-sm font-semibold text-muted-foreground">
-                Usia {age} bulan
-              </h2>
-              <div className="space-y-2">
-                {vaccines.map((item) => {
-                  const status = (item.status ?? (item.is_done ? 'done' : 'upcoming')) as VaccineStatus
-                  return (
-                    <motion.div
+        <div className="relative ml-1 pl-5">
+          <div
+            aria-hidden
+            className="absolute bottom-4 left-[9px] top-2 w-0.5 bg-border"
+          />
+
+          {timeline.map((group, groupIdx) => {
+            const groupDone = group.vaccines.every((v) => v.is_done)
+            const groupOverdue = group.vaccines.some((v) => v.status === 'overdue')
+
+            return (
+              <div key={group.weeks} className="relative pb-6 last:pb-2">
+                <div
+                  className={`absolute -left-5 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 bg-card ${
+                    groupOverdue
+                      ? 'border-red-500'
+                      : groupDone
+                        ? 'border-green-500'
+                        : 'border-primary'
+                  }`}
+                >
+                  <div
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      groupOverdue
+                        ? 'bg-red-500'
+                        : groupDone
+                          ? 'bg-green-500'
+                          : 'bg-primary'
+                    }`}
+                  />
+                </div>
+
+                <div className="mb-2">
+                  <h2 className="font-heading text-sm font-bold text-foreground">
+                    {group.label}
+                  </h2>
+                  <p className="text-[10px] text-muted-foreground">{group.sublabel}</p>
+                </div>
+
+                <div className="space-y-2">
+                  {group.vaccines.map((item) => (
+                    <VaccineCard
                       key={item.id}
-                      layout
-                      className={`rounded-xl border p-3 shadow-sm ${
-                        item.is_done
-                          ? 'border-green-300/50 bg-green-50/50 dark:bg-green-950/20'
-                          : status === 'overdue'
-                            ? 'border-red-300/50 bg-red-50/30 dark:bg-red-950/10'
-                            : 'border-border bg-card'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => toggle(item)}
-                          className="text-xl"
-                        >
-                          {item.is_done ? '✅' : status === 'overdue' ? '⚠️' : '⬜'}
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-heading text-sm font-semibold text-foreground">
-                              {item.vaccine_name}
-                              {item.dose_label ? (
-                                <span className="font-normal text-muted-foreground">
-                                  {' '}
-                                  · {item.dose_label}
-                                </span>
-                              ) : null}
-                            </p>
-                            {item.is_national_program === false && (
-                              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                                Anjuran
-                              </span>
-                            )}
-                            {item.is_custom && (
-                              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                Custom
-                              </span>
-                            )}
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLE[status]}`}
-                            >
-                              {STATUS_LABEL[status]}
-                            </span>
-                          </div>
-                          {item.date_given && (
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(item.date_given).toLocaleDateString('id-ID')}
-                            </p>
-                          )}
-                          {item.notes && (
-                            <p className="mt-0.5 text-xs text-muted-foreground">{item.notes}</p>
-                          )}
-                          {!item.is_done && item.schedule_notes && (
-                            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/90">
-                              {item.schedule_notes}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 flex-col gap-1">
-                          {item.is_done && (
-                            <button
-                              type="button"
-                              onClick={() => startEdit(item)}
-                              className="rounded-lg px-2 py-1 text-xs opacity-60 hover:opacity-100"
-                              aria-label="Ubah"
-                            >
-                              ✏️
-                            </button>
-                          )}
-                          {item.is_custom && (
-                            <button
-                              type="button"
-                              onClick={() => removeCustom(item)}
-                              className="rounded-lg px-2 py-1 text-xs text-destructive opacity-60 hover:opacity-100"
-                              aria-label="Hapus"
-                            >
-                              🗑️
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {editingId === item.id && (
-                        <div className="mt-2 space-y-2">
-                          <input
-                            type="date"
-                            value={dateGiven}
-                            onChange={(e) => setDateGiven(e.target.value)}
-                            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
-                          />
-                          <input
-                            type="text"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Catatan (lokasi, batch, dll)"
-                            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => confirmDate(item.id)}
-                              className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
-                            >
-                              Simpan
-                            </button>
-                            {item.is_done && (
-                              <button
-                                type="button"
-                                onClick={() => uncheck(item)}
-                                className="rounded-lg border border-destructive/30 px-3 py-2 text-xs font-semibold text-destructive"
-                              >
-                                Uncheck
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )
-                })}
+                      item={item}
+                      editingId={editingId}
+                      dateGiven={dateGiven}
+                      notes={notes}
+                      onToggle={toggle}
+                      onStartEdit={startEdit}
+                      onConfirm={confirmDate}
+                      onUncheck={uncheck}
+                      onRemove={removeCustom}
+                      setDateGiven={setDateGiven}
+                      setNotes={setNotes}
+                    />
+                  ))}
+                </div>
+
+                {groupIdx < timeline.length - 1 && (
+                  <div className="mt-3 h-px bg-border/40" aria-hidden />
+                )}
               </div>
-            </div>
-          ))
+            )
+          })}
+        </div>
       )}
+
+      <div className="mt-4 rounded-2xl border border-border bg-card shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowCatchUp((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+        >
+          <div>
+            <p className="font-heading text-sm font-semibold text-foreground">
+              📋 Catch-up & Booster IDAI
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              Referensi jika jadwal terlewat
+            </p>
+          </div>
+          <span className="text-muted-foreground">{showCatchUp ? '▲' : '▼'}</span>
+        </button>
+
+        <AnimatePresence initial={false}>
+          {showCatchUp && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden border-t border-border/50"
+            >
+              <div className="space-y-3 px-4 py-3">
+                {IDAI_CATCHUP_RULES.map((rule) => (
+                  <div
+                    key={rule.title}
+                    className="rounded-xl bg-secondary/60 px-3 py-2.5"
+                  >
+                    <p className="text-xs font-semibold text-foreground">
+                      {rule.title}
+                    </p>
+                    <ul className="mt-1.5 space-y-1">
+                      {rule.rules.map((line) => (
+                        <li
+                          key={line}
+                          className="text-[11px] leading-snug text-muted-foreground"
+                        >
+                          · {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                <p className="text-[10px] leading-snug text-muted-foreground">
+                  Sumber: Pedoman Imunisasi IDAI. Selalu konfirmasi catch-up dengan
+                  dokter anak.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

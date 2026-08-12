@@ -39,6 +39,7 @@ function formatItem(
     is_custom: i.isCustom,
     status: getVaccineStatus(i.isDone, i.scheduledAgeMonths, babyAgeMonths, {
       scheduledAgeWeeks: i.scheduledAgeWeeks,
+      minWeeks: i.minWeeks,
       maxWeeks: i.maxWeeks,
       babyAgeWeeks,
     }),

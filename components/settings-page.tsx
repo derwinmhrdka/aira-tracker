@@ -394,8 +394,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           Tampilan Beranda
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          Off di perangkat = hanya di sini. Off untuk semua = berlaku semua
-          pengguna. Kartu tampil hanya jika keduanya On.
+          Off di perangkat = hanya di HP ini. Off untuk semua = semua user.
+          Tampil jika keduanya On.
         </p>
         <div className="mb-2 flex items-center justify-end gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           <span className="w-16 text-center">Lokal</span>
@@ -452,7 +452,11 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           Milk Storage
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          Atur grid botol di beranda (berlaku semua pengguna). Default 1×4.
+          Grid botol di beranda. Default 1×4.
+        </p>
+        <p className="mb-3 text-[11px] text-muted-foreground/90">
+          Notif botol ASI: on saat app terbuka · off saat app ditutup. Terpisah
+          dari pengingat popok/menyusui.
         </p>
         <p className="mb-2 text-xs font-medium text-muted-foreground">Baris</p>
         <div className="mb-3 flex flex-wrap gap-2">
@@ -518,6 +522,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             onChange={setFeedingInterval}
           />
         )}
+        <p className="mt-3 text-[11px] text-muted-foreground/90">
+          On = push notif, tetap jalan saat app ditutup.
+        </p>
       </div>
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -541,6 +548,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             onChange={setDiaperInterval}
           />
         )}
+        <p className="mt-3 text-[11px] text-muted-foreground/90">
+          On = push notif, tetap jalan saat app ditutup.
+        </p>
       </div>
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">

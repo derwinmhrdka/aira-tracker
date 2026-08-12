@@ -4,14 +4,36 @@ export type VaccineStatus = 'done' | 'overdue' | 'due' | 'upcoming'
 
 export type VaccineScheduleHints = {
   scheduledAgeWeeks?: number | null
+  minWeeks?: number | null
   maxWeeks?: number | null
   babyAgeWeeks?: number | null
 }
 
+export type VaccineInput = {
+  vaccineName: string
+  scheduledAgeMonths: number
+  scheduledAgeWeeks?: number | null
+  minWeeks?: number | null
+  maxWeeks?: number | null
+  doseLabel?: string | null
+  isDone: boolean
+}
+
+export type VaccineBrief = {
+  status: Exclude<VaccineStatus, 'done'>
+  schedule_label: string
+  scheduled_age_weeks: number | null
+  scheduled_age_months: number
+  vaccines: { name: string; dose_label: string | null }[]
+}
+
+const DEFAULT_OVERDUE_GRACE_WEEKS = 4
+
 /**
  * Status vaksin.
- * Jika ada usia minggu + jadwal minggu: hormati jendela maxWeeks (mis. BCG 0–4 minggu).
- * Fallback bulan: usia 0 bulan tidak langsung "terlambat" sampai ~1 bulan.
+ * - due: usia bayi sudah masuk jendela (minWeeks atau scheduledWeeks)
+ * - overdue: lewat maxWeeks, atau lewat scheduled + grace jika tidak ada max
+ * - upcoming: belum waktunya
  */
 export function getVaccineStatus(
   isDone: boolean,
@@ -23,86 +45,125 @@ export function getVaccineStatus(
 
   const babyWeeks = hints?.babyAgeWeeks
   const scheduledWeeks = hints?.scheduledAgeWeeks
+  const minWeeks = hints?.minWeeks
   const maxWeeks = hints?.maxWeeks
 
   if (babyWeeks != null && scheduledWeeks != null) {
-    const overdueAfter = maxWeeks != null ? maxWeeks : scheduledWeeks
+    const dueFrom = minWeeks ?? scheduledWeeks
+    const overdueAfter =
+      maxWeeks != null
+        ? maxWeeks
+        : scheduledWeeks + DEFAULT_OVERDUE_GRACE_WEEKS
+
     if (babyWeeks > overdueAfter) return 'overdue'
-    if (babyWeeks >= scheduledWeeks) return 'due'
-    // Window "akan jatuh tempo": 4 minggu sebelum jadwal
-    if (babyWeeks >= Math.max(0, scheduledWeeks - 4)) return 'due'
+    if (babyWeeks >= dueFrom) return 'due'
     return 'upcoming'
   }
 
-  // Month fallback — jangan overdue-kan vaksin newborn (bulan 0) terlalu agresif
+  // Fallback bulan — jangan tandai jatuh tempo 1 bulan sebelum jadwal
   if (scheduledAgeMonths <= 0) {
     if (babyAgeMonths >= 1) return 'overdue'
     return 'due'
   }
 
-  if (babyAgeMonths >= scheduledAgeMonths) return 'overdue'
-  if (babyAgeMonths >= scheduledAgeMonths - 1) return 'due'
+  if (babyAgeMonths > scheduledAgeMonths) return 'overdue'
+  if (babyAgeMonths >= scheduledAgeMonths) return 'due'
   return 'upcoming'
 }
 
-export function getNextVaccine(
-  vaccines: {
-    vaccineName: string
-    scheduledAgeMonths: number
-    scheduledAgeWeeks?: number | null
-    maxWeeks?: number | null
-    isDone: boolean
-  }[],
+export function formatVaccineScheduleLabel(
+  scheduledAgeWeeks: number | null | undefined,
+  scheduledAgeMonths: number
+): string {
+  if (scheduledAgeWeeks != null) {
+    if (scheduledAgeWeeks === 0) return 'Baru lahir (0 minggu)'
+    const monthPart =
+      scheduledAgeMonths > 0
+        ? `${scheduledAgeMonths} bulan`
+        : `${scheduledAgeWeeks} minggu`
+    return `${monthPart} · ${scheduledAgeWeeks} minggu`
+  }
+  if (scheduledAgeMonths <= 0) return 'Baru lahir'
+  return `${scheduledAgeMonths} bulan`
+}
+
+function sortKey(v: VaccineInput): number {
+  return v.scheduledAgeWeeks ?? v.scheduledAgeMonths * 4
+}
+
+export function getVaccineBrief(
+  vaccines: VaccineInput[],
   birthDate: string | null
-) {
+): VaccineBrief | null {
   if (!birthDate) return null
 
   const ageMonths = ageInMonths(birthDate)
   const ageWeeks = ageInWeeks(birthDate)
+
   const pending = vaccines
     .filter((v) => !v.isDone)
     .map((v) => ({
       ...v,
       status: getVaccineStatus(false, v.scheduledAgeMonths, ageMonths, {
         scheduledAgeWeeks: v.scheduledAgeWeeks,
+        minWeeks: v.minWeeks,
         maxWeeks: v.maxWeeks,
         babyAgeWeeks: ageWeeks,
       }),
     }))
-    .sort((a, b) => {
-      const wa = a.scheduledAgeWeeks ?? a.scheduledAgeMonths * 4
-      const wb = b.scheduledAgeWeeks ?? b.scheduledAgeMonths * 4
-      return wa - wb
-    })
 
-  const overdue = pending.find((v) => v.status === 'overdue')
-  if (overdue) {
-    return {
-      name: overdue.vaccineName,
-      age_months: overdue.scheduledAgeMonths,
-      status: 'overdue' as const,
-    }
-  }
+  for (const priority of ['overdue', 'due', 'upcoming'] as const) {
+    const matches = pending
+      .filter((v) => v.status === priority)
+      .sort((a, b) => sortKey(a) - sortKey(b))
 
-  const due = pending.find((v) => v.status === 'due')
-  if (due) {
-    return {
-      name: due.vaccineName,
-      age_months: due.scheduledAgeMonths,
-      status: 'due' as const,
-    }
-  }
+    if (matches.length === 0) continue
 
-  const upcoming = pending[0]
-  if (upcoming) {
+    const anchorWeeks = matches[0].scheduledAgeWeeks ?? null
+    const bucket = matches.filter(
+      (v) => (v.scheduledAgeWeeks ?? null) === anchorWeeks
+    )
+
     return {
-      name: upcoming.vaccineName,
-      age_months: upcoming.scheduledAgeMonths,
-      status: 'upcoming' as const,
+      status: priority,
+      schedule_label: formatVaccineScheduleLabel(
+        bucket[0].scheduledAgeWeeks,
+        bucket[0].scheduledAgeMonths
+      ),
+      scheduled_age_weeks: bucket[0].scheduledAgeWeeks ?? null,
+      scheduled_age_months: bucket[0].scheduledAgeMonths,
+      vaccines: bucket.map((v) => ({
+        name: v.vaccineName,
+        dose_label: v.doseLabel ?? null,
+      })),
     }
   }
 
   return null
+}
+
+/** @deprecated Prefer getVaccineBrief — kept for compact home line */
+export function getNextVaccine(
+  vaccines: VaccineInput[],
+  birthDate: string | null
+) {
+  const brief = getVaccineBrief(vaccines, birthDate)
+  if (!brief) return null
+
+  const first = brief.vaccines[0]
+  const name =
+    brief.vaccines.length > 1
+      ? `${brief.vaccines.length} vaksin`
+      : first.name
+
+  return {
+    name,
+    age_months: brief.scheduled_age_months,
+    status: brief.status,
+    schedule_label: brief.schedule_label,
+    scheduled_age_weeks: brief.scheduled_age_weeks,
+    vaccines: brief.vaccines,
+  }
 }
 
 export const STATUS_LABEL: Record<VaccineStatus, string> = {

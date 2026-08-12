@@ -78,6 +78,7 @@ export async function shouldSendVaccineReminder() {
     (v) =>
       getVaccineStatus(false, v.scheduledAgeMonths, babyAge, {
         scheduledAgeWeeks: v.scheduledAgeWeeks,
+        minWeeks: v.minWeeks,
         maxWeeks: v.maxWeeks,
         babyAgeWeeks,
       }) === 'overdue'

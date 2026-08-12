@@ -15,7 +15,6 @@ export function BabyLeapCard({ birthDate, dueDate }: BabyLeapCardProps) {
     () => getLeapStatus(birthDate, dueDate),
     [birthDate, dueDate]
   )
-  const usingHpl = !!dueDate
 
   if (!status || status.phase === 'done') return null
 
@@ -49,7 +48,6 @@ export function BabyLeapCard({ birthDate, dueDate }: BabyLeapCardProps) {
               : status.daysUntilStart === 0
                 ? 'Starting around today'
                 : `Starts in ~${status.daysUntilStart} days`}
-            {usingHpl ? ' · dari HPL' : ''}
           </p>
         </div>
         <span

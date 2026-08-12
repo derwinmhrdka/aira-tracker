@@ -1,9 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { MilkStorageSlot } from '@/lib/api-client'
-import { MILK_EXPIRY_PRESETS_HOURS } from '@/lib/milk-storage'
+import {
+  formatMilkExpiryRemaining,
+  getMilkExpiryStatus,
+} from '@/lib/milk-storage'
 import { requestNotificationPermission } from '@/lib/reminder'
 
 interface MilkBottleSheetProps {
@@ -40,6 +44,9 @@ function addHoursToLocalInput(baseLocal: string, hours: number): string {
   return toLocalInputValue(d.toISOString())
 }
 
+const fieldClass =
+  'w-full rounded-xl border border-border bg-secondary px-3 py-3 text-sm text-foreground outline-none ring-primary focus:ring-2'
+
 export function MilkBottleSheet({
   open,
   slot,
@@ -47,13 +54,18 @@ export function MilkBottleSheet({
   onSave,
   onClear,
 }: MilkBottleSheetProps) {
+  const [mounted, setMounted] = useState(false)
   const [amount, setAmount] = useState('30')
   const [filledAt, setFilledAt] = useState(toLocalInputValue(null))
-  const [useExpiry, setUseExpiry] = useState(false)
   const [expiresAt, setExpiresAt] = useState(toLocalInputValue(null))
   const [saving, setSaving] = useState(false)
+  const [countdown, setCountdown] = useState('')
 
   const isFilled = !!slot?.is_filled
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!open || !slot) return
@@ -62,30 +74,41 @@ export function MilkBottleSheet({
     )
     const filledLocal = toLocalInputValue(slot.filled_at)
     setFilledAt(filledLocal)
-    if (slot.expires_at) {
-      setUseExpiry(true)
-      setExpiresAt(toLocalInputValue(slot.expires_at))
-    } else {
-      setUseExpiry(false)
-      setExpiresAt(addHoursToLocalInput(filledLocal, 24))
-    }
+    setExpiresAt(
+      slot.expires_at
+        ? toLocalInputValue(slot.expires_at)
+        : addHoursToLocalInput(filledLocal, 24)
+    )
   }, [open, slot])
+
+  useEffect(() => {
+    if (!open || !slot?.expires_at) {
+      setCountdown('')
+      return
+    }
+    const tick = () => {
+      setCountdown(formatMilkExpiryRemaining(slot.expires_at))
+    }
+    tick()
+    const id = window.setInterval(tick, 30_000)
+    return () => window.clearInterval(id)
+  }, [open, slot?.expires_at])
 
   const handleSave = async () => {
     const ml = parseInt(amount, 10)
     if (!Number.isFinite(ml) || ml <= 0) return
     setSaving(true)
     try {
-      if (useExpiry) {
+      if (expiresAt) {
         await requestNotificationPermission()
       }
-      const local = new Date(filledAt)
+      const local = new Date(isFilled ? slot?.filled_at ?? filledAt : filledAt)
       const filledIso = Number.isNaN(local.getTime())
         ? new Date().toISOString()
         : local.toISOString()
 
       let expiresIso: string | null = null
-      if (useExpiry) {
+      if (expiresAt) {
         const exp = new Date(expiresAt)
         expiresIso = Number.isNaN(exp.getTime()) ? null : exp.toISOString()
       }
@@ -111,7 +134,11 @@ export function MilkBottleSheet({
     }
   }
 
-  return (
+  const expiryStatus = getMilkExpiryStatus(slot?.expires_at)
+
+  if (!mounted) return null
+
+  return createPortal(
     <AnimatePresence>
       {open && slot && (
         <>
@@ -119,7 +146,7 @@ export function MilkBottleSheet({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40"
+            className="fixed inset-0 z-[70] bg-black/45"
             onClick={onClose}
           />
           <motion.div
@@ -127,7 +154,7 @@ export function MilkBottleSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-3xl border border-border bg-card p-5 shadow-xl"
+            className="fixed inset-x-0 bottom-0 z-[71] max-h-[90vh] overflow-y-auto rounded-t-3xl border border-border bg-card p-5 shadow-2xl"
             style={{
               paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))',
             }}
@@ -136,85 +163,68 @@ export function MilkBottleSheet({
             <h2 className="font-heading text-lg font-bold text-foreground">
               Botol {slot.slot_index + 1}
             </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {isFilled
-                ? 'Update isi atau tandai habis'
-                : 'Simpan ASI di slot ini'}
-            </p>
 
-            <label className="mt-4 block text-xs font-medium text-muted-foreground">
-              Jumlah (ml)
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={2000}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm font-semibold text-foreground outline-none ring-primary focus:ring-2"
-              inputMode="numeric"
-            />
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Jumlah (ml)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={2000}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className={`${fieldClass} font-semibold tabular-nums`}
+                  inputMode="numeric"
+                />
+              </div>
 
-            <label className="mt-3 block text-xs font-medium text-muted-foreground">
-              Waktu isi
-            </label>
-            <input
-              type="datetime-local"
-              value={filledAt}
-              onChange={(e) => {
-                setFilledAt(e.target.value)
-                if (useExpiry && !slot?.expires_at) {
-                  setExpiresAt(addHoursToLocalInput(e.target.value, 24))
-                }
-              }}
-              className="mt-1 w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground outline-none ring-primary focus:ring-2"
-            />
-
-            <button
-              type="button"
-              onClick={() => setUseExpiry((v) => !v)}
-              className={`mt-4 flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold ${
-                useExpiry
-                  ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100'
-                  : 'bg-secondary text-foreground'
-              }`}
-            >
-              <span>Batas waktu (opsional)</span>
-              <span>{useExpiry ? 'On' : 'Off'}</span>
-            </button>
-
-            {useExpiry && (
-              <div className="mt-3 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
-                    <button
-                      key={p.hours}
-                      type="button"
-                      onClick={() =>
-                        setExpiresAt(addHoursToLocalInput(filledAt, p.hours))
-                      }
-                      className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground"
-                    >
-                      +{p.label}
-                    </button>
-                  ))}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground">
-                    Kadaluarsa
-                  </label>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  {isFilled ? 'Countdown' : 'Time'}
+                </label>
+                {isFilled ? (
+                  <div
+                    className={`flex h-[46px] items-center rounded-xl border border-border bg-secondary px-3 text-sm font-semibold tabular-nums ${
+                      expiryStatus === 'expired'
+                        ? 'text-red-600 dark:text-red-400'
+                        : expiryStatus === 'soon'
+                          ? 'text-amber-700 dark:text-amber-300'
+                          : 'text-foreground'
+                    }`}
+                  >
+                    {slot.expires_at
+                      ? countdown || formatMilkExpiryRemaining(slot.expires_at)
+                      : '—'}
+                  </div>
+                ) : (
                   <input
                     type="datetime-local"
-                    value={expiresAt}
-                    onChange={(e) => setExpiresAt(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground outline-none ring-primary focus:ring-2"
+                    value={filledAt}
+                    onChange={(e) => {
+                      setFilledAt(e.target.value)
+                      if (!slot?.expires_at) {
+                        setExpiresAt(addHoursToLocalInput(e.target.value, 24))
+                      }
+                    }}
+                    className={fieldClass}
                   />
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Reminder muncul ±6 jam sebelum batas waktu.
-                </p>
+                )}
               </div>
-            )}
+            </div>
+
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Expired
+              </label>
+              <input
+                type="datetime-local"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+                className={fieldClass}
+              />
+            </div>
 
             <div className="mt-5 flex gap-2">
               {isFilled && (
@@ -247,6 +257,7 @@ export function MilkBottleSheet({
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
