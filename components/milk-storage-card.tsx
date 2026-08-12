@@ -47,7 +47,7 @@ function BottleVisual({
 
   return (
     <motion.div
-      className="relative mx-auto flex h-[5.75rem] w-[3.25rem] flex-col items-center justify-end"
+      className="relative mx-auto flex h-[4.5rem] w-[2.85rem] flex-col items-center justify-end sm:h-[5.75rem] sm:w-[3.25rem]"
       animate={filled ? { y: [0, -1.5, 0] } : { y: 0 }}
       transition={
         filled
@@ -57,7 +57,7 @@ function BottleVisual({
       whileHover={{ scale: 1.04 }}
       style={active ? { scale: 1.06 } : undefined}
     >
-      <div className="relative h-[5.25rem] w-11">
+      <div className="relative h-[4rem] w-10 sm:h-[5.25rem] sm:w-11">
         <div className="pointer-events-none absolute -left-0.5 top-1 bottom-2 z-[3] flex w-3.5 flex-col justify-between py-0.5">
           {[...SCALE_MARKS].reverse().map((mark) => (
             <span
@@ -241,7 +241,7 @@ export function MilkStorageCard() {
   }
 
   return (
-    <div className="mb-4 overflow-hidden rounded-2xl border border-cyan-200/70 shadow-[0_12px_40px_-20px_rgba(14,116,144,0.45)] dark:border-cyan-800/50">
+    <div className="relative isolate mb-4 overflow-hidden rounded-2xl border border-cyan-200/70 shadow-[0_12px_40px_-20px_rgba(14,116,144,0.45)] dark:border-cyan-800/50">
       <div className="flex items-center justify-between gap-2 border-b border-cyan-300/40 bg-gradient-to-r from-slate-200 via-cyan-100 to-slate-200 px-4 py-2.5 dark:border-cyan-800/40 dark:from-slate-800 dark:via-cyan-950 dark:to-slate-800">
         <div className="flex items-center gap-2">
           <span className="text-base" aria-hidden>
@@ -267,7 +267,7 @@ export function MilkStorageCard() {
       </div>
 
       <div
-        className="relative px-3 py-4"
+        className="relative max-h-[min(22rem,52vh)] overflow-y-auto overscroll-contain px-3 py-3 sm:max-h-none sm:overflow-visible sm:py-4"
         style={{
           background: `
             linear-gradient(180deg, rgba(224,242,254,0.95) 0%, rgba(186,230,253,0.55) 45%, rgba(207,232,245,0.9) 100%)
@@ -347,7 +347,7 @@ export function MilkStorageCard() {
                             type="button"
                             whileTap={{ scale: 0.96 }}
                             onClick={() => openSlot(slot)}
-                            className={`rounded-xl border px-1 py-2 text-center backdrop-blur-[2px] transition-colors ${slotBorderClass(slot.is_filled, expiry)}`}
+                            className={`rounded-xl border px-1 py-1.5 text-center backdrop-blur-[2px] transition-colors sm:py-2 ${slotBorderClass(slot.is_filled, expiry)}`}
                           >
                             <BottleVisual
                               filled={slot.is_filled}

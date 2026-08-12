@@ -150,7 +150,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen">
-      <div className="pb-24">
+      <div className="pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]">
         {currentPage === 'home' && <Dashboard />}
         {currentPage === 'history' && <HistoryPage />}
         {currentPage === 'stats' && <StatsPage />}

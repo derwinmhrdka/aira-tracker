@@ -275,6 +275,22 @@ curl -H "x-cron-secret: YOUR_CRON_SECRET" https://tracker.example.com/api/push/c
 # Response: {"sent":false,"reason":"not_due"} atau {"sent":true,"count":1,"type":"feeding"}
 ```
 
+### Test push langsung (tanpa cek jadwal)
+
+Kirim notifikasi uji ke semua device yang subscribe — **tanpa** cooldown atau interval:
+
+```bash
+curl -H "x-cron-secret: YOUR_CRON_SECRET" "https://tracker.example.com/api/push/test"
+# Response: {"sent":true,"count":1,"total":1,"type":"test"}
+```
+
+Opsional custom pesan:
+
+```bash
+curl -H "x-cron-secret: YOUR_CRON_SECRET" \
+  "https://tracker.example.com/api/push/test?title=Halo&body=Tes%20notif&url=/"
+```
+
 ## 12. Backup & Restore
 
 Di app: **Pengaturan → Backup JSON** mengunduh semua data.

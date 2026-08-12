@@ -343,7 +343,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen pt-6 pb-8">
+    <div className="pt-6">
       <div className="px-4 pb-4 pt-6">
         <div className="flex items-start justify-between">
           <motion.div
@@ -434,7 +434,7 @@ export function Dashboard() {
         {homeVis.milkStorage && <MilkStorageCard />}
 
         {homeVis.quickActions && (
-          <div className="mb-4">
+          <div className="mb-2">
             <h2 className="font-heading mb-3 text-base font-semibold text-foreground">
               Quick Action
             </h2>

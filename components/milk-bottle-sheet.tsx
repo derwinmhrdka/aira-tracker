@@ -127,7 +127,10 @@ export function MilkBottleSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-8 shadow-xl"
+            className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-3xl border border-border bg-card p-5 shadow-xl"
+            style={{
+              paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))',
+            }}
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
             <h2 className="font-heading text-lg font-bold text-foreground">
