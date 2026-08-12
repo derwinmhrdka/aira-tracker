@@ -10,6 +10,8 @@ export type ImmunizationTimelineGroup = {
 }
 
 export type IdaiCatchUpRule = {
+  order: number
+  ageLabel: string
   title: string
   vaccine: string
   rules: string[]
@@ -18,16 +20,18 @@ export type IdaiCatchUpRule = {
 /** Catatan catch-up & booster IDAI — referensi UI (Pedoman Imunisasi IDAI). */
 export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
   {
-    vaccine: 'PCV',
-    title: 'PCV — catch-up jika jadwal awal terlewat',
+    order: 0,
+    ageLabel: 'Baru lahir',
+    vaccine: 'BCG',
+    title: 'BCG — catch-up',
     rules: [
-      'Belum vaksin sampai usia 7–12 bulan: 2 dosis PCV (interval 1 bulan), lalu booster setelah usia 12 bulan (interval 2 bulan dari dosis terakhir).',
-      'Belum vaksin usia 1–2 tahun: 2 dosis PCV, interval minimal 2 bulan (tanpa booster tambahan).',
-      'Belum vaksin usia 2–5 tahun: PCV10 → 2 dosis interval 2 bulan; PCV13/PCV15 → cukup 1 dosis.',
-      'Usia >5 tahun dengan risiko tinggi yang belum pernah vaksin PCV: 1 dosis PCV13/PCV15.',
+      'Optimal usia 0–4 minggu (idealnya sebelum 2 bulan).',
+      'Jika diberikan usia ≥3 bulan, wajib didahului uji tuberkulin (hasil negatif).',
     ],
   },
   {
+    order: 1,
+    ageLabel: '2 bulan',
     vaccine: 'Rotavirus',
     title: 'Rotavirus — batas usia ketat',
     rules: [
@@ -38,14 +42,20 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     ],
   },
   {
-    vaccine: 'BCG',
-    title: 'BCG — catch-up',
+    order: 2,
+    ageLabel: '2–15 bulan',
+    vaccine: 'PCV',
+    title: 'PCV — catch-up jika jadwal awal terlewat',
     rules: [
-      'Optimal usia 0–4 minggu (idealnya sebelum 2 bulan).',
-      'Jika diberikan usia ≥3 bulan, wajib didahului uji tuberkulin (hasil negatif).',
+      'Belum vaksin sampai usia 7–12 bulan: 2 dosis PCV (interval 1 bulan), lalu booster setelah usia 12 bulan (interval 2 bulan dari dosis terakhir).',
+      'Belum vaksin usia 1–2 tahun: 2 dosis PCV, interval minimal 2 bulan (tanpa booster tambahan).',
+      'Belum vaksin usia 2–5 tahun: PCV10 → 2 dosis interval 2 bulan; PCV13/PCV15 → cukup 1 dosis.',
+      'Usia >5 tahun dengan risiko tinggi yang belum pernah vaksin PCV: 1 dosis PCV13/PCV15.',
     ],
   },
   {
+    order: 3,
+    ageLabel: '2–18 bulan',
     vaccine: 'DPT-HB-Hib',
     title: 'DPT-HB-Hib — skema & catch-up',
     rules: [
@@ -55,15 +65,8 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     ],
   },
   {
-    vaccine: 'Campak/MMR',
-    title: 'Campak/MR/MMR — catch-up',
-    rules: [
-      'Jika belum dapat Campak/MR di usia 9 bulan, bisa langsung MMR/MR di usia 12 bulan.',
-      'Booster MMR/MR usia 15 bulan: interval minimal 6 bulan dari dosis sebelumnya.',
-      'Booster MR usia 5–7 tahun (program BIAS di SD).',
-    ],
-  },
-  {
+    order: 4,
+    ageLabel: '4–18 bulan',
     vaccine: 'Polio',
     title: 'Polio — catch-up',
     rules: [
@@ -73,6 +76,19 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     ],
   },
   {
+    order: 5,
+    ageLabel: '9 bulan – 7 tahun',
+    vaccine: 'Campak/MMR',
+    title: 'Campak/MR/MMR — catch-up',
+    rules: [
+      'Jika belum dapat Campak/MR di usia 9 bulan, bisa langsung MMR/MR di usia 12 bulan.',
+      'Booster MMR/MR usia 15 bulan: interval minimal 6 bulan dari dosis sebelumnya.',
+      'Booster MR usia 5–7 tahun (program BIAS di SD).',
+    ],
+  },
+  {
+    order: 6,
+    ageLabel: '12 bulan+',
     vaccine: 'Hepatitis A & Varisela',
     title: 'Hep A & Varisela — booster/seri',
     rules: [
@@ -82,6 +98,8 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     ],
   },
   {
+    order: 7,
+    ageLabel: '6 bulan+',
     vaccine: 'Influenza & JE',
     title: 'Influenza & Japanese Encephalitis',
     rules: [
@@ -138,12 +156,14 @@ export function getTimelineMilestoneLabel(weeks: number): string {
 }
 
 export function formatTimelineSublabel(weeks: number): string {
-  if (weeks === 0) return '0 minggu · segera setelah lahir'
-  const months = weeksToScheduledMonths(weeks)
-  if (months > 0 && weeks > 0) {
-    return `${weeks} minggu · ~${months} bulan`
+  if (weeks === 0) return 'Segera setelah lahir'
+  if (weeks in MILESTONE_LABEL) {
+    const label = MILESTONE_LABEL[weeks]
+    if (weeks >= 52) return `Program usia ${label}`
+    return `Target usia ${label}`
   }
-  return `${weeks} minggu`
+  if (weeks >= 52) return `Usia ${weeks} minggu`
+  return `Usia ${weeks} minggu`
 }
 
 export function getDoseKind(doseLabel?: string | null): DoseKind {
@@ -165,22 +185,28 @@ export const DOSE_KIND_STYLE: Record<DoseKind, string> = {
   catchup: 'bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-300',
 }
 
-export function formatVaccineWindow(
+export function formatVaccineRange(
   minWeeks?: number | null,
   maxWeeks?: number | null,
   scheduledWeeks?: number | null
 ): string | null {
   if (minWeeks != null && maxWeeks != null) {
-    return `Jendela: ${minWeeks}–${maxWeeks} minggu`
+    return `Range: ${minWeeks}–${maxWeeks} minggu`
   }
   if (maxWeeks != null && scheduledWeeks != null && maxWeeks !== scheduledWeeks) {
-    return `Maks. ${maxWeeks} minggu`
+    return `Range: hingga ${maxWeeks} minggu`
   }
   if (minWeeks != null && scheduledWeeks != null && minWeeks !== scheduledWeeks) {
-    return `Mulai ${minWeeks} minggu`
+    return `Range: mulai ${minWeeks} minggu`
+  }
+  if (scheduledWeeks != null && scheduledWeeks > 0) {
+    return `Range: ${scheduledWeeks} minggu`
   }
   return null
 }
+
+/** @deprecated use formatVaccineRange */
+export const formatVaccineWindow = formatVaccineRange
 
 export function groupImmunizationsTimeline(
   items: Immunization[]

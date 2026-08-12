@@ -13,7 +13,7 @@ import {
   DOSE_KIND_LABEL,
   DOSE_KIND_STYLE,
   IDAI_CATCHUP_RULES,
-  formatVaccineWindow,
+  formatVaccineRange,
   getDoseKind,
   groupImmunizationsTimeline,
 } from '@/lib/immunization-idai'
@@ -49,7 +49,7 @@ function VaccineCard({
 }) {
   const status = (item.status ?? (item.is_done ? 'done' : 'upcoming')) as VaccineStatus
   const doseKind = getDoseKind(item.dose_label)
-  const windowLabel = formatVaccineWindow(
+  const windowLabel = formatVaccineRange(
     item.min_weeks,
     item.max_weeks,
     item.scheduled_age_weeks
@@ -459,30 +459,39 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-t border-border/50"
             >
-              <div className="space-y-3 px-4 py-3">
-                {IDAI_CATCHUP_RULES.map((rule) => (
-                  <div
-                    key={rule.title}
-                    className="rounded-xl bg-secondary/60 px-3 py-2.5"
-                  >
-                    <p className="text-xs font-semibold text-foreground">
-                      {rule.title}
-                    </p>
-                    <ul className="mt-1.5 space-y-1">
-                      {rule.rules.map((line) => (
-                        <li
-                          key={line}
-                          className="text-[11px] leading-snug text-muted-foreground"
-                        >
-                          · {line}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-                <p className="text-[10px] leading-snug text-muted-foreground">
-                  Sumber: Pedoman Imunisasi IDAI. Selalu konfirmasi catch-up dengan
-                  dokter anak.
+              <div className="relative ml-1 px-4 py-3 pl-5">
+                <div
+                  aria-hidden
+                  className="absolute bottom-2 left-[13px] top-2 w-0.5 bg-orange-200 dark:bg-orange-900/50"
+                />
+                {[...IDAI_CATCHUP_RULES]
+                  .sort((a, b) => a.order - b.order)
+                  .map((rule) => (
+                    <div key={rule.title} className="relative pb-5 last:pb-1">
+                      <div className="absolute -left-5 top-1 flex h-[16px] w-[16px] items-center justify-center rounded-full border-2 border-orange-400 bg-card">
+                        <div className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+                      </div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+                        {rule.ageLabel}
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold text-foreground">
+                        {rule.title}
+                      </p>
+                      <ul className="mt-1.5 space-y-1">
+                        {rule.rules.map((line) => (
+                          <li
+                            key={line}
+                            className="text-[11px] leading-snug text-muted-foreground"
+                          >
+                            · {line}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                  Sumber: Pedoman Imunisasi IDAI. Konfirmasi catch-up dengan dokter
+                  anak.
                 </p>
               </div>
             </motion.div>

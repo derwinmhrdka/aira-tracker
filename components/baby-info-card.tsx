@@ -6,7 +6,7 @@ import { MoodWidget } from './mood-widget'
 
 const VACCINE_STATUS: Record<string, { label: string; className: string }> = {
   overdue: { label: 'Terlambat', className: 'text-red-600 dark:text-red-400' },
-  due: { label: 'Jatuh tempo', className: 'text-amber-600 dark:text-amber-400' },
+  due: { label: 'Sudah waktunya', className: 'text-amber-600 dark:text-amber-400' },
   upcoming: { label: 'Mendatang', className: 'text-primary' },
 }
 

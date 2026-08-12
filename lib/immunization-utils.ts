@@ -1,4 +1,5 @@
 import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
+import { formatVaccineRange } from '@/lib/immunization-idai'
 
 export type VaccineStatus = 'done' | 'overdue' | 'due' | 'upcoming'
 
@@ -24,7 +25,7 @@ export type VaccineBrief = {
   schedule_label: string
   scheduled_age_weeks: number | null
   scheduled_age_months: number
-  vaccines: { name: string; dose_label: string | null }[]
+  vaccines: { name: string; dose_label: string | null; range_label: string | null }[]
 }
 
 const DEFAULT_OVERDUE_GRACE_WEEKS = 4
@@ -75,16 +76,15 @@ export function formatVaccineScheduleLabel(
   scheduledAgeWeeks: number | null | undefined,
   scheduledAgeMonths: number
 ): string {
-  if (scheduledAgeWeeks != null) {
-    if (scheduledAgeWeeks === 0) return 'Baru lahir (0 minggu)'
-    const monthPart =
-      scheduledAgeMonths > 0
-        ? `${scheduledAgeMonths} bulan`
-        : `${scheduledAgeWeeks} minggu`
-    return `${monthPart} · ${scheduledAgeWeeks} minggu`
+  if (scheduledAgeWeeks === 0 || scheduledAgeWeeks == null) return 'Baru lahir'
+  if (scheduledAgeWeeks >= 260) return '5–7 tahun'
+  if (scheduledAgeMonths >= 12) {
+    const years = Math.floor(scheduledAgeMonths / 12)
+    if (years >= 2) return `${years} tahun`
+    return `${scheduledAgeMonths} bulan`
   }
-  if (scheduledAgeMonths <= 0) return 'Baru lahir'
-  return `${scheduledAgeMonths} bulan`
+  if (scheduledAgeMonths >= 2) return `${scheduledAgeMonths} bulan`
+  return `${scheduledAgeWeeks} minggu`
 }
 
 function sortKey(v: VaccineInput): number {
@@ -135,6 +135,7 @@ export function getVaccineBrief(
       vaccines: bucket.map((v) => ({
         name: v.vaccineName,
         dose_label: v.doseLabel ?? null,
+        range_label: formatVaccineRange(v.minWeeks, v.maxWeeks, v.scheduledAgeWeeks),
       })),
     }
   }
@@ -169,7 +170,7 @@ export function getNextVaccine(
 export const STATUS_LABEL: Record<VaccineStatus, string> = {
   done: 'Selesai',
   overdue: 'Terlambat',
-  due: 'Jatuh tempo',
+  due: 'Sudah waktunya',
   upcoming: 'Mendatang',
 }
 

@@ -499,7 +499,7 @@ export interface TodaySummary {
     status?: 'overdue' | 'due' | 'upcoming'
     schedule_label?: string
     scheduled_age_weeks?: number | null
-    vaccines?: { name: string; dose_label: string | null }[]
+    vaccines?: { name: string; dose_label: string | null; range_label?: string | null }[]
   } | null
 }
 

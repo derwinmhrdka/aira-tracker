@@ -93,6 +93,11 @@ export function VaccineInfoSheet({ open, brief, onClose }: VaccineInfoSheetProps
                       {v.dose_label}
                     </p>
                   )}
+                  {v.range_label && (
+                    <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
+                      {v.range_label}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

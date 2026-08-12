@@ -23,7 +23,7 @@ import { LIVE_SYNC_MS } from '@/lib/use-live-sync'
 const SCALE_MARKS = [60, 120, 180, 240] as const
 
 const BOTTLE_PATH =
-  'M14 2h12l2 6 4 4v18c0 2-1 3.5-2.5 4.5v2c0 1.2-.8 2.2-2 2.5v1.5c0 4.5-3.5 8-8 8s-8-3.5-8-8v-1.5c-1.2-.3-2-1.3-2-2.5v-2C10.5 33.5 9.5 32 9.5 30V12l4-4 2-6z'
+  'M15 1h10l2.5 6.5 3.5 3v19.5c0 2.8-2.2 5-5 5h-5c-2.8 0-5-2.2-5-5V11l3.5-3L15 1z'
 
 function FrostVapor() {
   const puffs = [
@@ -39,7 +39,7 @@ function FrostVapor() {
       {puffs.map((p, i) => (
         <motion.div
           key={i}
-          className="absolute bottom-2 rounded-full bg-white/25 blur-md dark:bg-cyan-200/15"
+          className="absolute bottom-2 rounded-full bg-sky-200/40 blur-md dark:bg-sky-400/10"
           style={{ left: p.left, width: p.w, height: p.w * 0.55 }}
           initial={{ opacity: 0, y: 8, scale: 0.85 }}
           animate={{
@@ -77,14 +77,14 @@ function BottleVisual({
 
   const glassStroke =
     expiryStatus === 'expired'
-      ? '#f87171'
+      ? '#ef4444'
       : expiryStatus === 'soon'
-        ? '#fbbf24'
-        : 'rgba(148,163,184,0.85)'
+        ? '#f59e0b'
+        : '#64748b'
 
   return (
     <motion.div
-      className="relative mx-auto h-[4.75rem] w-[2.6rem] sm:h-[5.5rem] sm:w-[3rem]"
+      className="relative mx-auto h-[5rem] w-[2.75rem] sm:h-[5.75rem] sm:w-[3.1rem]"
       animate={filled ? { y: [0, -1.5, 0] } : { y: 0 }}
       transition={
         filled
@@ -104,9 +104,9 @@ function BottleVisual({
             <rect x="6" y={80 - (fillPct / 100) * 68} width="28" height={(fillPct / 100) * 68} />
           </clipPath>
           <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
-            <stop offset="35%" stopColor="rgba(255,255,255,0.22)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0.04)" />
+            <stop offset="0%" stopColor="rgba(148,163,184,0.15)" />
+            <stop offset="40%" stopColor="rgba(226,232,240,0.55)" />
+            <stop offset="100%" stopColor="rgba(148,163,184,0.2)" />
           </linearGradient>
           <linearGradient id="milkGrad" x1="0" y1="1" x2="0" y2="0">
             <stop offset="0%" stopColor="#e7e5e4" />
@@ -120,32 +120,33 @@ function BottleVisual({
           d={BOTTLE_PATH}
           fill="url(#glassGrad)"
           stroke={glassStroke}
-          strokeWidth="1.4"
+          strokeWidth="2"
           strokeLinejoin="round"
         />
 
-        {/* Grip indent / lekukan */}
         <ellipse
           cx="20"
-          cy="44"
-          rx="9.5"
-          ry="2.2"
+          cy="42"
+          rx="8"
+          ry="2.5"
           fill="none"
-          stroke="rgba(100,116,139,0.35)"
+          stroke="#94a3b8"
+          strokeWidth="1.2"
+        />
+        <path
+          d="M12 42 Q20 38.5 28 42"
+          fill="none"
+          stroke="#cbd5e1"
           strokeWidth="1"
         />
         <path
-          d="M11 44 Q20 40.5 29 44"
+          d="M12 44.5 Q20 48 28 44.5"
           fill="none"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth="0.8"
+          stroke="#94a3b8"
+          strokeWidth="0.9"
         />
-        <path
-          d="M11 46.5 Q20 50 29 46.5"
-          fill="none"
-          stroke="rgba(15,23,42,0.12)"
-          strokeWidth="0.8"
-        />
+
+        <rect x="14" y="1" width="12" height="3" rx="1" fill="#cbd5e1" stroke={glassStroke} strokeWidth="0.8" />
 
         {/* Milk fill */}
         {filled && ml > 0 && (
@@ -163,9 +164,9 @@ function BottleVisual({
 
         {/* Highlight */}
         <path
-          d="M13 14 L13 68"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="1.2"
+          d="M14.5 12 L14.5 66"
+          stroke="rgba(255,255,255,0.7)"
+          strokeWidth="1.5"
           strokeLinecap="round"
         />
 
@@ -203,12 +204,12 @@ function BottleVisual({
 
 function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
   if (!filled)
-    return 'border-slate-400/25 bg-slate-700/20 dark:border-slate-500/30 dark:bg-slate-900/40'
+    return 'border-slate-300/80 bg-slate-200/80 dark:border-slate-600/50 dark:bg-slate-800/55'
   if (status === 'expired')
-    return 'border-red-400/50 bg-red-950/30 shadow-sm dark:border-red-700/50'
+    return 'border-red-300/70 bg-red-50/90 shadow-sm dark:border-red-800/50 dark:bg-red-950/30'
   if (status === 'soon')
-    return 'border-amber-400/45 bg-amber-950/25 shadow-sm dark:border-amber-600/45'
-  return 'border-slate-400/30 bg-slate-800/25 shadow-sm dark:border-slate-500/35'
+    return 'border-amber-300/70 bg-amber-50/90 shadow-sm dark:border-amber-700/50 dark:bg-amber-950/25'
+  return 'border-slate-300/70 bg-slate-200/70 shadow-sm dark:border-slate-600/45 dark:bg-slate-800/45'
 }
 
 export function MilkStorageCard() {
@@ -300,51 +301,22 @@ export function MilkStorageCard() {
 
   return (
     <>
-      <div className="relative mb-4 overflow-hidden rounded-2xl border border-slate-600/40 shadow-[0_12px_40px_-20px_rgba(15,23,42,0.55)] dark:border-slate-500/30">
-        <div className="flex items-center justify-between gap-2 border-b border-slate-600/30 bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 px-4 py-2.5 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800">
+      <div className="relative mb-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/50 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-base" aria-hidden>
               ❄️
             </span>
-            <h2 className="font-heading text-sm font-bold tracking-wide text-slate-100">
+            <h2 className="font-heading text-sm font-bold tracking-wide text-foreground">
               Milk Storage
             </h2>
           </div>
-          <span className="text-[10px] font-medium tabular-nums text-slate-300/90">
+          <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
             Available : {emptySlots}/{totalSlots}
           </span>
         </div>
 
-        <div className="relative max-h-[min(22rem,52vh)] overflow-y-auto overscroll-contain px-3 py-3 sm:max-h-none sm:overflow-visible sm:py-4">
-          {/* Dark freezer interior — contrasts with white milk */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(180deg, #334155 0%, #1e293b 42%, #0f172a 100%)',
-            }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-30"
-            style={{
-              backgroundImage: `
-                radial-gradient(circle at 15% 20%, rgba(255,255,255,0.12) 0 1px, transparent 2px),
-                radial-gradient(circle at 72% 35%, rgba(255,255,255,0.1) 0 1px, transparent 2px),
-                radial-gradient(circle at 40% 68%, rgba(255,255,255,0.08) 0 1.5px, transparent 2.5px),
-                radial-gradient(circle at 85% 75%, rgba(255,255,255,0.09) 0 1px, transparent 2px)
-              `,
-            }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-black/25 to-transparent"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-black/25 to-transparent"
-          />
+        <div className="relative max-h-[min(22rem,52vh)] overflow-y-auto overscroll-contain bg-gradient-to-b from-sky-50/40 to-card px-3 py-3 dark:from-sky-950/15 sm:max-h-none sm:overflow-visible sm:py-4">
           <FrostVapor />
 
           <div className="relative z-[1]">
@@ -353,7 +325,7 @@ export function MilkStorageCard() {
                 {Array.from({ length: totalSlots }).map((_, i) => (
                   <div
                     key={i}
-                    className="h-32 animate-pulse rounded-xl bg-slate-600/30"
+                    className="h-32 animate-pulse rounded-xl bg-secondary"
                   />
                 ))}
               </div>
@@ -368,7 +340,7 @@ export function MilkStorageCard() {
                     <div key={rowIdx} className="relative">
                       <div
                         aria-hidden
-                        className="absolute inset-x-1 bottom-1 h-2 rounded-sm border border-slate-500/50 bg-gradient-to-b from-slate-600/80 to-slate-700/90 shadow-sm"
+                        className="absolute inset-x-1 bottom-1 h-1.5 rounded-sm bg-border/60"
                       />
 
                       <div className="relative grid gap-2 pb-3" style={gridStyle}>
@@ -382,7 +354,7 @@ export function MilkStorageCard() {
                               onClick={() => openSlot(slot)}
                               className={`rounded-xl border px-1 py-1.5 text-center backdrop-blur-[1px] transition-colors sm:py-2 ${slotBorderClass(slot.is_filled, expiry)}`}
                             >
-                              <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-400/90">
+                              <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 Bottle {slot.slot_index + 1}
                               </p>
                               <BottleVisual
@@ -402,8 +374,8 @@ export function MilkStorageCard() {
                                 animate={{ opacity: 1, y: 0 }}
                                 className={`mt-1.5 text-[11px] font-bold tabular-nums ${
                                   slot.is_filled
-                                    ? 'text-slate-100'
-                                    : 'text-slate-400'
+                                    ? 'text-foreground'
+                                    : 'text-muted-foreground'
                                 }`}
                               >
                                 {slot.is_filled
@@ -414,10 +386,10 @@ export function MilkStorageCard() {
                                 <p
                                   className={`mt-0.5 line-clamp-1 text-[9px] font-semibold tabular-nums ${
                                     expiry === 'expired'
-                                      ? 'text-red-400'
+                                      ? 'text-red-600 dark:text-red-400'
                                       : expiry === 'soon'
-                                        ? 'text-amber-300'
-                                        : 'text-slate-400'
+                                        ? 'text-amber-700 dark:text-amber-300'
+                                        : 'text-muted-foreground'
                                   }`}
                                 >
                                   {expiry === 'expired'

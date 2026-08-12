@@ -7,6 +7,7 @@ import type { MilkStorageSlot } from '@/lib/api-client'
 import {
   formatMilkExpiryRemaining,
   getMilkExpiryStatus,
+  MILK_EXPIRY_PRESETS_HOURS,
 } from '@/lib/milk-storage'
 import { requestNotificationPermission } from '@/lib/reminder'
 
@@ -44,8 +45,8 @@ function addHoursToLocalInput(baseLocal: string, hours: number): string {
   return toLocalInputValue(d.toISOString())
 }
 
-const fieldClass =
-  'w-full rounded-xl border border-border bg-secondary px-3 py-3 text-sm text-foreground outline-none ring-primary focus:ring-2'
+const inputClass =
+  'box-border h-[46px] w-full rounded-xl border border-border bg-secondary px-3 text-sm text-foreground outline-none ring-primary focus:ring-2'
 
 export function MilkBottleSheet({
   open,
@@ -86,9 +87,7 @@ export function MilkBottleSheet({
       setCountdown('')
       return
     }
-    const tick = () => {
-      setCountdown(formatMilkExpiryRemaining(slot.expires_at))
-    }
+    const tick = () => setCountdown(formatMilkExpiryRemaining(slot.expires_at))
     tick()
     const id = window.setInterval(tick, 30_000)
     return () => window.clearInterval(id)
@@ -99,25 +98,17 @@ export function MilkBottleSheet({
     if (!Number.isFinite(ml) || ml <= 0) return
     setSaving(true)
     try {
-      if (expiresAt) {
-        await requestNotificationPermission()
-      }
+      if (expiresAt) await requestNotificationPermission()
       const local = new Date(isFilled ? slot?.filled_at ?? filledAt : filledAt)
       const filledIso = Number.isNaN(local.getTime())
         ? new Date().toISOString()
         : local.toISOString()
-
       let expiresIso: string | null = null
       if (expiresAt) {
         const exp = new Date(expiresAt)
         expiresIso = Number.isNaN(exp.getTime()) ? null : exp.toISOString()
       }
-
-      await onSave({
-        amount_ml: ml,
-        filled_at: filledIso,
-        expires_at: expiresIso,
-      })
+      await onSave({ amount_ml: ml, filled_at: filledIso, expires_at: expiresIso })
       onClose()
     } finally {
       setSaving(false)
@@ -135,6 +126,7 @@ export function MilkBottleSheet({
   }
 
   const expiryStatus = getMilkExpiryStatus(slot?.expires_at)
+  const filledBase = isFilled ? toLocalInputValue(slot?.filled_at ?? null) : filledAt
 
   if (!mounted) return null
 
@@ -165,7 +157,7 @@ export function MilkBottleSheet({
             </h2>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <div>
+              <div className="min-w-0">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
                   Jumlah (ml)
                 </label>
@@ -175,18 +167,18 @@ export function MilkBottleSheet({
                   max={2000}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className={`${fieldClass} font-semibold tabular-nums`}
+                  className={`${inputClass} font-semibold tabular-nums`}
                   inputMode="numeric"
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
                   {isFilled ? 'Countdown' : 'Time'}
                 </label>
                 {isFilled ? (
                   <div
-                    className={`flex h-[46px] items-center rounded-xl border border-border bg-secondary px-3 text-sm font-semibold tabular-nums ${
+                    className={`box-border flex h-[46px] w-full items-center rounded-xl border border-border bg-secondary px-3 text-sm font-semibold tabular-nums ${
                       expiryStatus === 'expired'
                         ? 'text-red-600 dark:text-red-400'
                         : expiryStatus === 'soon'
@@ -208,22 +200,36 @@ export function MilkBottleSheet({
                         setExpiresAt(addHoursToLocalInput(e.target.value, 24))
                       }
                     }}
-                    className={fieldClass}
+                    className={inputClass}
                   />
                 )}
               </div>
-            </div>
 
-            <div className="mt-3">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Expired
-              </label>
-              <input
-                type="datetime-local"
-                value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
-                className={fieldClass}
-              />
+              <div className="col-start-2 min-w-0">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Expired
+                </label>
+                <input
+                  type="datetime-local"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  className={inputClass}
+                />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
+                    <button
+                      key={p.hours}
+                      type="button"
+                      onClick={() =>
+                        setExpiresAt(addHoursToLocalInput(filledBase, p.hours))
+                      }
+                      className="rounded-lg bg-secondary px-2.5 py-1 text-[10px] font-semibold text-foreground"
+                    >
+                      +{p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="mt-5 flex gap-2">

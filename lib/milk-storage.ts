@@ -20,9 +20,10 @@ export const MILK_BOTTLE_MAX_ML = 240
 export const MILK_EXPIRY_WARN_HOURS = 6
 
 export const MILK_EXPIRY_PRESETS_HOURS = [
+  { hours: 4, label: '4 jam' },
   { hours: 24, label: '24 jam' },
   { hours: 48, label: '48 jam' },
-  { hours: 72, label: '3 hari' },
+  { hours: 72, label: '72 jam' },
   { hours: 168, label: '7 hari' },
 ] as const
 
