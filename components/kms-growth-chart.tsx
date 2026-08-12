@@ -27,12 +27,52 @@ import {
 import type { GrowthLog } from '@/lib/api-client'
 
 const MAX_MONTH = 24
-const MIN_MONTH_SPAN = 0
+const MIN_MONTH_SPAN = 2
 const MIN_Y_SPAN = { weight: 0.5, height: 5 } as const
 const BABY_DOT_COLOR = '#3b82f6'
 
-function formatDecimal(value: number): string {
-  return Number(value).toFixed(2)
+function formatAxisValue(value: number, metric: GrowthMetric): string {
+  if (metric === 'weight') {
+    const rounded = Math.round(value * 10) / 10
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+  }
+  return String(Math.round(value))
+}
+
+function yTickStep(metric: GrowthMetric, span: number): number {
+  if (metric === 'weight') {
+    if (span <= 1.5) return 0.25
+    if (span <= 3) return 0.5
+    return 1
+  }
+  if (span <= 15) return 2
+  if (span <= 30) return 5
+  return 10
+}
+
+function niceYDomain(domain: YDomain, metric: GrowthMetric): YDomain {
+  const span = domain.max - domain.min
+  const step = yTickStep(metric, span)
+  let min = Math.floor(domain.min / step) * step
+  let max = Math.ceil(domain.max / step) * step
+  if (max - min < MIN_Y_SPAN[metric]) {
+    const center = (min + max) / 2
+    min = center - MIN_Y_SPAN[metric] / 2
+    max = center + MIN_Y_SPAN[metric] / 2
+    min = Math.floor(min / step) * step
+    max = Math.ceil(max / step) * step
+  }
+  return { min, max }
+}
+
+function buildYTicks(domain: YDomain, metric: GrowthMetric): number[] {
+  const step = yTickStep(metric, domain.max - domain.min)
+  const ticks: number[] = []
+  const start = Math.ceil(domain.min / step) * step
+  for (let v = start; v <= domain.max + step * 0.001; v += step) {
+    ticks.push(Math.round(v * 1000) / 1000)
+  }
+  return ticks.length > 0 ? ticks : [domain.min, domain.max]
 }
 
 interface KmsGrowthChartProps {
@@ -159,9 +199,9 @@ function hasVisibleMonths(range: MonthRange): boolean {
 }
 
 function shiftXRange(range: MonthRange, deltaMonths: number): MonthRange {
-  const span = range.end - range.start
+  const span = Math.max(MIN_MONTH_SPAN, range.end - range.start)
   let start = range.start + deltaMonths
-  let end = range.end + deltaMonths
+  let end = start + span
 
   if (start < 0) {
     start = 0
@@ -172,7 +212,7 @@ function shiftXRange(range: MonthRange, deltaMonths: number): MonthRange {
     start = MAX_MONTH - span
   }
 
-  return { start, end }
+  return clampRange(start, end)
 }
 
 type ChartRow = ReturnType<typeof buildDenseChartData>[number]
@@ -273,9 +313,9 @@ function clampYDomain(
 }
 
 function formatRangeLabel(range: MonthRange): string {
-  const start = Math.round(range.start * 10) / 10
-  const end = Math.round(range.end * 10) / 10
-  return start === end ? `Bulan ${start}` : `${start}–${end}`
+  const start = Math.round(range.start)
+  const end = Math.round(range.end)
+  return start === end ? `Bulan ${start}` : `${start}–${end} bln`
 }
 
 export function KmsGrowthChart({
@@ -287,7 +327,7 @@ export function KmsGrowthChart({
   const chartRef = useRef<HTMLDivElement>(null)
   const pinchRef = useRef<PinchState | null>(null)
   const panRef = useRef<PanState | null>(null)
-  const mousePanRef = useRef(false)
+  const panningRef = useRef(false)
 
   const [viewRange, setViewRange] = useState<MonthRange>({ start: 0, end: MAX_MONTH })
   const [yDomain, setYDomain] = useState<YDomain | null>(null)
@@ -324,8 +364,14 @@ export function KmsGrowthChart({
 
   const resolvedYDomain = useMemo(() => {
     const domain = yDomain ?? computeAutoYDomain(visibleData, metric)
-    return clampYDomain(domain, yBounds, MIN_Y_SPAN[metric])
+    const clamped = clampYDomain(domain, yBounds, MIN_Y_SPAN[metric])
+    return niceYDomain(clamped, metric)
   }, [yDomain, visibleData, metric, yBounds])
+
+  const yTicks = useMemo(
+    () => buildYTicks(resolvedYDomain, metric),
+    [resolvedYDomain, metric]
+  )
 
   const xTicks = useMemo(
     () => buildXTicks(viewRange.start, viewRange.end),
@@ -378,25 +424,16 @@ export function KmsGrowthChart({
   }, [])
 
   const applyPan = useCallback(
-    (dx: number, dy: number, rect: DOMRect, base: PanState) => {
+    (dx: number, rect: DOMRect, base: PanState) => {
       const span = base.xRange.end - base.xRange.start
-      const monthShift = -(dx / rect.width) * Math.max(span, 1)
+      const monthShift = -(dx / rect.width) * Math.max(span, MIN_MONTH_SPAN)
       const nextX = shiftXRange(base.xRange, monthShift)
-
-      const ySpan = base.yDomain.max - base.yDomain.min
-      const valueShift = -(dy / rect.height) * ySpan
-      const nextY = clampYDomain(
-        { min: base.yDomain.min + valueShift, max: base.yDomain.max + valueShift },
-        yBounds,
-        MIN_Y_SPAN[metric]
-      )
 
       if (hasVisibleMonths(nextX)) {
         setViewRange(nextX)
-        setYDomain(nextY)
       }
     },
-    [yBounds, metric]
+    []
   )
 
   const startPan = useCallback(
@@ -414,7 +451,10 @@ export function KmsGrowthChart({
 
   const endPan = useCallback(() => {
     panRef.current = null
-    mousePanRef.current = false
+    panningRef.current = false
+    setViewRange((current) =>
+      clampRange(Math.round(current.start), Math.round(current.end))
+    )
   }, [])
 
   useEffect(() => {
@@ -427,6 +467,7 @@ export function KmsGrowthChart({
       if (!chartRef.current) return
 
       if (e.touches.length === 2) {
+        panningRef.current = false
         panRef.current = null
         const rect = chartRef.current.getBoundingClientRect()
         pinchRef.current = {
@@ -434,15 +475,9 @@ export function KmsGrowthChart({
           centerRatio: touchCenterRatio(e.touches, rect),
           range: viewRange,
         }
-        return
-      }
-
-      if (e.touches.length === 1) {
-        pinchRef.current = null
-        startPan(e.touches[0].clientX, e.touches[0].clientY)
       }
     },
-    [viewRange, startPan]
+    [viewRange]
   )
 
   const handleTouchMove = useCallback(
@@ -462,68 +497,72 @@ export function KmsGrowthChart({
           setYDomain(null)
           setViewRange(next)
         }
-        return
-      }
-
-      if (e.touches.length === 1 && panRef.current) {
-        e.preventDefault()
-        const touch = e.touches[0]
-        applyPan(
-          touch.clientX - panRef.current.startX,
-          touch.clientY - panRef.current.startY,
-          chartRef.current.getBoundingClientRect(),
-          panRef.current
-        )
       }
     },
-    [applyPan]
+    []
   )
 
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      if (e.touches.length === 0) {
-        pinchRef.current = null
-        endPan()
-        return
-      }
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 0) {
+      pinchRef.current = null
+      return
+    }
+    if (e.touches.length === 1 && pinchRef.current) {
+      pinchRef.current = null
+    }
+  }, [])
 
-      if (e.touches.length === 1 && pinchRef.current) {
-        pinchRef.current = null
-        startPan(e.touches[0].clientX, e.touches[0].clientY)
-      }
-    },
-    [endPan, startPan]
-  )
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return
-      mousePanRef.current = true
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (pinchRef.current) return
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      panningRef.current = true
+      e.currentTarget.setPointerCapture(e.pointerId)
       startPan(e.clientX, e.clientY)
     },
     [startPan]
   )
 
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      if (!mousePanRef.current || !panRef.current || !chartRef.current) return
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!panningRef.current || !panRef.current || !chartRef.current || pinchRef.current) {
+        return
+      }
+      e.preventDefault()
       applyPan(
         e.clientX - panRef.current.startX,
-        e.clientY - panRef.current.startY,
         chartRef.current.getBoundingClientRect(),
         panRef.current
       )
-    }
+    },
+    [applyPan]
+  )
 
-    const onMouseUp = () => endPan()
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!panningRef.current) return
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      } catch {
+        /* already released */
+      }
+      endPan()
+    },
+    [endPan]
+  )
 
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-    }
-  }, [applyPan, endPan])
+  const handlePointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!panningRef.current) return
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      } catch {
+        /* already released */
+      }
+      endPan()
+    },
+    [endPan]
+  )
 
   useEffect(() => {
     const el = chartRef.current
@@ -536,7 +575,7 @@ export function KmsGrowthChart({
         1,
         Math.max(0, (e.clientX - rect.left) / rect.width)
       )
-      const scale = e.deltaY < 0 ? 1.12 : 0.89
+      const scale = e.deltaY < 0 ? 1.08 : 0.925
       applyZoom(scale, centerRatio)
     }
 
@@ -595,12 +634,12 @@ export function KmsGrowthChart({
 
     return (
       <div className="max-w-[200px] rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-md">
-        <p className="font-semibold text-foreground">Bulan {month}</p>
+        <p className="font-semibold text-foreground">Bulan {Math.round(Number(month))}</p>
         {hasMedian && (
           <p className="mt-1 text-muted-foreground">
             Median WHO:{' '}
             <span className="font-medium text-foreground">
-              {formatDecimal(medianValue)} {unit}
+              {formatAxisValue(Number(medianValue), metric)} {unit}
             </span>
           </p>
         )}
@@ -617,7 +656,7 @@ export function KmsGrowthChart({
           <p className="mt-1 text-muted-foreground">
             Data bayi:{' '}
             <span className="font-medium text-foreground">
-              {formatDecimal(baby!.value!)} {unit}
+              {formatAxisValue(baby!.value!, metric)} {unit}
             </span>
           </p>
         )}
@@ -678,16 +717,23 @@ export function KmsGrowthChart({
     <div>
       <div
         ref={chartRef}
-        className="relative h-[240px] w-full cursor-grab touch-none select-none active:cursor-grabbing"
+        className="relative h-[240px] w-full cursor-grab touch-none select-none overscroll-contain active:cursor-grabbing"
+        style={{ touchAction: 'none' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onDoubleClick={resetZoom}
       >
         <span className="absolute bottom-0 right-0 z-10 text-[10px] text-muted-foreground">
           Bulan
+        </span>
+        <span className="absolute bottom-1 left-0 right-8 z-10 text-center text-[9px] text-muted-foreground">
+          Geser kiri/kanan · pinch zoom · ketuk 2x reset
         </span>
         <span className="absolute right-0 top-0 z-10 rounded-full bg-secondary/80 px-2 py-0.5 text-[9px] text-muted-foreground">
           {formatRangeLabel(viewRange)} · {zoomLabel}
@@ -715,7 +761,8 @@ export function KmsGrowthChart({
             <YAxis
               width={48}
               tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-              tickFormatter={(value) => formatDecimal(Number(value))}
+              tickFormatter={(value) => formatAxisValue(Number(value), metric)}
+              ticks={yTicks}
               tickMargin={2}
               label={{
                 value: unit,
