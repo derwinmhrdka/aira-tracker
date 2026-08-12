@@ -4,8 +4,11 @@ import { withAuth, parseLoggedBy } from '@/lib/api-helpers'
 import {
   MILK_STORAGE_LAYOUT_DEFAULTS,
   MILK_STORAGE_LAYOUT_KEY,
+  MILK_REMINDER_SETTINGS_KEY,
   milkSlotCount,
+  milkReminderSettingsToJson,
   normalizeMilkStorageLayout,
+  parseMilkReminderSettings,
 } from '@/lib/milk-storage'
 
 function formatSlot(s: {
@@ -48,9 +51,17 @@ async function readLayout() {
   return normalizeMilkStorageLayout(row?.value ?? null)
 }
 
+async function readReminderSettings() {
+  const row = await prisma.appSetting.findUnique({
+    where: { key: MILK_REMINDER_SETTINGS_KEY },
+  })
+  return parseMilkReminderSettings(row?.value ?? null)
+}
+
 export async function GET() {
   return withAuth(async () => {
     const layout = await readLayout()
+    const reminder = await readReminderSettings()
     const slots = await prisma.milkStorageSlot.findMany({
       orderBy: { slotIndex: 'asc' },
     })
@@ -61,13 +72,47 @@ export async function GET() {
       return existing ? formatSlot(existing) : emptySlot(i)
     })
 
-    return NextResponse.json({ layout, slots: items })
+    return NextResponse.json({
+      layout,
+      slots: items,
+      reminder: {
+        enabled: reminder.enabled,
+        warn_before_minutes: reminder.warnBeforeMinutes,
+      },
+    })
   })
 }
 
 export async function PATCH(request: NextRequest) {
   return withAuth(async (sessionLoggedBy) => {
     const body = await request.json().catch(() => ({}))
+
+    if (body.reminder && typeof body.reminder === 'object') {
+      const current = await readReminderSettings()
+      const next = parseMilkReminderSettings({
+        ...current,
+        enabled:
+          typeof body.reminder.enabled === 'boolean'
+            ? body.reminder.enabled
+            : current.enabled,
+        warnBeforeMinutes:
+          body.reminder.warn_before_minutes ?? body.reminder.warnBeforeMinutes,
+      })
+      await prisma.appSetting.upsert({
+        where: { key: MILK_REMINDER_SETTINGS_KEY },
+        create: {
+          key: MILK_REMINDER_SETTINGS_KEY,
+          value: milkReminderSettingsToJson(next),
+        },
+        update: { value: milkReminderSettingsToJson(next) },
+      })
+      return NextResponse.json({
+        reminder: {
+          enabled: next.enabled,
+          warn_before_minutes: next.warnBeforeMinutes,
+        },
+      })
+    }
 
     if (body.layout && typeof body.layout === 'object') {
       const layout = normalizeMilkStorageLayout({
@@ -98,6 +143,7 @@ export async function PATCH(request: NextRequest) {
             amountMl: null,
             filledAt: null,
             expiresAt: null,
+            expiryPushNotifiedFor: null,
             note: null,
             loggedBy: null,
           },
@@ -136,6 +182,12 @@ export async function PATCH(request: NextRequest) {
     const loggedBy =
       parseLoggedBy(body.logged_by) ?? sessionLoggedBy ?? null
 
+    const existing = await prisma.milkStorageSlot.findUnique({
+      where: { slotIndex },
+    })
+    const expiryChanged =
+      existing?.expiresAt?.getTime() !== expiresAt?.getTime()
+
     const slot = await prisma.milkStorageSlot.upsert({
       where: { slotIndex },
       create: {
@@ -150,6 +202,7 @@ export async function PATCH(request: NextRequest) {
         amountMl: Math.round(amountMl),
         filledAt,
         expiresAt,
+        ...(expiryChanged ? { expiryPushNotifiedFor: null } : {}),
         ...(note !== undefined ? { note } : {}),
         loggedBy,
       },

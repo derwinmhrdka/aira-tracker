@@ -1,4 +1,5 @@
 export const MILK_STORAGE_LAYOUT_KEY = 'milk_storage_layout'
+export const MILK_REMINDER_SETTINGS_KEY = 'milk_reminder_settings'
 
 export type MilkStorageLayout = {
   rows: number
@@ -16,8 +17,118 @@ export const MILK_STORAGE_COLS_OPTIONS = [2, 3, 4, 5, 6] as const
 /** Visual fill cap — ml di atas ini dianggap penuh. */
 export const MILK_BOTTLE_MAX_ML = 240
 
-/** Ingatkan jika sisa waktu ≤ ini (jam). */
+/** @deprecated use getMilkReminderSettings().warnBeforeMinutes */
 export const MILK_EXPIRY_WARN_HOURS = 6
+
+export const MIN_MILK_WARN_MINUTES = 60
+export const MAX_MILK_WARN_MINUTES = 7 * 24 * 60
+export const DEFAULT_MILK_WARN_MINUTES = MILK_EXPIRY_WARN_HOURS * 60
+
+const MILK_REMINDER_KEY = 'baby_tracker_milk_reminder'
+
+export type MilkReminderSettings = {
+  enabled: boolean
+  warnBeforeMinutes: number
+}
+
+const MILK_REMINDER_DEFAULTS: MilkReminderSettings = {
+  enabled: true,
+  warnBeforeMinutes: DEFAULT_MILK_WARN_MINUTES,
+}
+
+export const MILK_WARN_PRESETS = [
+  { minutes: 60, label: '1 jam' },
+  { minutes: 4 * 60, label: '4 jam' },
+  { minutes: 6 * 60, label: '6 jam' },
+  { minutes: 12 * 60, label: '12 jam' },
+  { minutes: 24 * 60, label: '1 hari' },
+  { minutes: 48 * 60, label: '2 hari' },
+  { minutes: 7 * 24 * 60, label: '7 hari' },
+] as const
+
+export function clampMilkWarnMinutes(minutes: number): number {
+  return Math.min(
+    MAX_MILK_WARN_MINUTES,
+    Math.max(MIN_MILK_WARN_MINUTES, Math.round(minutes))
+  )
+}
+
+export function formatMilkWarnBefore(totalMinutes: number): string {
+  const clamped = clampMilkWarnMinutes(totalMinutes)
+  const hours = Math.floor(clamped / 60)
+  const mins = clamped % 60
+  if (hours >= 24 && mins === 0 && hours % 24 === 0) {
+    const days = hours / 24
+    return days === 1 ? '1 hari' : `${days} hari`
+  }
+  if (hours === 0) return `${mins} menit`
+  if (mins === 0) return `${hours} jam`
+  return `${hours} jam ${mins} menit`
+}
+
+function normalizeMilkReminderSettings(
+  raw: Record<string, unknown> | null | undefined
+): MilkReminderSettings {
+  const base = raw ?? {}
+  const warnBeforeMinutes =
+    typeof base.warnBeforeMinutes === 'number'
+      ? clampMilkWarnMinutes(base.warnBeforeMinutes)
+      : typeof base.warnBeforeHours === 'number'
+        ? clampMilkWarnMinutes(Math.round(base.warnBeforeHours * 60))
+        : MILK_REMINDER_DEFAULTS.warnBeforeMinutes
+
+  return {
+    enabled:
+      typeof base.enabled === 'boolean'
+        ? base.enabled
+        : MILK_REMINDER_DEFAULTS.enabled,
+    warnBeforeMinutes,
+  }
+}
+
+export function parseMilkReminderSettings(raw: unknown): MilkReminderSettings {
+  if (!raw || typeof raw !== 'object') return MILK_REMINDER_DEFAULTS
+  return normalizeMilkReminderSettings(raw as Record<string, unknown>)
+}
+
+export function milkReminderSettingsToJson(
+  settings: MilkReminderSettings
+): Record<string, unknown> {
+  return {
+    enabled: settings.enabled,
+    warnBeforeMinutes: settings.warnBeforeMinutes,
+  }
+}
+
+export function getMilkReminderSettings(): MilkReminderSettings {
+  if (typeof window === 'undefined') return MILK_REMINDER_DEFAULTS
+  try {
+    const raw = localStorage.getItem(MILK_REMINDER_KEY)
+    return raw
+      ? normalizeMilkReminderSettings(JSON.parse(raw))
+      : MILK_REMINDER_DEFAULTS
+  } catch {
+    return MILK_REMINDER_DEFAULTS
+  }
+}
+
+export function setMilkReminderSettings(
+  patch: Partial<MilkReminderSettings>
+): MilkReminderSettings {
+  const next = normalizeMilkReminderSettings({
+    ...getMilkReminderSettings(),
+    ...patch,
+  })
+  localStorage.setItem(MILK_REMINDER_KEY, JSON.stringify(next))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('milk-reminder-settings-changed'))
+  }
+  return next
+}
+
+export function getMilkWarnBeforeMs(settings = getMilkReminderSettings()): number {
+  return settings.warnBeforeMinutes * 60 * 1000
+}
 
 export const MILK_EXPIRY_PRESETS_HOURS = [
   { hours: 4, label: '4 jam' },
@@ -56,13 +167,14 @@ export function formatMilkTime(iso: string | null | undefined): string {
 
 export function getMilkExpiryStatus(
   expiresAt: string | null | undefined,
-  now = Date.now()
+  now = Date.now(),
+  warnMinutes = getMilkReminderSettings().warnBeforeMinutes
 ): MilkExpiryStatus {
   if (!expiresAt) return 'none'
   const exp = new Date(expiresAt).getTime()
   if (Number.isNaN(exp)) return 'none'
   if (exp <= now) return 'expired'
-  const warnMs = MILK_EXPIRY_WARN_HOURS * 60 * 60 * 1000
+  const warnMs = clampMilkWarnMinutes(warnMinutes) * 60 * 1000
   if (exp - now <= warnMs) return 'soon'
   return 'ok'
 }

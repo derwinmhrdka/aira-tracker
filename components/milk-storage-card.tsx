@@ -11,7 +11,6 @@ import {
   formatMilkExpiryRemaining,
   getMilkExpiryStatus,
   MILK_BOTTLE_MAX_ML,
-  MILK_EXPIRY_WARN_HOURS,
   MILK_STORAGE_LAYOUT_DEFAULTS,
   type MilkExpiryStatus,
 } from '@/lib/milk-storage'
@@ -203,6 +202,14 @@ export function MilkStorageCard() {
   const [selected, setSelected] = useState<MilkStorageSlot | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [, setTick] = useState(0)
+  const [, setMilkReminderRev] = useState(0)
+
+  useEffect(() => {
+    const onSettingsChange = () => setMilkReminderRev((v) => v + 1)
+    window.addEventListener('milk-reminder-settings-changed', onSettingsChange)
+    return () =>
+      window.removeEventListener('milk-reminder-settings-changed', onSettingsChange)
+  }, [])
 
   useEffect(() => {
     const hasExpiry = slots.some((s) => s.is_filled && s.expires_at)
@@ -217,7 +224,7 @@ export function MilkStorageCard() {
       const data = await api.getMilkStorage()
       setLayout(data.layout)
       setSlots(data.slots)
-      void checkMilkExpiryReminders(data.slots, MILK_EXPIRY_WARN_HOURS)
+      void checkMilkExpiryReminders(data.slots)
     } catch {
       /* keep previous */
     } finally {
@@ -233,7 +240,7 @@ export function MilkStorageCard() {
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      void checkMilkExpiryReminders(slots, MILK_EXPIRY_WARN_HOURS)
+      void checkMilkExpiryReminders(slots)
     }, 60_000)
     return () => window.clearInterval(id)
   }, [slots])
@@ -261,8 +268,7 @@ export function MilkStorageCard() {
     void checkMilkExpiryReminders(
       slots.map((s) =>
         s.slot_index === res.slot.slot_index ? res.slot : s
-      ),
-      MILK_EXPIRY_WARN_HOURS
+      )
     )
   }
 

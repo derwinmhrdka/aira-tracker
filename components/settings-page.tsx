@@ -25,8 +25,12 @@ import {
   MILK_STORAGE_LAYOUT_DEFAULTS,
   MILK_STORAGE_ROWS_OPTIONS,
   MILK_STORAGE_COLS_OPTIONS,
+  getMilkReminderSettings,
+  setMilkReminderSettings,
   type MilkStorageLayout,
 } from '@/lib/milk-storage'
+import { syncMilkReminderSettingsToServer } from '@/lib/milk-expiry-reminder'
+import { MilkWarnPicker } from './milk-warn-picker'
 import { api } from '@/lib/api-client'
 import { exportHistoryCsv, exportGrowthCsv, exportFullCsv } from '@/lib/export-csv'
 import { exportHistoryPdf, exportGrowthPdf, exportFullPdf } from '@/lib/export-pdf'
@@ -51,6 +55,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     MILK_STORAGE_LAYOUT_DEFAULTS
   )
   const [milkLayoutSaving, setMilkLayoutSaving] = useState(false)
+  const [milkReminder, setMilkReminder] = useState(getMilkReminderSettings)
   const [toast, setToast] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportDays, setExportDays] = useState(30)
@@ -78,7 +83,16 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     api
       .getMilkStorage()
       .then((data) => {
-        if (!cancelled) setMilkLayout(data.layout)
+        if (!cancelled) {
+          setMilkLayout(data.layout)
+          if (data.reminder) {
+            const synced = setMilkReminderSettings({
+              enabled: data.reminder.enabled,
+              warnBeforeMinutes: data.reminder.warn_before_minutes,
+            })
+            setMilkReminder(synced)
+          }
+        }
       })
       .catch(() => {})
 
@@ -237,6 +251,47 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       }
     } finally {
       setMilkLayoutSaving(false)
+    }
+  }
+
+  const toggleMilkReminder = async () => {
+    if (!milkReminder.enabled) {
+      const ok = await requestNotificationPermission()
+      if (!ok) {
+        setToast('❌ Izin notifikasi ditolak')
+        setTimeout(() => setToast(null), 3000)
+        return
+      }
+      const subscribed = await subscribeToPush(pushOptions())
+      if (!subscribed) {
+        setToast('⚠️ Push belum aktif — notifikasi lokal saat app terbuka')
+        setTimeout(() => setToast(null), 3000)
+      }
+    }
+    const next = setMilkReminderSettings({ enabled: !milkReminder.enabled })
+    setMilkReminder(next)
+    try {
+      await syncMilkReminderSettingsToServer(next)
+    } catch {
+      setToast('⚠️ Gagal sync pengaturan ke server')
+      setTimeout(() => setToast(null), 3000)
+      return
+    }
+    setToast(
+      next.enabled
+        ? '🔔 Pengingat botol ASI aktif'
+        : '🔕 Pengingat botol ASI dimatikan'
+    )
+    setTimeout(() => setToast(null), 2000)
+  }
+
+  const setMilkWarnBefore = async (minutes: number) => {
+    const next = setMilkReminderSettings({ warnBeforeMinutes: minutes })
+    setMilkReminder(next)
+    try {
+      await syncMilkReminderSettingsToServer(next)
+    } catch {
+      /* keep local */
     }
   }
 
@@ -455,9 +510,33 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           Grid botol di beranda. Default 1×4.
         </p>
         <p className="mb-3 text-[11px] text-muted-foreground/90">
-          Notif botol ASI: on saat app terbuka · off saat app ditutup. Terpisah
-          dari pengingat popok/menyusui.
+          Notif botol ASI via push — tetap jalan saat app ditutup (butuh VAPID +
+          cron).
         </p>
+
+        <div className="mb-4 rounded-xl border border-border/60 bg-secondary/30 p-3">
+          <p className="mb-2 text-xs font-medium text-foreground">
+            Pengingat expired
+          </p>
+          <button
+            type="button"
+            onClick={toggleMilkReminder}
+            className={`mb-3 w-full rounded-xl py-2.5 text-sm font-semibold ${
+              milkReminder.enabled
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-foreground'
+            }`}
+          >
+            {milkReminder.enabled ? '🔔 On' : '🔕 Off'}
+          </button>
+          {milkReminder.enabled && (
+            <MilkWarnPicker
+              totalMinutes={milkReminder.warnBeforeMinutes}
+              onChange={setMilkWarnBefore}
+            />
+          )}
+        </div>
+
         <p className="mb-2 text-xs font-medium text-muted-foreground">Baris</p>
         <div className="mb-3 flex flex-wrap gap-2">
           {MILK_STORAGE_ROWS_OPTIONS.map((n) => (

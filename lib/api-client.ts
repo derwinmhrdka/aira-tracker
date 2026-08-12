@@ -270,6 +270,17 @@ export const api = {
       body: JSON.stringify({ layout }),
     }),
 
+  updateMilkReminderSettings: (reminder: {
+    enabled: boolean
+    warn_before_minutes: number
+  }) =>
+    apiFetch<{
+      reminder: { enabled: boolean; warn_before_minutes: number }
+    }>('/api/milk-storage', {
+      method: 'PATCH',
+      body: JSON.stringify({ reminder }),
+    }),
+
   upsertMilkStorageSlot: (data: {
     slot_index: number
     amount_ml: number
@@ -667,6 +678,10 @@ export interface MilkStorageSlot {
 export interface MilkStorageResponse {
   layout: MilkStorageLayout
   slots: MilkStorageSlot[]
+  reminder?: {
+    enabled: boolean
+    warn_before_minutes: number
+  }
 }
 
 export interface Milestone {

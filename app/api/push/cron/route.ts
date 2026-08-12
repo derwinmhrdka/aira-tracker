@@ -5,6 +5,7 @@ import {
   shouldSendFeedingReminder,
   shouldSendDiaperReminder,
   shouldSendVaccineReminder,
+  sendMilkExpiryPushes,
   markPushSent,
   markDiaperPushSent,
 } from '@/lib/push-server'
@@ -68,6 +69,15 @@ export async function GET(request: NextRequest) {
       sent: result.sent > 0,
       count: result.sent,
       type: 'vaccine',
+    })
+  }
+
+  const milk = await sendMilkExpiryPushes()
+  if (milk.sent > 0) {
+    return NextResponse.json({
+      sent: true,
+      count: milk.sent,
+      type: 'milk',
     })
   }
 

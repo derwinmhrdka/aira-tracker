@@ -2,6 +2,7 @@ import webpush from 'web-push'
 import { prisma } from '@/lib/prisma'
 import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
 import { getVaccineStatus } from '@/lib/immunization-utils'
+import { MILK_REMINDER_SETTINGS_KEY, parseMilkReminderSettings } from '@/lib/milk-storage'
 
 const publicKey = process.env.VAPID_PUBLIC_KEY
 const privateKey = process.env.VAPID_PRIVATE_KEY
@@ -194,4 +195,61 @@ export async function markDiaperPushSent() {
   await prisma.pushSubscription.updateMany({
     data: { lastDiaperNotifiedAt: new Date() },
   })
+}
+
+export async function getMilkReminderSettingsFromDb() {
+  const row = await prisma.appSetting.findUnique({
+    where: { key: MILK_REMINDER_SETTINGS_KEY },
+  })
+  return parseMilkReminderSettings(row?.value ?? null)
+}
+
+export async function sendMilkExpiryPushes(): Promise<{ sent: number }> {
+  const settings = await getMilkReminderSettingsFromDb()
+  if (!settings.enabled) return { sent: 0 }
+
+  const hasSub = await prisma.pushSubscription.findFirst()
+  if (!hasSub) return { sent: 0 }
+
+  const warnMs = settings.warnBeforeMinutes * 60 * 1000
+  const now = Date.now()
+
+  const slots = await prisma.milkStorageSlot.findMany({
+    where: {
+      expiresAt: { not: null },
+      amountMl: { gt: 0 },
+      filledAt: { not: null },
+    },
+    orderBy: { expiresAt: 'asc' },
+  })
+
+  let sent = 0
+  for (const slot of slots) {
+    if (!slot.expiresAt) continue
+    const exp = slot.expiresAt.getTime()
+    if (exp - now > warnMs) continue
+    if (slot.expiryPushNotifiedFor?.getTime() === exp) continue
+
+    const ml = slot.amountMl ?? 0
+    const expired = exp <= now
+    const result = await sendPushToAll({
+      title: expired
+        ? '🥛 ASI sudah melewati batas waktu'
+        : '🥛 ASI hampir melewati batas',
+      body: expired
+        ? `Botol ${slot.slotIndex + 1} (${ml} ml) sudah kadaluarsa — cek freezer`
+        : `Botol ${slot.slotIndex + 1} (${ml} ml) mendekati batas waktu`,
+      url: '/',
+    })
+
+    if (result.sent > 0) {
+      await prisma.milkStorageSlot.update({
+        where: { id: slot.id },
+        data: { expiryPushNotifiedFor: slot.expiresAt },
+      })
+      sent += result.sent
+    }
+  }
+
+  return { sent }
 }

@@ -1,6 +1,9 @@
+import { getMilkReminderSettings } from '@/lib/milk-storage'
+import { checkServerMilkReminder } from '@/lib/push-client'
+
 const NOTIFIED_KEY = 'baby_tracker_milk_expiry_notified'
 
-type NotifiedMap = Record<string, string> // slotKey -> expires_at iso when notified
+type NotifiedMap = Record<string, string>
 
 function readNotified(): NotifiedMap {
   if (typeof window === 'undefined') return {}
@@ -14,6 +17,16 @@ function readNotified(): NotifiedMap {
 
 function writeNotified(map: NotifiedMap) {
   localStorage.setItem(NOTIFIED_KEY, JSON.stringify(map))
+}
+
+async function hasPushSubscription(): Promise<boolean> {
+  if (!('serviceWorker' in navigator)) return false
+  try {
+    const registration = await navigator.serviceWorker.ready
+    return !!(await registration.pushManager.getSubscription())
+  } catch {
+    return false
+  }
 }
 
 async function notify(title: string, body: string, tag: string) {
@@ -47,12 +60,17 @@ export type MilkExpiryCheckSlot = {
 }
 
 /** Cek slot yang mau/sudah kadaluarsa dan kirim notifikasi (sekali per expires_at). */
-export async function checkMilkExpiryReminders(
-  slots: MilkExpiryCheckSlot[],
-  warnHours = 6
-) {
+export async function checkMilkExpiryReminders(slots: MilkExpiryCheckSlot[]) {
+  const settings = getMilkReminderSettings()
+  if (!settings.enabled) return
+
+  if (await hasPushSubscription()) {
+    await checkServerMilkReminder()
+    return
+  }
+
   const now = Date.now()
-  const warnMs = warnHours * 60 * 60 * 1000
+  const warnMs = settings.warnBeforeMinutes * 60 * 1000
   const notified = readNotified()
   let changed = false
 
@@ -79,7 +97,6 @@ export async function checkMilkExpiryReminders(
     changed = true
   }
 
-  // Cleanup keys for empty / changed slots
   for (const key of Object.keys(notified)) {
     const idx = Number(key.replace('slot-', ''))
     const slot = slots.find((s) => s.slot_index === idx)
@@ -90,4 +107,14 @@ export async function checkMilkExpiryReminders(
   }
 
   if (changed) writeNotified(notified)
+}
+
+export async function syncMilkReminderSettingsToServer(
+  settings: ReturnType<typeof getMilkReminderSettings>
+): Promise<void> {
+  const { api } = await import('@/lib/api-client')
+  await api.updateMilkReminderSettings({
+    enabled: settings.enabled,
+    warn_before_minutes: settings.warnBeforeMinutes,
+  })
 }

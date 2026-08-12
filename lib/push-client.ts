@@ -89,6 +89,16 @@ export async function unsubscribeFromPush(): Promise<void> {
   }
 }
 
+export async function checkServerMilkReminder(): Promise<boolean> {
+  const res = await fetch('/api/push/check-milk-reminder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) return false
+  const data = await res.json()
+  return Boolean(data.sent)
+}
+
 export async function checkServerPushReminder(
   type: 'feeding' | 'diaper',
   intervalMinutes: number
