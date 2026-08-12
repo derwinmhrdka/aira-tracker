@@ -35,6 +35,9 @@ export async function GET() {
         ? {
             name: profile.name,
             birth_date: profile.birthDate.toISOString().split('T')[0],
+            due_date: profile.dueDate
+              ? profile.dueDate.toISOString().split('T')[0]
+              : null,
             birth_weight_kg: profile.birthWeightKg,
             birth_height_cm: profile.birthHeightCm,
             blood_type: profile.bloodType,

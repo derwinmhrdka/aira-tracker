@@ -81,6 +81,7 @@ export async function GET() {
           select: {
             name: true,
             birthDate: true,
+            dueDate: true,
             photoUrl: true,
           },
         }),
@@ -136,6 +137,9 @@ export async function GET() {
       }
 
       const birthDate = profile?.birthDate.toISOString().split('T')[0] ?? null
+      const dueDate = profile?.dueDate
+        ? profile.dueDate.toISOString().split('T')[0]
+        : null
       const astrology = birthDate ? getBabyAstrology(birthDate) : null
       const lastFeed = feedingLogs[0] ?? null
       const lastSleep = sleepLogs[0] ?? null
@@ -190,6 +194,7 @@ export async function GET() {
             ? {
                 name: profile.name,
                 birth_date: birthDate,
+                due_date: dueDate,
                 age_label: birthDate ? formatAge(birthDate) : null,
                 photo_url: profile.photoUrl,
                 horoscope: astrology?.horoscope ?? null,

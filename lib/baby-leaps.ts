@@ -1,4 +1,4 @@
-/** Wonder Weeks–style mental leaps (approx. windows by age in weeks from birth). */
+/** Wonder Weeks–style mental leaps (windows by weeks from HPL/due date, fallback birth). */
 export type BabyLeap = {
   number: number
   title: string
@@ -234,17 +234,32 @@ export type LeapStatus =
     }
   | null
 
-function ageDaysFromBirth(birthDate: string, now = new Date()) {
-  const birth = new Date(`${birthDate}T12:00:00`)
+function ageDaysFromReference(referenceDate: string, now = new Date()) {
+  const ref = new Date(`${referenceDate}T12:00:00`)
   const today = new Date(now)
   today.setHours(12, 0, 0, 0)
-  birth.setHours(12, 0, 0, 0)
-  return Math.floor((today.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24))
+  ref.setHours(12, 0, 0, 0)
+  return Math.floor((today.getTime() - ref.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-export function getLeapStatus(birthDate: string | null | undefined, now = new Date()): LeapStatus {
-  if (!birthDate) return null
-  const ageDays = ageDaysFromBirth(birthDate, now)
+/** Acuan Leap: HPL jika ada, else tanggal lahir. */
+export function getLeapReferenceDate(
+  birthDate?: string | null,
+  dueDate?: string | null
+): string | null {
+  if (dueDate) return dueDate
+  if (birthDate) return birthDate
+  return null
+}
+
+export function getLeapStatus(
+  birthDate: string | null | undefined,
+  dueDate?: string | null,
+  now = new Date()
+): LeapStatus {
+  const referenceDate = getLeapReferenceDate(birthDate, dueDate)
+  if (!referenceDate) return null
+  const ageDays = ageDaysFromReference(referenceDate, now)
   if (ageDays < 0) return null
 
   const ageWeeks = ageDays / 7

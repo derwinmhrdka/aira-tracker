@@ -9,6 +9,7 @@ function serializeProfile(
     id: string
     name: string
     birthDate: Date
+    dueDate: Date | null
     birthWeightKg: number
     birthHeightCm: number
     bloodType: string | null
@@ -23,12 +24,16 @@ function serializeProfile(
   } | null
 ) {
   const birth_date = profile.birthDate.toISOString().split('T')[0]
+  const due_date = profile.dueDate
+    ? profile.dueDate.toISOString().split('T')[0]
+    : null
   const astrology = getBabyAstrology(birth_date)
 
   return {
     id: profile.id,
     name: profile.name,
     birth_date,
+    due_date,
     birth_weight_kg: profile.birthWeightKg,
     birth_height_cm: profile.birthHeightCm,
     latest_weight_kg: latestGrowth?.weightKg ?? null,
@@ -85,6 +90,12 @@ export async function PATCH(request: NextRequest) {
       data: {
         name: body.name ?? undefined,
         birthDate: body.birth_date ? new Date(body.birth_date) : undefined,
+        dueDate:
+          body.due_date === null || body.due_date === ''
+            ? null
+            : body.due_date
+              ? new Date(body.due_date)
+              : undefined,
         birthWeightKg: body.birth_weight_kg ?? undefined,
         birthHeightCm: body.birth_height_cm ?? undefined,
         bloodType: body.blood_type ?? undefined,

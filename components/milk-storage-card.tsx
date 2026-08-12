@@ -8,10 +8,15 @@ import {
   type MilkStorageSlot,
 } from '@/lib/api-client'
 import {
+  formatMilkExpiryRemaining,
   formatMilkTime,
+  getMilkExpiryStatus,
   MILK_BOTTLE_MAX_ML,
+  MILK_EXPIRY_WARN_HOURS,
   MILK_STORAGE_LAYOUT_DEFAULTS,
+  type MilkExpiryStatus,
 } from '@/lib/milk-storage'
+import { checkMilkExpiryReminders } from '@/lib/milk-expiry-reminder'
 import { MilkBottleSheet } from './milk-bottle-sheet'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { LIVE_SYNC_MS } from '@/lib/use-live-sync'
@@ -22,18 +27,27 @@ function BottleVisual({
   filled,
   amountMl,
   active,
+  expiryStatus,
 }: {
   filled: boolean
   amountMl: number | null
   active?: boolean
+  expiryStatus: MilkExpiryStatus
 }) {
   const ml = filled && amountMl != null ? amountMl : 0
   const ratio = Math.min(1, Math.max(0, ml / MILK_BOTTLE_MAX_ML))
   const fillPct = ratio * 100
 
+  const borderTone =
+    expiryStatus === 'expired'
+      ? 'border-red-300 dark:border-red-600'
+      : expiryStatus === 'soon'
+        ? 'border-amber-300 dark:border-amber-500'
+        : 'border-sky-200/90 dark:border-sky-700'
+
   return (
     <motion.div
-      className="relative mx-auto flex h-[6.25rem] w-[3.25rem] flex-col items-center"
+      className="relative mx-auto flex h-[5.75rem] w-[3.25rem] flex-col items-center justify-end"
       animate={filled ? { y: [0, -1.5, 0] } : { y: 0 }}
       transition={
         filled
@@ -43,13 +57,7 @@ function BottleVisual({
       whileHover={{ scale: 1.04 }}
       style={active ? { scale: 1.06 } : undefined}
     >
-      {/* Cap */}
-      <div className="z-[2] h-2 w-5 rounded-t-md bg-sky-300/90 shadow-sm dark:bg-sky-500/80" />
-      <div className="z-[2] h-1.5 w-6 rounded-sm bg-sky-400/90 dark:bg-sky-600/80" />
-
-      {/* Body + scale */}
-      <div className="relative mt-0.5 h-[5rem] w-11">
-        {/* Scale labels (left) */}
+      <div className="relative h-[5.25rem] w-11">
         <div className="pointer-events-none absolute -left-0.5 top-1 bottom-2 z-[3] flex w-3.5 flex-col justify-between py-0.5">
           {[...SCALE_MARKS].reverse().map((mark) => (
             <span
@@ -61,20 +69,19 @@ function BottleVisual({
           ))}
         </div>
 
-        {/* Glass body */}
-        <div className="absolute inset-y-0 left-3 right-0 overflow-hidden rounded-b-[1.15rem] rounded-t-md border-2 border-sky-200/90 bg-gradient-to-b from-white/50 to-sky-50/30 dark:border-sky-700 dark:from-sky-950/30 dark:to-sky-950/50">
-          {/* Tick marks on inner right */}
+        {/* Open bottle body (no cap) */}
+        <div
+          className={`absolute inset-y-0 left-3 right-0 overflow-hidden rounded-b-[1.15rem] rounded-t-[0.35rem] border-2 bg-gradient-to-b from-white/55 to-sky-50/30 dark:from-sky-950/30 dark:to-sky-950/50 ${borderTone}`}
+        >
           <div className="pointer-events-none absolute inset-y-1.5 right-0.5 z-[2] flex flex-col justify-between">
             {SCALE_MARKS.map((mark) => (
               <span
                 key={mark}
                 className="block h-px w-1.5 bg-sky-400/50 dark:bg-sky-500/40"
-                title={`${mark} ml`}
               />
             ))}
           </div>
 
-          {/* Milk liquid */}
           {filled && ml > 0 && (
             <motion.div
               key={`fill-${ml}`}
@@ -83,14 +90,14 @@ function BottleVisual({
               transition={{ type: 'spring', stiffness: 180, damping: 18 }}
               className="absolute inset-x-0 bottom-0 overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-t from-amber-300 via-amber-100 to-amber-50/95 dark:from-amber-800 dark:via-amber-600/80 dark:to-amber-500/50" />
+              {/* White milk */}
+              <div className="absolute inset-0 bg-gradient-to-t from-stone-100 via-white to-white dark:from-stone-200/90 dark:via-white/85 dark:to-white/75" />
 
-              {/* Wave surface */}
               <motion.div
                 className="absolute -top-1 left-[-20%] h-3 w-[140%] rounded-[40%]"
                 style={{
                   background:
-                    'radial-gradient(ellipse at center, rgba(255,251,235,0.95) 0%, rgba(253,230,138,0.7) 55%, transparent 70%)',
+                    'radial-gradient(ellipse at center, rgba(255,255,255,0.98) 0%, rgba(245,245,244,0.85) 55%, transparent 70%)',
                 }}
                 animate={{ x: ['0%', '8%', '-4%', '0%'], rotate: [0, 2, -1, 0] }}
                 transition={{
@@ -100,7 +107,7 @@ function BottleVisual({
                 }}
               />
               <motion.div
-                className="absolute -top-0.5 left-[-10%] h-2 w-[120%] bg-white/25"
+                className="absolute -top-0.5 left-[-10%] h-2 w-[120%] bg-white/50"
                 animate={{ x: ['0%', '-6%', '4%', '0%'] }}
                 transition={{
                   duration: 2.2,
@@ -110,14 +117,13 @@ function BottleVisual({
                 }}
               />
 
-              {/* Bubbles */}
               <motion.span
-                className="absolute bottom-[35%] left-[28%] h-1 w-1 rounded-full bg-white/50"
+                className="absolute bottom-[35%] left-[28%] h-1 w-1 rounded-full bg-stone-300/60"
                 animate={{ y: [0, -10, -18], opacity: [0.5, 0.7, 0] }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: 'easeOut' }}
               />
               <motion.span
-                className="absolute bottom-[22%] left-[58%] h-1.5 w-1.5 rounded-full bg-white/40"
+                className="absolute bottom-[22%] left-[58%] h-1.5 w-1.5 rounded-full bg-stone-200/50"
                 animate={{ y: [0, -12, -22], opacity: [0.4, 0.6, 0] }}
                 transition={{
                   duration: 3.1,
@@ -129,7 +135,6 @@ function BottleVisual({
             </motion.div>
           )}
 
-          {/* Empty shimmer */}
           {!filled && (
             <motion.div
               className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
@@ -143,12 +148,20 @@ function BottleVisual({
             />
           )}
 
-          {/* Glass shine */}
-          <div className="pointer-events-none absolute inset-y-2 left-1 w-1 rounded-full bg-white/40" />
+          <div className="pointer-events-none absolute inset-y-2 left-1 w-1 rounded-full bg-white/45" />
         </div>
       </div>
     </motion.div>
   )
+}
+
+function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
+  if (!filled) return 'border-white/70 bg-white/35 dark:border-cyan-800/40 dark:bg-slate-900/30'
+  if (status === 'expired')
+    return 'border-red-300/80 bg-red-50/70 shadow-sm dark:border-red-700/50 dark:bg-red-950/35'
+  if (status === 'soon')
+    return 'border-amber-300/80 bg-amber-50/60 shadow-sm dark:border-amber-600/45 dark:bg-amber-950/35'
+  return 'border-sky-200/70 bg-white/55 shadow-sm dark:border-sky-700/40 dark:bg-slate-900/45'
 }
 
 export function MilkStorageCard() {
@@ -166,6 +179,7 @@ export function MilkStorageCard() {
       const data = await api.getMilkStorage()
       setLayout(data.layout)
       setSlots(data.slots)
+      void checkMilkExpiryReminders(data.slots, MILK_EXPIRY_WARN_HOURS)
     } catch {
       /* keep previous */
     } finally {
@@ -179,20 +193,38 @@ export function MilkStorageCard() {
 
   useAppDataSync(() => load({ silent: true }), { intervalMs: LIVE_SYNC_MS })
 
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void checkMilkExpiryReminders(slots, MILK_EXPIRY_WARN_HOURS)
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [slots])
+
   const openSlot = (slot: MilkStorageSlot) => {
     setSelected(slot)
     setSheetOpen(true)
   }
 
-  const handleSave = async (data: { amount_ml: number; filled_at: string }) => {
+  const handleSave = async (data: {
+    amount_ml: number
+    filled_at: string
+    expires_at: string | null
+  }) => {
     if (!selected) return
     const res = await api.upsertMilkStorageSlot({
       slot_index: selected.slot_index,
       amount_ml: data.amount_ml,
       filled_at: data.filled_at,
+      expires_at: data.expires_at,
     })
     setSlots((prev) =>
       prev.map((s) => (s.slot_index === res.slot.slot_index ? res.slot : s))
+    )
+    void checkMilkExpiryReminders(
+      slots.map((s) =>
+        s.slot_index === res.slot.slot_index ? res.slot : s
+      ),
+      MILK_EXPIRY_WARN_HOURS
     )
   }
 
@@ -210,7 +242,6 @@ export function MilkStorageCard() {
 
   return (
     <div className="mb-4 overflow-hidden rounded-2xl border border-cyan-200/70 shadow-[0_12px_40px_-20px_rgba(14,116,144,0.45)] dark:border-cyan-800/50">
-      {/* Freezer header bar */}
       <div className="flex items-center justify-between gap-2 border-b border-cyan-300/40 bg-gradient-to-r from-slate-200 via-cyan-100 to-slate-200 px-4 py-2.5 dark:border-cyan-800/40 dark:from-slate-800 dark:via-cyan-950 dark:to-slate-800">
         <div className="flex items-center gap-2">
           <span className="text-base" aria-hidden>
@@ -235,7 +266,6 @@ export function MilkStorageCard() {
         </div>
       </div>
 
-      {/* Freezer interior */}
       <div
         className="relative px-3 py-4"
         style={{
@@ -244,7 +274,6 @@ export function MilkStorageCard() {
           `,
         }}
       >
-        {/* Dark mode override via overlay */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 hidden dark:block"
@@ -253,8 +282,6 @@ export function MilkStorageCard() {
               'linear-gradient(180deg, rgba(15,23,42,0.92) 0%, rgba(8,47,73,0.85) 50%, rgba(15,23,42,0.95) 100%)',
           }}
         />
-
-        {/* Frost / frost speckles */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-40 mix-blend-soft-light dark:opacity-25"
@@ -266,11 +293,8 @@ export function MilkStorageCard() {
               radial-gradient(circle at 88% 78%, rgba(255,255,255,0.5) 0 1px, transparent 2px),
               radial-gradient(circle at 55% 12%, rgba(255,255,255,0.35) 0 1px, transparent 2px)
             `,
-            backgroundSize: '100% 100%',
           }}
         />
-
-        {/* Side walls glow */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-white/50 to-transparent dark:from-cyan-950/60"
@@ -279,8 +303,6 @@ export function MilkStorageCard() {
           aria-hidden
           className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-white/50 to-transparent dark:from-cyan-950/60"
         />
-
-        {/* Cold mist animation */}
         <motion.div
           aria-hidden
           className="pointer-events-none absolute inset-x-6 top-2 h-8 rounded-full bg-white/30 blur-md dark:bg-cyan-400/10"
@@ -307,7 +329,6 @@ export function MilkStorageCard() {
                 )
                 return (
                   <div key={rowIdx} className="relative">
-                    {/* Wire shelf rack */}
                     <div
                       aria-hidden
                       className="absolute inset-x-1 bottom-1 h-2 rounded-sm border border-slate-300/80 bg-gradient-to-b from-slate-200/90 to-slate-300/70 shadow-sm dark:border-slate-600 dark:from-slate-700/80 dark:to-slate-800/90"
@@ -318,47 +339,64 @@ export function MilkStorageCard() {
                     />
 
                     <div className="relative grid gap-2 pb-3" style={gridStyle}>
-                      {rowSlots.map((slot) => (
-                        <motion.button
-                          key={slot.slot_index}
-                          type="button"
-                          whileTap={{ scale: 0.96 }}
-                          onClick={() => openSlot(slot)}
-                          className={`rounded-xl border px-1 py-2 text-center backdrop-blur-[2px] transition-colors ${
-                            slot.is_filled
-                              ? 'border-amber-200/70 bg-white/55 shadow-sm dark:border-amber-700/40 dark:bg-slate-900/45'
-                              : 'border-white/70 bg-white/35 dark:border-cyan-800/40 dark:bg-slate-900/30'
-                          }`}
-                        >
-                          <BottleVisual
-                            filled={slot.is_filled}
-                            amountMl={slot.amount_ml}
-                            active={
-                              selected?.slot_index === slot.slot_index &&
-                              sheetOpen
-                            }
-                          />
-                          <motion.p
-                            key={
-                              slot.is_filled ? `ml-${slot.amount_ml}` : 'empty'
-                            }
-                            initial={{ opacity: 0, y: 4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className={`mt-1.5 text-[11px] font-bold tabular-nums ${
-                              slot.is_filled
-                                ? 'text-amber-800 dark:text-amber-200'
-                                : 'text-slate-500 dark:text-cyan-200/60'
-                            }`}
+                      {rowSlots.map((slot) => {
+                        const expiry = getMilkExpiryStatus(slot.expires_at)
+                        return (
+                          <motion.button
+                            key={slot.slot_index}
+                            type="button"
+                            whileTap={{ scale: 0.96 }}
+                            onClick={() => openSlot(slot)}
+                            className={`rounded-xl border px-1 py-2 text-center backdrop-blur-[2px] transition-colors ${slotBorderClass(slot.is_filled, expiry)}`}
                           >
-                            {slot.is_filled ? `${slot.amount_ml} ml` : 'Kosong'}
-                          </motion.p>
-                          {slot.is_filled && slot.filled_at && (
-                            <p className="mt-0.5 line-clamp-1 text-[9px] text-slate-500 dark:text-cyan-300/50">
-                              {formatMilkTime(slot.filled_at)}
-                            </p>
-                          )}
-                        </motion.button>
-                      ))}
+                            <BottleVisual
+                              filled={slot.is_filled}
+                              amountMl={slot.amount_ml}
+                              expiryStatus={expiry}
+                              active={
+                                selected?.slot_index === slot.slot_index &&
+                                sheetOpen
+                              }
+                            />
+                            <motion.p
+                              key={
+                                slot.is_filled ? `ml-${slot.amount_ml}` : 'empty'
+                              }
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className={`mt-1.5 text-[11px] font-bold tabular-nums ${
+                                slot.is_filled
+                                  ? 'text-slate-700 dark:text-slate-100'
+                                  : 'text-slate-500 dark:text-cyan-200/60'
+                              }`}
+                            >
+                              {slot.is_filled
+                                ? `${slot.amount_ml} ml`
+                                : 'Kosong'}
+                            </motion.p>
+                            {slot.is_filled && slot.filled_at && (
+                              <p className="mt-0.5 line-clamp-1 text-[9px] text-slate-500 dark:text-cyan-300/50">
+                                {formatMilkTime(slot.filled_at)}
+                              </p>
+                            )}
+                            {slot.is_filled && slot.expires_at && (
+                              <p
+                                className={`mt-0.5 line-clamp-1 text-[9px] font-semibold ${
+                                  expiry === 'expired'
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : expiry === 'soon'
+                                      ? 'text-amber-700 dark:text-amber-300'
+                                      : 'text-slate-500 dark:text-cyan-300/60'
+                                }`}
+                              >
+                                {expiry === 'expired'
+                                  ? '⚠️ Kadaluarsa'
+                                  : `⏳ ${formatMilkExpiryRemaining(slot.expires_at)}`}
+                              </p>
+                            )}
+                          </motion.button>
+                        )
+                      })}
                     </div>
                   </div>
                 )

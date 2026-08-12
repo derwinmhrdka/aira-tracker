@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
         const data = {
           name: p.name,
           birthDate: new Date(p.birth_date),
+          dueDate: p.due_date ? new Date(p.due_date) : null,
           birthWeightKg: Number(p.birth_weight_kg),
           birthHeightCm: Number(p.birth_height_cm),
           bloodType: p.blood_type ?? null,

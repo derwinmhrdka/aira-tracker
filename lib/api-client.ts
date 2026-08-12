@@ -274,6 +274,7 @@ export const api = {
     slot_index: number
     amount_ml: number
     filled_at?: string
+    expires_at?: string | null
     note?: string
   }) =>
     apiFetch<{ slot: MilkStorageSlot }>('/api/milk-storage', {
@@ -485,6 +486,7 @@ export interface TodaySummary {
   baby?: {
     name: string
     birth_date: string
+    due_date?: string | null
     age_label: string | null
     photo_url?: string | null
     horoscope?: string | null
@@ -653,6 +655,7 @@ export interface MilkStorageSlot {
   slot_index: number
   amount_ml: number | null
   filled_at: string | null
+  expires_at: string | null
   note: string | null
   logged_by: string | null
   is_filled: boolean
@@ -750,6 +753,7 @@ export interface BabyProfile {
   id: string
   name: string
   birth_date: string
+  due_date?: string | null
   birth_weight_kg?: number | null
   birth_height_cm?: number | null
   latest_weight_kg?: number | null

@@ -18,6 +18,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
   const [form, setForm] = useState({
     name: '',
     birth_date: '',
+    due_date: '',
     birth_weight_kg: '',
     birth_height_cm: '',
     blood_type: '',
@@ -37,6 +38,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
         setForm({
           name: p.name,
           birth_date: p.birth_date,
+          due_date: p.due_date ?? '',
           birth_weight_kg: String(p.birth_weight_kg ?? ''),
           birth_height_cm: String(p.birth_height_cm ?? ''),
           blood_type: p.blood_type ?? '',
@@ -54,6 +56,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
       const updated = await api.updateBabyProfile({
         name: form.name,
         birth_date: form.birth_date,
+        due_date: form.due_date || null,
         birth_weight_kg: form.birth_weight_kg ? parseFloat(form.birth_weight_kg) : undefined,
         birth_height_cm: form.birth_height_cm ? parseFloat(form.birth_height_cm) : undefined,
         blood_type: form.blood_type || undefined,
@@ -77,6 +80,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
       setForm({
         name: profile.name,
         birth_date: profile.birth_date,
+        due_date: profile.due_date ?? '',
         birth_weight_kg: String(profile.birth_weight_kg ?? ''),
         birth_height_cm: String(profile.birth_height_cm ?? ''),
         blood_type: profile.blood_type ?? '',
@@ -164,6 +168,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
             {[
               { key: 'name', label: 'Nama', type: 'text' },
               { key: 'birth_date', label: 'Tanggal lahir', type: 'date' },
+              { key: 'due_date', label: 'HPL (untuk Leap)', type: 'date' },
               { key: 'birth_weight_kg', label: 'Berat lahir (kg)', type: 'number' },
               { key: 'birth_height_cm', label: 'Panjang lahir (cm)', type: 'number' },
               { key: 'blood_type', label: 'Golongan darah', type: 'text' },
@@ -206,6 +211,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
               value={profile?.gender === 'FEMALE' ? '👧 Perempuan' : '👦 Laki-laki'}
             />
             <Row label="Tanggal lahir" value={profile?.birth_date} />
+            <Row label="HPL" value={profile?.due_date ?? '-'} />
             <Row
               label="Horoskop"
               value={

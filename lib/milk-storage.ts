@@ -16,6 +16,18 @@ export const MILK_STORAGE_COLS_OPTIONS = [2, 3, 4, 5, 6] as const
 /** Visual fill cap — ml di atas ini dianggap penuh. */
 export const MILK_BOTTLE_MAX_ML = 240
 
+/** Ingatkan jika sisa waktu ≤ ini (jam). */
+export const MILK_EXPIRY_WARN_HOURS = 6
+
+export const MILK_EXPIRY_PRESETS_HOURS = [
+  { hours: 24, label: '24 jam' },
+  { hours: 48, label: '48 jam' },
+  { hours: 72, label: '3 hari' },
+  { hours: 168, label: '7 hari' },
+] as const
+
+export type MilkExpiryStatus = 'ok' | 'soon' | 'expired' | 'none'
+
 export function normalizeMilkStorageLayout(raw: unknown): MilkStorageLayout {
   const base = { ...MILK_STORAGE_LAYOUT_DEFAULTS }
   if (!raw || typeof raw !== 'object') return base
@@ -39,4 +51,33 @@ export function formatMilkTime(iso: string | null | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+export function getMilkExpiryStatus(
+  expiresAt: string | null | undefined,
+  now = Date.now()
+): MilkExpiryStatus {
+  if (!expiresAt) return 'none'
+  const exp = new Date(expiresAt).getTime()
+  if (Number.isNaN(exp)) return 'none'
+  if (exp <= now) return 'expired'
+  const warnMs = MILK_EXPIRY_WARN_HOURS * 60 * 60 * 1000
+  if (exp - now <= warnMs) return 'soon'
+  return 'ok'
+}
+
+export function formatMilkExpiryRemaining(
+  expiresAt: string | null | undefined,
+  now = Date.now()
+): string {
+  if (!expiresAt) return ''
+  const exp = new Date(expiresAt).getTime()
+  if (Number.isNaN(exp)) return ''
+  const diff = exp - now
+  if (diff <= 0) return 'Kadaluarsa'
+  const hours = Math.floor(diff / (60 * 60 * 1000))
+  const mins = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000))
+  if (hours >= 48) return `${Math.floor(hours / 24)} hari lagi`
+  if (hours >= 1) return `${hours} jam lagi`
+  return `${Math.max(1, mins)} mnt lagi`
 }

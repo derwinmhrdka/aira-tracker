@@ -390,7 +390,10 @@ export function Dashboard() {
         )}
 
         {homeVis.leap && (
-          <BabyLeapCard birthDate={summary?.baby?.birth_date} />
+          <BabyLeapCard
+            birthDate={summary?.baby?.birth_date}
+            dueDate={summary?.baby?.due_date}
+          />
         )}
 
         {homeVis.nextEvent && <NextEventCard />}

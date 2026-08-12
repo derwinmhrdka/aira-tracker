@@ -113,6 +113,19 @@ self.addEventListener('message', (event) => {
       vibrate: [200, 100, 200],
       data: { url: '/' },
     })
+    return
+  }
+
+  if (event.data?.type === 'SHOW_MILK_EXPIRY_REMINDER') {
+    const { title, body, tag } = event.data
+    self.registration.showNotification(title || '🥛 Cek ASI di freezer', {
+      body: body || 'Ada botol yang mendekati batas waktu',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: tag || 'milk-expiry-reminder',
+      vibrate: [200, 100, 200],
+      data: { url: '/' },
+    })
   }
 })
 

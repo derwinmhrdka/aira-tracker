@@ -13,6 +13,7 @@ function formatSlot(s: {
   slotIndex: number
   amountMl: number | null
   filledAt: Date | null
+  expiresAt: Date | null
   note: string | null
   loggedBy: string | null
 }) {
@@ -22,11 +23,23 @@ function formatSlot(s: {
     slot_index: s.slotIndex,
     amount_ml: filled ? s.amountMl : null,
     filled_at: filled ? s.filledAt!.toISOString() : null,
+    expires_at: filled && s.expiresAt ? s.expiresAt.toISOString() : null,
     note: s.note,
     logged_by: s.loggedBy,
     is_filled: filled,
   }
 }
+
+const emptySlot = (slotIndex: number) => ({
+  id: null as string | null,
+  slot_index: slotIndex,
+  amount_ml: null as number | null,
+  filled_at: null as string | null,
+  expires_at: null as string | null,
+  note: null as string | null,
+  logged_by: null as string | null,
+  is_filled: false,
+})
 
 async function readLayout() {
   const row = await prisma.appSetting.findUnique({
@@ -45,16 +58,7 @@ export async function GET() {
     const total = milkSlotCount(layout)
     const items = Array.from({ length: total }, (_, i) => {
       const existing = byIndex.get(i)
-      if (existing) return formatSlot(existing)
-      return {
-        id: null as string | null,
-        slot_index: i,
-        amount_ml: null as number | null,
-        filled_at: null as string | null,
-        note: null as string | null,
-        logged_by: null as string | null,
-        is_filled: false,
-      }
+      return existing ? formatSlot(existing) : emptySlot(i)
     })
 
     return NextResponse.json({ layout, slots: items })
@@ -65,7 +69,6 @@ export async function PATCH(request: NextRequest) {
   return withAuth(async (sessionLoggedBy) => {
     const body = await request.json().catch(() => ({}))
 
-    // Update layout: { layout: { rows, cols } }
     if (body.layout && typeof body.layout === 'object') {
       const layout = normalizeMilkStorageLayout({
         ...MILK_STORAGE_LAYOUT_DEFAULTS,
@@ -79,14 +82,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ layout })
     }
 
-    // Update / fill / clear slot: { slot_index, amount_ml?, filled_at?, clear? }
     const slotIndex = Number(body.slot_index)
     if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 23) {
       return NextResponse.json({ error: 'slot_index tidak valid' }, { status: 400 })
     }
 
-    const clear = body.clear === true
-    if (clear) {
+    if (body.clear === true) {
       const existing = await prisma.milkStorageSlot.findUnique({
         where: { slotIndex },
       })
@@ -96,23 +97,14 @@ export async function PATCH(request: NextRequest) {
           data: {
             amountMl: null,
             filledAt: null,
+            expiresAt: null,
             note: null,
             loggedBy: null,
           },
         })
         return NextResponse.json({ slot: formatSlot(cleared) })
       }
-      return NextResponse.json({
-        slot: {
-          id: null,
-          slot_index: slotIndex,
-          amount_ml: null,
-          filled_at: null,
-          note: null,
-          logged_by: null,
-          is_filled: false,
-        },
-      })
+      return NextResponse.json({ slot: emptySlot(slotIndex) })
     }
 
     const amountMl = Number(body.amount_ml)
@@ -129,8 +121,18 @@ export async function PATCH(request: NextRequest) {
       if (!Number.isNaN(parsed.getTime())) filledAt = parsed
     }
 
+    let expiresAt: Date | null = null
+    if (body.expires_at === null || body.expires_at === '') {
+      expiresAt = null
+    } else if (typeof body.expires_at === 'string' && body.expires_at) {
+      const parsed = new Date(body.expires_at)
+      if (!Number.isNaN(parsed.getTime())) expiresAt = parsed
+    }
+
     const note =
-      typeof body.note === 'string' ? body.note.trim().slice(0, 200) || null : undefined
+      typeof body.note === 'string'
+        ? body.note.trim().slice(0, 200) || null
+        : undefined
     const loggedBy =
       parseLoggedBy(body.logged_by) ?? sessionLoggedBy ?? null
 
@@ -140,12 +142,14 @@ export async function PATCH(request: NextRequest) {
         slotIndex,
         amountMl: Math.round(amountMl),
         filledAt,
+        expiresAt,
         note: note ?? null,
         loggedBy,
       },
       update: {
         amountMl: Math.round(amountMl),
         filledAt,
+        expiresAt,
         ...(note !== undefined ? { note } : {}),
         loggedBy,
       },
