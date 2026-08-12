@@ -1,4 +1,5 @@
 import type { LoggedBy } from '@/lib/types'
+import type { HomeVisibility } from '@/lib/home-visibility'
 import { isManagedUploadUrl } from '@/lib/upload-url'
 import {
   enqueue,
@@ -248,6 +249,43 @@ export const api = {
   getMilestones: () => apiFetch<Milestone[]>('/api/milestones'),
 
   getTitles: () => apiFetch<TitleItem[]>('/api/titles'),
+
+  getHomeVisibilityGlobal: () =>
+    apiFetch<{ visibility: HomeVisibility }>('/api/settings/home-visibility').then(
+      (r) => r.visibility
+    ),
+
+  updateHomeVisibilityGlobal: (visibility: Partial<HomeVisibility>) =>
+    apiFetch<{ visibility: HomeVisibility }>('/api/settings/home-visibility', {
+      method: 'PATCH',
+      body: JSON.stringify({ visibility }),
+    }).then((r) => r.visibility),
+
+  getMilkStorage: () =>
+    apiFetch<MilkStorageResponse>('/api/milk-storage'),
+
+  updateMilkStorageLayout: (layout: { rows: number; cols: number }) =>
+    apiFetch<{ layout: MilkStorageLayout }>('/api/milk-storage', {
+      method: 'PATCH',
+      body: JSON.stringify({ layout }),
+    }),
+
+  upsertMilkStorageSlot: (data: {
+    slot_index: number
+    amount_ml: number
+    filled_at?: string
+    note?: string
+  }) =>
+    apiFetch<{ slot: MilkStorageSlot }>('/api/milk-storage', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  clearMilkStorageSlot: (slotIndex: number) =>
+    apiFetch<{ slot: MilkStorageSlot }>('/api/milk-storage', {
+      method: 'PATCH',
+      body: JSON.stringify({ slot_index: slotIndex, clear: true }),
+    }),
 
   toggleTitle: (id: string) =>
     apiFetch<TitleItem>('/api/titles', {
@@ -603,6 +641,26 @@ export interface DailyNote {
   photo_url?: string | null
   audio_url?: string | null
   logged_by?: string | null
+}
+
+export interface MilkStorageLayout {
+  rows: number
+  cols: number
+}
+
+export interface MilkStorageSlot {
+  id: string | null
+  slot_index: number
+  amount_ml: number | null
+  filled_at: string | null
+  note: string | null
+  logged_by: string | null
+  is_filled: boolean
+}
+
+export interface MilkStorageResponse {
+  layout: MilkStorageLayout
+  slots: MilkStorageSlot[]
 }
 
 export interface Milestone {

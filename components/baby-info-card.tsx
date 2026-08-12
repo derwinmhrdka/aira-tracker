@@ -13,9 +13,14 @@ const VACCINE_STATUS: Record<string, { label: string; className: string }> = {
 interface BabyInfoCardProps {
   summary: TodaySummary | null
   onClick?: () => void
+  showMood?: boolean
 }
 
-export function BabyInfoCard({ summary, onClick }: BabyInfoCardProps) {
+export function BabyInfoCard({
+  summary,
+  onClick,
+  showMood = true,
+}: BabyInfoCardProps) {
   if (!summary?.baby) return null
 
   const vaccineStatus = summary.nextVaccine?.status
@@ -63,7 +68,7 @@ export function BabyInfoCard({ summary, onClick }: BabyInfoCardProps) {
         </div>
       </button>
 
-      <MoodWidget />
+      {showMood && <MoodWidget />}
     </motion.div>
   )
 }

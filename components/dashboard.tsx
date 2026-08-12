@@ -16,6 +16,7 @@ import { BabyLeapCard } from './baby-leap-card'
 import { BabyProfileSheet } from './baby-profile-sheet'
 import { InsightsCard } from './insights-card'
 import { NextEventCard } from './next-event-card'
+import { MilkStorageCard } from './milk-storage-card'
 import { OnboardingSheet } from './onboarding-sheet'
 import { playSoundEffect } from '@/lib/sounds'
 import { api, isQueuedResponse, type TodaySummary } from '@/lib/api-client'
@@ -25,6 +26,12 @@ import {
   LIVE_SYNC_MS,
   notifyDataSynced,
 } from '@/lib/use-live-sync'
+import {
+  getLocalHomeVisibility,
+  mergeHomeVisibility,
+  HOME_VISIBILITY_DEFAULTS,
+  type HomeVisibility,
+} from '@/lib/home-visibility'
 
 export function Dashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -37,6 +44,11 @@ export function Dashboard() {
   const [quickFeedOpen, setQuickFeedOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [homeLocal, setHomeLocal] = useState(getLocalHomeVisibility)
+  const [homeGlobal, setHomeGlobal] = useState<HomeVisibility>(
+    HOME_VISIBILITY_DEFAULTS
+  )
+  const homeVis = mergeHomeVisibility(homeGlobal, homeLocal)
 
   const fetchSummary = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setSummaryError(false)
@@ -53,6 +65,25 @@ export function Dashboard() {
   useEffect(() => {
     fetchSummary()
   }, [fetchSummary])
+
+  useEffect(() => {
+    const refreshLocal = () => setHomeLocal(getLocalHomeVisibility())
+    refreshLocal()
+    window.addEventListener('focus', refreshLocal)
+
+    let cancelled = false
+    api
+      .getHomeVisibilityGlobal()
+      .then((vis) => {
+        if (!cancelled) setHomeGlobal(vis)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', refreshLocal)
+    }
+  }, [])
 
   const hasActiveSession = !!(summary?.activeFeeding || summary?.activeSleep)
   useAppDataSync(() => fetchSummary({ silent: true }), {
@@ -350,119 +381,137 @@ export function Dashboard() {
       </div>
 
       <div className="px-4">
-        <BabyInfoCard summary={summary} onClick={() => setProfileOpen(true)} />
-
-        <BabyLeapCard birthDate={summary?.baby?.birth_date} />
-
-        <NextEventCard />
-
-        <ActiveTimer
-          type="feeding"
-          startTime={summary?.activeFeedingStart ?? null}
-          active={!!summary?.activeFeeding}
-          onClick={() => handleLog('feed')}
-        />
-        <ActiveTimer
-          type="sleep"
-          startTime={summary?.activeSleepStart ?? null}
-          active={!!summary?.activeSleep}
-          onClick={() => handleLog('sleep')}
-        />
-
-        <InsightsCard summary={summary} />
-
-        <div className="pb-4">
-          <DailySummary
+        {homeVis.babyInfo && (
+          <BabyInfoCard
             summary={summary}
-            loading={loading}
-            error={summaryError}
-            onRetry={() => {
-              setLoading(true)
-              fetchSummary()
-            }}
+            showMood={homeVis.mood}
+            onClick={() => setProfileOpen(true)}
           />
-        </div>
+        )}
 
-        <div className="mb-4">
-          <h2 className="font-heading mb-3 text-base font-semibold text-foreground">
-            Quick Action
-          </h2>
-          <div className="grid grid-cols-3 gap-2">
-            <QuickLogButton
-              compact
-              type="pup"
-              emoji="💩"
-              label="Pup"
-              color="bg-yellow-200 dark:bg-yellow-900"
-              onClick={() => handleLog('pup')}
-            />
-            <QuickLogButton
-              compact
-              type="pee"
-              emoji="💧"
-              label="Pee"
-              color="bg-blue-200 dark:bg-blue-900"
-              onClick={() => handleLog('pee')}
-            />
-            <QuickLogButton
-              compact
-              type="both"
-              icon={
-                <span className="inline-flex items-center gap-0.5 text-[1.05rem] leading-none">
-                  <span>💩</span>
-                  <span>💧</span>
-                </span>
-              }
-              label="Pupee"
-              color="bg-teal-200 dark:bg-teal-900"
-              onClick={() => handleLog('both')}
-            />
-            <QuickLogButton
-              compact
-              type="change"
-              emoji="🩲"
-              label="Popok"
-              color="bg-slate-200 dark:bg-slate-800"
-              onClick={() => handleLog('change')}
-            />
-            <QuickLogButton
-              compact
-              type="feed"
-              emoji={summary?.activeFeeding ? '✅' : '🍼'}
-              label={summary?.activeFeeding ? 'Done' : 'Susu'}
-              color="bg-orange-200 dark:bg-orange-900"
+        {homeVis.leap && (
+          <BabyLeapCard birthDate={summary?.baby?.birth_date} />
+        )}
+
+        {homeVis.nextEvent && <NextEventCard />}
+
+        {homeVis.monitoring && (
+          <>
+            <ActiveTimer
+              type="feeding"
+              startTime={summary?.activeFeedingStart ?? null}
+              active={!!summary?.activeFeeding}
               onClick={() => handleLog('feed')}
             />
-            <QuickLogButton
-              compact
-              type="pumped"
-              emoji="🥛"
-              label="Pumping"
-              color="bg-amber-200 dark:bg-amber-900"
-              onClick={() => setQuickFeedOpen(true)}
-            />
-            <QuickLogButton
-              compact
+            <ActiveTimer
               type="sleep"
-              emoji={summary?.activeSleep ? '☀️' : '😴'}
-              label={summary?.activeSleep ? 'Bangun' : 'Tidur'}
-              color={
-                summary?.activeSleep
-                  ? 'bg-green-200 dark:bg-green-900'
-                  : 'bg-purple-200 dark:bg-purple-900'
-              }
+              startTime={summary?.activeSleepStart ?? null}
+              active={!!summary?.activeSleep}
               onClick={() => handleLog('sleep')}
             />
-            <QuickLogButton
-              compact
-              type="note"
-              emoji="📝"
-              label="Note"
-              color="bg-pink-200 dark:bg-pink-900"
-              onClick={() => setNoteOpen(true)}
+          </>
+        )}
+
+        {homeVis.insights && <InsightsCard summary={summary} />}
+
+        {homeVis.dailySummary && (
+          <div className="pb-4">
+            <DailySummary
+              summary={summary}
+              loading={loading}
+              error={summaryError}
+              onRetry={() => {
+                setLoading(true)
+                fetchSummary()
+              }}
             />
           </div>
-        </div>
+        )}
+
+        {homeVis.milkStorage && <MilkStorageCard />}
+
+        {homeVis.quickActions && (
+          <div className="mb-4">
+            <h2 className="font-heading mb-3 text-base font-semibold text-foreground">
+              Quick Action
+            </h2>
+            <div className="grid grid-cols-3 gap-2">
+              <QuickLogButton
+                compact
+                type="pup"
+                emoji="💩"
+                label="Pup"
+                color="bg-yellow-200 dark:bg-yellow-900"
+                onClick={() => handleLog('pup')}
+              />
+              <QuickLogButton
+                compact
+                type="pee"
+                emoji="💧"
+                label="Pee"
+                color="bg-blue-200 dark:bg-blue-900"
+                onClick={() => handleLog('pee')}
+              />
+              <QuickLogButton
+                compact
+                type="both"
+                icon={
+                  <span className="inline-flex items-center gap-0.5 text-[1.05rem] leading-none">
+                    <span>💩</span>
+                    <span>💧</span>
+                  </span>
+                }
+                label="Pupee"
+                color="bg-teal-200 dark:bg-teal-900"
+                onClick={() => handleLog('both')}
+              />
+              <QuickLogButton
+                compact
+                type="change"
+                emoji="🩲"
+                label="Popok"
+                color="bg-slate-200 dark:bg-slate-800"
+                onClick={() => handleLog('change')}
+              />
+              <QuickLogButton
+                compact
+                type="feed"
+                emoji={summary?.activeFeeding ? '✅' : '🍼'}
+                label={summary?.activeFeeding ? 'Done' : 'Susu'}
+                color="bg-orange-200 dark:bg-orange-900"
+                onClick={() => handleLog('feed')}
+              />
+              <QuickLogButton
+                compact
+                type="pumped"
+                emoji="🥛"
+                label="Pumping"
+                color="bg-amber-200 dark:bg-amber-900"
+                onClick={() => setQuickFeedOpen(true)}
+              />
+              <QuickLogButton
+                compact
+                type="sleep"
+                emoji={summary?.activeSleep ? '☀️' : '😴'}
+                label={summary?.activeSleep ? 'Bangun' : 'Tidur'}
+                color={
+                  summary?.activeSleep
+                    ? 'bg-green-200 dark:bg-green-900'
+                    : 'bg-purple-200 dark:bg-purple-900'
+                }
+                onClick={() => handleLog('sleep')}
+              />
+              <QuickLogButton
+                compact
+                type="note"
+                emoji="📝"
+                label="Note"
+                color="bg-pink-200 dark:bg-pink-900"
+                onClick={() => setNoteOpen(true)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <NoteSheet

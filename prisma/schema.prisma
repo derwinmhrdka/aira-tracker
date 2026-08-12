@@ -235,3 +235,24 @@ model Title {
   @@index([ageGroupMonths, category])
   @@map("titles")
 }
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+model MilkStorageSlot {
+  id        String    @id @default(cuid())
+  slotIndex Int       @unique @map("slot_index")
+  amountMl  Int?      @map("amount_ml")
+  filledAt  DateTime? @map("filled_at")
+  note      String?
+  loggedBy  String?   @map("logged_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("milk_storage_slots")
+}
