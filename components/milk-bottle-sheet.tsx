@@ -156,56 +156,58 @@ export function MilkBottleSheet({
               Botol {slot.slot_index + 1}
             </h2>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="min-w-0">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Jumlah (ml)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={2000}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className={`${inputClass} font-semibold tabular-nums`}
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div className="min-w-0">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  {isFilled ? 'Countdown' : 'Time'}
-                </label>
-                {isFilled ? (
-                  <div
-                    className={`box-border flex h-[46px] w-full items-center rounded-xl border border-border bg-secondary px-3 text-sm font-semibold tabular-nums ${
-                      expiryStatus === 'expired'
-                        ? 'text-red-600 dark:text-red-400'
-                        : expiryStatus === 'soon'
-                          ? 'text-amber-700 dark:text-amber-300'
-                          : 'text-foreground'
-                    }`}
-                  >
-                    {slot.expires_at
-                      ? countdown || formatMilkExpiryRemaining(slot.expires_at)
-                      : '—'}
-                  </div>
-                ) : (
+            <div className="mt-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="min-w-0">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Jumlah (ml)
+                  </label>
                   <input
-                    type="datetime-local"
-                    value={filledAt}
-                    onChange={(e) => {
-                      setFilledAt(e.target.value)
-                      if (!slot?.expires_at) {
-                        setExpiresAt(addHoursToLocalInput(e.target.value, 24))
-                      }
-                    }}
-                    className={inputClass}
+                    type="number"
+                    min={1}
+                    max={2000}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className={`${inputClass} font-semibold tabular-nums`}
+                    inputMode="numeric"
                   />
-                )}
+                </div>
+
+                <div className="min-w-0">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    {isFilled ? 'Countdown' : 'Time'}
+                  </label>
+                  {isFilled ? (
+                    <div
+                      className={`box-border flex h-[46px] w-full items-center rounded-xl border border-border bg-secondary px-3 text-sm font-semibold tabular-nums ${
+                        expiryStatus === 'expired'
+                          ? 'text-red-600 dark:text-red-400'
+                          : expiryStatus === 'soon'
+                            ? 'text-amber-700 dark:text-amber-300'
+                            : 'text-foreground'
+                      }`}
+                    >
+                      {slot.expires_at
+                        ? countdown || formatMilkExpiryRemaining(slot.expires_at)
+                        : '—'}
+                    </div>
+                  ) : (
+                    <input
+                      type="datetime-local"
+                      value={filledAt}
+                      onChange={(e) => {
+                        setFilledAt(e.target.value)
+                        if (!slot?.expires_at) {
+                          setExpiresAt(addHoursToLocalInput(e.target.value, 24))
+                        }
+                      }}
+                      className={inputClass}
+                    />
+                  )}
+                </div>
               </div>
 
-              <div className="col-start-2 min-w-0">
+              <div className="min-w-0">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
                   Expired
                 </label>
@@ -223,7 +225,7 @@ export function MilkBottleSheet({
                       onClick={() =>
                         setExpiresAt(addHoursToLocalInput(filledBase, p.hours))
                       }
-                      className="rounded-lg bg-secondary px-2.5 py-1 text-[10px] font-semibold text-foreground"
+                      className="rounded-lg bg-secondary px-2.5 py-1.5 text-[10px] font-semibold text-foreground"
                     >
                       +{p.label}
                     </button>

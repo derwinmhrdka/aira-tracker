@@ -22,8 +22,8 @@ import { LIVE_SYNC_MS } from '@/lib/use-live-sync'
 
 const SCALE_MARKS = [60, 120, 180, 240] as const
 
-const BOTTLE_PATH =
-  'M15 1h10l2.5 6.5 3.5 3v19.5c0 2.8-2.2 5-5 5h-5c-2.8 0-5-2.2-5-5V11l3.5-3L15 1z'
+const BOTTLE_BODY =
+  'M13 10 L13 8 L15 4 L25 4 L27 8 L27 10 L31 13 L31 64 C31 71 26 76 20 76 C14 76 9 71 9 64 L9 13 Z'
 
 function FrostVapor() {
   const puffs = [
@@ -74,13 +74,14 @@ function BottleVisual({
   const ml = filled && amountMl != null ? amountMl : 0
   const ratio = Math.min(1, Math.max(0, ml / MILK_BOTTLE_MAX_ML))
   const fillPct = Math.max(8, ratio * 88)
+  const fillTop = 76 - (fillPct / 100) * 58
 
   const glassStroke =
     expiryStatus === 'expired'
-      ? '#ef4444'
+      ? '#dc2626'
       : expiryStatus === 'soon'
-        ? '#f59e0b'
-        : '#64748b'
+        ? '#d97706'
+        : '#334155'
 
   return (
     <motion.div
@@ -96,100 +97,81 @@ function BottleVisual({
     >
       <svg
         viewBox="0 0 40 80"
-        className="h-full w-full drop-shadow-sm"
+        className="h-full w-full"
+        shapeRendering="geometricPrecision"
         aria-hidden
       >
         <defs>
           <clipPath id={`bottle-clip-${clipId}`}>
-            <rect x="6" y={80 - (fillPct / 100) * 68} width="28" height={(fillPct / 100) * 68} />
+            <rect x="8" y={fillTop} width="24" height={76 - fillTop} />
           </clipPath>
-          <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="rgba(148,163,184,0.15)" />
-            <stop offset="40%" stopColor="rgba(226,232,240,0.55)" />
-            <stop offset="100%" stopColor="rgba(148,163,184,0.2)" />
-          </linearGradient>
-          <linearGradient id="milkGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#e7e5e4" />
-            <stop offset="55%" stopColor="#fafaf9" />
+          <linearGradient id={`milkGrad-${clipId}`} x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#e2e8f0" />
             <stop offset="100%" stopColor="#ffffff" />
           </linearGradient>
         </defs>
 
-        {/* Bottle body outline with waist indent */}
-        <path
-          d={BOTTLE_PATH}
-          fill="url(#glassGrad)"
+        {/* Cap */}
+        <rect
+          x="15"
+          y="0"
+          width="10"
+          height="4"
+          rx="0.5"
+          fill="#cbd5e1"
           stroke={glassStroke}
-          strokeWidth="2"
-          strokeLinejoin="round"
+          strokeWidth="1.5"
         />
 
-        <ellipse
-          cx="20"
-          cy="42"
-          rx="8"
-          ry="2.5"
-          fill="none"
-          stroke="#94a3b8"
-          strokeWidth="1.2"
-        />
-        <path
-          d="M12 42 Q20 38.5 28 42"
-          fill="none"
-          stroke="#cbd5e1"
-          strokeWidth="1"
-        />
-        <path
-          d="M12 44.5 Q20 48 28 44.5"
-          fill="none"
-          stroke="#94a3b8"
-          strokeWidth="0.9"
-        />
+        {/* Body fill */}
+        <path d={BOTTLE_BODY} fill="#f1f5f9" stroke="none" />
 
-        <rect x="14" y="1" width="12" height="3" rx="1" fill="#cbd5e1" stroke={glassStroke} strokeWidth="0.8" />
-
-        {/* Milk fill */}
+        {/* Milk */}
         {filled && ml > 0 && (
           <g clipPath={`url(#bottle-clip-${clipId})`}>
-            <path d={BOTTLE_PATH} fill="url(#milkGrad)" />
+            <path d={BOTTLE_BODY} fill={`url(#milkGrad-${clipId})`} stroke="none" />
             <ellipse
               cx="20"
-              cy={80 - (fillPct / 100) * 68}
-              rx="10"
-              ry="2.5"
-              fill="rgba(255,255,255,0.85)"
+              cy={fillTop}
+              rx="9"
+              ry="2"
+              fill="rgba(255,255,255,0.9)"
             />
           </g>
         )}
 
-        {/* Highlight */}
+        {/* Body outline — drawn last for crisp edge */}
         <path
-          d="M14.5 12 L14.5 66"
-          stroke="rgba(255,255,255,0.7)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
+          d={BOTTLE_BODY}
+          fill="none"
+          stroke={glassStroke}
+          strokeWidth="2.25"
+          strokeLinejoin="miter"
+          strokeLinecap="square"
+          vectorEffect="non-scaling-stroke"
         />
 
-        {/* Scale marks inside */}
+        {/* Scale marks */}
         {SCALE_MARKS.map((mark, i) => {
           const y = 68 - (mark / MILK_BOTTLE_MAX_ML) * 52
           return (
             <g key={mark}>
               <line
-                x1="28"
+                x1="27"
                 y1={y}
-                x2="31"
+                x2="30"
                 y2={y}
-                stroke="rgba(100,116,139,0.45)"
-                strokeWidth="0.8"
+                stroke="#64748b"
+                strokeWidth="1.2"
+                strokeLinecap="square"
               />
               {i % 2 === 0 && (
                 <text
-                  x="6"
-                  y={y + 2}
-                  fontSize="4"
-                  fill="rgba(100,116,139,0.7)"
-                  fontWeight="600"
+                  x="10"
+                  y={y + 2.5}
+                  fontSize="4.5"
+                  fill="#475569"
+                  fontWeight="700"
                 >
                   {mark}
                 </text>
