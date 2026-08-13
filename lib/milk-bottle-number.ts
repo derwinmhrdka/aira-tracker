@@ -25,21 +25,37 @@ export function nextBottleNumber(rows: BottleRow[]): number {
   return used.size + 1
 }
 
-/** Perbaiki nomor botol duplikat / null — urut slotIndex, nomor unik naik. */
-export function dedupeBottleNumberUpdates(
+/** Nomor unik per slot terisi (slotIndex → bottleNumber). */
+export function assignUniqueBottleNumbers(
   rows: BottleRow[]
-): Array<{ slotIndex: number; bottleNumber: number }> {
+): Map<number, number> {
   const filled = rows
     .filter(isFilledMilkRow)
     .sort((a, b) => a.slotIndex - b.slotIndex)
 
   const used = new Set<number>()
-  const updates: Array<{ slotIndex: number; bottleNumber: number }> = []
+  const result = new Map<number, number>()
 
   for (const row of filled) {
     let num = row.bottleNumber ?? row.slotIndex + 1
     while (used.has(num)) num++
     used.add(num)
+    result.set(row.slotIndex, num)
+  }
+
+  return result
+}
+
+/** Perbaiki nomor botol duplikat / null — urut slotIndex, nomor unik naik. */
+export function dedupeBottleNumberUpdates(
+  rows: BottleRow[]
+): Array<{ slotIndex: number; bottleNumber: number }> {
+  const assigned = assignUniqueBottleNumbers(rows)
+  const updates: Array<{ slotIndex: number; bottleNumber: number }> = []
+
+  for (const row of rows) {
+    if (!isFilledMilkRow(row)) continue
+    const num = assigned.get(row.slotIndex)!
     if (row.bottleNumber !== num) {
       updates.push({ slotIndex: row.slotIndex, bottleNumber: num })
     }

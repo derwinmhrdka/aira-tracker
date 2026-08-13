@@ -1,5 +1,5 @@
 /** Bump when deploy needs a hard cache reset. Activate also clears older names. */
-const CACHE_NAME = 'baby-tracker-v13'
+const CACHE_NAME = 'baby-tracker-v14'
 const STATIC_ASSETS = ['/', '/manifest.json', '/icon.svg']
 
 self.addEventListener('install', (event) => {
@@ -76,13 +76,25 @@ self.addEventListener('push', (event) => {
     // use defaults
   }
 
-  const isDiaper = data.title?.includes('popok')
+  const title = data.title || ''
+  const body = data.body || ''
+  let tag = 'app-reminder'
+  if (title.includes('🥛') || body.includes('Botol') || body.includes('freezer')) {
+    tag = 'milk-expiry-reminder'
+  } else if (title.includes('popok') || body.includes('popok')) {
+    tag = 'diaper-reminder'
+  } else if (title.includes('menyusui') || title.includes('🍼')) {
+    tag = 'feeding-reminder'
+  } else if (title.includes('Vaksin') || title.includes('vaksin')) {
+    tag = 'vaccine-reminder'
+  }
+
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: isDiaper ? 'diaper-reminder' : 'feeding-reminder',
+      tag,
       vibrate: [200, 100, 200],
       data: { url: data.url || '/' },
     })

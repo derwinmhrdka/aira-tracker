@@ -9,6 +9,7 @@ import {
   type MilkStorageSlot,
 } from '@/lib/api-client'
 import {
+  dedupeClientMilkSlots,
   formatMilkExpiryRemaining,
   getBottleDisplayNumber,
   getSlotMilkExpiryStatus,
@@ -34,19 +35,13 @@ function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
 }
 
 function slotLayoutId(slot: MilkStorageSlot): string {
-  if (slot.is_filled) {
-    const n = slot.bottle_number ?? slot.slot_index + 1
-    return `milk-bottle-${n}`
-  }
-  return `milk-empty-${slot.slot_index}`
+  return slot.is_filled
+    ? `milk-cell-${slot.slot_index}`
+    : `milk-empty-${slot.slot_index}`
 }
 
-function normalizeSlot(slot: MilkStorageSlot): MilkStorageSlot {
-  if (!slot.is_filled) return slot
-  return {
-    ...slot,
-    bottle_number: slot.bottle_number ?? slot.slot_index + 1,
-  }
+function withUniqueBottleNumbers(slots: MilkStorageSlot[]): MilkStorageSlot[] {
+  return dedupeClientMilkSlots(slots)
 }
 
 function swapSlotsLocal(
@@ -58,14 +53,13 @@ function swapSlotsLocal(
   const toSlot = slots.find((s) => s.slot_index === toIndex)
   if (!fromSlot || !toSlot) return slots
 
-  const fromPayload = fromSlot.is_filled ? normalizeSlot(fromSlot) : fromSlot
-  const toPayload = toSlot.is_filled ? normalizeSlot(toSlot) : toSlot
-
-  return slots.map((s) => {
-    if (s.slot_index === fromIndex) return { ...toPayload, slot_index: fromIndex }
-    if (s.slot_index === toIndex) return { ...fromPayload, slot_index: toIndex }
+  const swapped = slots.map((s) => {
+    if (s.slot_index === fromIndex) return { ...toSlot, slot_index: fromIndex }
+    if (s.slot_index === toIndex) return { ...fromSlot, slot_index: toIndex }
     return s
   })
+
+  return swapped
 }
 
 function bottleLabel(slot: MilkStorageSlot): number {
@@ -88,7 +82,7 @@ function BottleUnit({
       className={`w-full text-center transition-opacity ${faded ? 'opacity-25' : ''}`}
     >
       <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Botol {bottleLabel(slot)}
+        {slot.is_filled ? `Botol ${bottleLabel(slot)}` : '\u00a0'}
       </p>
       <BottleVisual
         filled={slot.is_filled}
@@ -173,7 +167,7 @@ export function MilkStorageCard() {
     try {
       const data = await api.getMilkStorage()
       setLayout(data.layout)
-      setSlots(data.slots)
+      setSlots(withUniqueBottleNumbers(data.slots))
       void checkMilkExpiryReminders(data.slots)
     } catch {
       /* keep previous */

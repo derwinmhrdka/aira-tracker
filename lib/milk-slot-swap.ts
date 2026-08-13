@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { dedupeBottleNumberUpdates, assignUniqueBottleNumbers } from '@/lib/milk-bottle-number'
 
 const CLEAR_FIELDS = {
   amountMl: null,
@@ -34,14 +35,6 @@ function isFilled(row: {
   return row.amountMl != null && row.amountMl > 0 && row.filledAt != null
 }
 
-function resolveBottleNumber(
-  row: { bottleNumber: number | null; amountMl: number | null; filledAt: Date | null },
-  slotIndex: number
-): number | null {
-  if (!isFilled(row)) return null
-  return row.bottleNumber ?? slotIndex + 1
-}
-
 function toPayload(
   row: {
     amountMl: number | null
@@ -54,7 +47,7 @@ function toPayload(
     bottleNumber: number | null
     loggedBy: string | null
   },
-  slotIndex: number
+  bottleNumber: number
 ): FilledPayload | null {
   if (!isFilled(row)) return null
   return {
@@ -65,9 +58,28 @@ function toPayload(
     reminderEnabled: row.reminderEnabled,
     warnBeforeMinutes: row.warnBeforeMinutes,
     note: row.note,
-    bottleNumber: resolveBottleNumber(row, slotIndex),
+    bottleNumber,
     loggedBy: row.loggedBy,
   }
+}
+
+async function ensureUniqueBottleNumbers(tx: Tx) {
+  const rows = await tx.milkStorageSlot.findMany({
+    orderBy: { slotIndex: 'asc' },
+  })
+  const updates = dedupeBottleNumberUpdates(rows)
+  if (updates.length === 0) return rows
+
+  await Promise.all(
+    updates.map((u) =>
+      tx.milkStorageSlot.update({
+        where: { slotIndex: u.slotIndex },
+        data: { bottleNumber: u.bottleNumber },
+      })
+    )
+  )
+
+  return tx.milkStorageSlot.findMany({ orderBy: { slotIndex: 'asc' } })
 }
 
 async function writeSlot(tx: Tx, index: number, data: FilledPayload | null) {
@@ -95,13 +107,20 @@ export async function swapMilkStorageSlots(fromIndex: number, toIndex: number) {
   if (fromIndex === toIndex) return
 
   await prisma.$transaction(async (tx) => {
-    const [fromRow, toRow] = await Promise.all([
-      tx.milkStorageSlot.findUnique({ where: { slotIndex: fromIndex } }),
-      tx.milkStorageSlot.findUnique({ where: { slotIndex: toIndex } }),
-    ])
+    const rows = await ensureUniqueBottleNumbers(tx)
+    const numberBySlot = assignUniqueBottleNumbers(rows)
 
-    const fromData = fromRow ? toPayload(fromRow, fromIndex) : null
-    const toData = toRow ? toPayload(toRow, toIndex) : null
+    const fromRow = rows.find((row) => row.slotIndex === fromIndex) ?? null
+    const toRow = rows.find((row) => row.slotIndex === toIndex) ?? null
+
+    const fromData =
+      fromRow && numberBySlot.has(fromIndex)
+        ? toPayload(fromRow, numberBySlot.get(fromIndex)!)
+        : null
+    const toData =
+      toRow && numberBySlot.has(toIndex)
+        ? toPayload(toRow, numberBySlot.get(toIndex)!)
+        : null
 
     await writeSlot(tx, fromIndex, toData)
     await writeSlot(tx, toIndex, fromData)

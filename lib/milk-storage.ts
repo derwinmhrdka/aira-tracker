@@ -1,3 +1,5 @@
+import { assignUniqueBottleNumbers } from '@/lib/milk-bottle-number'
+
 export const MILK_STORAGE_LAYOUT_KEY = 'milk_storage_layout'
 export const MILK_REMINDER_SETTINGS_KEY = 'milk_reminder_settings'
 
@@ -29,6 +31,35 @@ export function getBottleDisplayNumber(slot: {
     return slot.bottle_number
   }
   return slot.slot_index + 1
+}
+
+export function dedupeClientMilkSlots<
+  T extends {
+    slot_index: number
+    amount_ml: number | null
+    filled_at: string | null
+    bottle_number?: number | null
+    is_filled: boolean
+  },
+>(slots: T[]): T[] {
+  const assigned = assignUniqueBottleNumbers(
+    slots.map((slot) => ({
+      slotIndex: slot.slot_index,
+      amountMl: slot.is_filled ? slot.amount_ml : null,
+      filledAt:
+        slot.is_filled && slot.filled_at ? new Date(slot.filled_at) : null,
+      bottleNumber: slot.bottle_number ?? null,
+    }))
+  )
+
+  return slots.map((slot) => {
+    if (!slot.is_filled) return slot
+    const bottleNumber =
+      assigned.get(slot.slot_index) ??
+      slot.bottle_number ??
+      slot.slot_index + 1
+    return { ...slot, bottle_number: bottleNumber }
+  })
 }
 
 /** @deprecated use getMilkReminderSettings().warnBeforeMinutes */
