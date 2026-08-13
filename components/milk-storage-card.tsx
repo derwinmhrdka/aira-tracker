@@ -34,8 +34,9 @@ function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
 }
 
 function slotLayoutId(slot: MilkStorageSlot): string {
-  if (slot.is_filled && slot.bottle_number != null) {
-    return `milk-bottle-${slot.bottle_number}`
+  if (slot.is_filled) {
+    const n = slot.bottle_number ?? slot.slot_index + 1
+    return `milk-bottle-${n}`
   }
   return `milk-empty-${slot.slot_index}`
 }
@@ -53,14 +54,16 @@ function swapSlotsLocal(
   fromIndex: number,
   toIndex: number
 ): MilkStorageSlot[] {
-  const fromSlot = normalizeSlot(
-    slots.find((s) => s.slot_index === fromIndex)!
-  )
-  const toSlot = normalizeSlot(slots.find((s) => s.slot_index === toIndex)!)
+  const fromSlot = slots.find((s) => s.slot_index === fromIndex)
+  const toSlot = slots.find((s) => s.slot_index === toIndex)
   if (!fromSlot || !toSlot) return slots
+
+  const fromPayload = fromSlot.is_filled ? normalizeSlot(fromSlot) : fromSlot
+  const toPayload = toSlot.is_filled ? normalizeSlot(toSlot) : toSlot
+
   return slots.map((s) => {
-    if (s.slot_index === fromIndex) return { ...toSlot, slot_index: fromIndex }
-    if (s.slot_index === toIndex) return { ...fromSlot, slot_index: toIndex }
+    if (s.slot_index === fromIndex) return { ...toPayload, slot_index: fromIndex }
+    if (s.slot_index === toIndex) return { ...fromPayload, slot_index: toIndex }
     return s
   })
 }

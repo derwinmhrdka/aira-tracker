@@ -13,6 +13,11 @@ import {
   parseMilkReminderSettings,
 } from '@/lib/milk-storage'
 import { swapMilkStorageSlots } from '@/lib/milk-slot-swap'
+import {
+  dedupeBottleNumberUpdates,
+  isFilledMilkRow,
+  nextBottleNumber,
+} from '@/lib/milk-bottle-number'
 
 function formatSlot(s: {
   id: string
@@ -71,31 +76,33 @@ async function readReminderSettings() {
   return parseMilkReminderSettings(row?.value ?? null)
 }
 
+async function loadMilkStorageSlots() {
+  let rows = await prisma.milkStorageSlot.findMany({
+    orderBy: { slotIndex: 'asc' },
+  })
+
+  const updates = dedupeBottleNumberUpdates(rows)
+  if (updates.length > 0) {
+    await Promise.all(
+      updates.map((u) =>
+        prisma.milkStorageSlot.update({
+          where: { slotIndex: u.slotIndex },
+          data: { bottleNumber: u.bottleNumber },
+        })
+      )
+    )
+    rows = await prisma.milkStorageSlot.findMany({
+      orderBy: { slotIndex: 'asc' },
+    })
+  }
+
+  return rows
+}
 export async function GET() {
   return withAuth(async () => {
     const layout = await readLayout()
     const reminder = await readReminderSettings()
-    const slots = await prisma.milkStorageSlot.findMany({
-      orderBy: { slotIndex: 'asc' },
-    })
-
-    // Backfill bottle_number for legacy rows
-    await Promise.all(
-      slots
-        .filter(
-          (s) =>
-            s.amountMl != null &&
-            s.amountMl > 0 &&
-            s.filledAt != null &&
-            s.bottleNumber == null
-        )
-        .map((s) =>
-          prisma.milkStorageSlot.update({
-            where: { slotIndex: s.slotIndex },
-            data: { bottleNumber: s.slotIndex + 1 },
-          })
-        )
-    )
+    const slots = await loadMilkStorageSlots()
 
     const byIndex = new Map(slots.map((s) => [s.slotIndex, s]))
     const total = milkSlotCount(layout)
@@ -161,9 +168,7 @@ export async function PATCH(request: NextRequest) {
       }
       await swapMilkStorageSlots(fromIndex, toIndex)
       const layout = await readLayout()
-      const slots = await prisma.milkStorageSlot.findMany({
-        orderBy: { slotIndex: 'asc' },
-      })
+      const slots = await loadMilkStorageSlots()
       const byIndex = new Map(slots.map((s) => [s.slotIndex, s]))
       const total = milkSlotCount(layout)
       const items = Array.from({ length: total }, (_, i) => {
@@ -266,8 +271,12 @@ export async function PATCH(request: NextRequest) {
     })
     const expiryChanged =
       existing?.expiresAt?.getTime() !== expiresAt?.getTime()
-    const bottleNumber =
-      existing?.bottleNumber ?? slotIndex + 1
+
+    let bottleNumber = existing?.bottleNumber ?? null
+    if (bottleNumber == null || !isFilledMilkRow(existing ?? { amountMl: null, filledAt: null })) {
+      const allRows = await prisma.milkStorageSlot.findMany()
+      bottleNumber = nextBottleNumber(allRows)
+    }
 
     const slot = await prisma.milkStorageSlot.upsert({
       where: { slotIndex },

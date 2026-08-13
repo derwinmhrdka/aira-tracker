@@ -195,90 +195,94 @@ export function MilkBottleSheet({
                 Botol {getBottleDisplayNumber(slot)}
               </h2>
 
-              <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Jumlah
-                </p>
-                <StepperField
-                  hideLabel
-                  label="ml"
-                  suffix="ml"
-                  value={amount}
-                  min={1}
-                  max={MILK_AMOUNT_MAX_ML}
-                  step={AMOUNT_STEP}
-                  onChange={(n) => setAmount(clampAmount(n))}
-                  outerClassName="w-full"
-                  inputClassName="w-full min-w-[2.5rem] max-w-[4rem] bg-transparent text-center text-base font-bold tabular-nums text-foreground outline-none"
-                />
-              </div>
+              <div className="flex items-stretch gap-3">
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Jumlah
+                    </p>
+                    <StepperField
+                      hideLabel
+                      label="ml"
+                      suffix="ml"
+                      value={amount}
+                      min={1}
+                      max={MILK_AMOUNT_MAX_ML}
+                      step={AMOUNT_STEP}
+                      onChange={(n) => setAmount(clampAmount(n))}
+                      outerClassName="w-full"
+                      inputClassName="w-full min-w-[2.5rem] max-w-[4rem] bg-transparent text-center text-base font-bold tabular-nums text-foreground outline-none"
+                    />
+                  </div>
 
-              <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Expired
-                </p>
-                <div className="space-y-2 rounded-2xl bg-secondary/50 p-3">
-                  <ScrollChipRow>
-                    {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
-                      <Chip
-                        key={p.hours}
-                        active={expiryMinutes === p.hours * 60}
-                        onClick={() => setExpiryDuration(p.hours * 60)}
-                      >
-                        +{p.label}
-                      </Chip>
-                    ))}
-                  </ScrollChipRow>
-                  <div className="flex gap-2">
-                    <StepperField
-                      label="jam"
-                      value={expiryHours}
-                      min={0}
-                      max={MAX_EXPIRY_HOURS}
-                      onChange={(h) => applyExpiryParts(h, expiryMins)}
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Expired
+                    </p>
+                    <div className="space-y-2 rounded-2xl bg-secondary/50 p-3">
+                      <ScrollChipRow>
+                        {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
+                          <Chip
+                            key={p.hours}
+                            active={expiryMinutes === p.hours * 60}
+                            onClick={() => setExpiryDuration(p.hours * 60)}
+                          >
+                            +{p.label}
+                          </Chip>
+                        ))}
+                      </ScrollChipRow>
+                      <div className="flex gap-2">
+                        <StepperField
+                          label="jam"
+                          value={expiryHours}
+                          min={0}
+                          max={MAX_EXPIRY_HOURS}
+                          onChange={(h) => applyExpiryParts(h, expiryMins)}
+                        />
+                        <StepperField
+                          label="menit"
+                          value={expiryMins}
+                          min={0}
+                          max={59}
+                          step={5}
+                          onChange={(m) => applyExpiryParts(expiryHours, m)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Reminder
+                    </p>
+                    <MilkWarnPicker totalMinutes={warnMinutes} onChange={setWarnMinutes} />
+                  </div>
+                </div>
+
+                <div className="relative flex w-[5.75rem] shrink-0 flex-col items-center justify-center overflow-hidden rounded-2xl border border-sky-200/60 bg-gradient-to-b from-sky-50/90 to-sky-100/40 px-2 py-3 dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-900/20 sm:w-[6.25rem]">
+                  <FrostVapor />
+                  <div className="relative z-[1] flex flex-col items-center gap-1">
+                    <BottleVisual
+                      filled={amount > 0}
+                      amountMl={amount > 0 ? amount : null}
+                      active
+                      expiryStatus={expiryStatus}
+                      size="lg"
                     />
-                    <StepperField
-                      label="menit"
-                      value={expiryMins}
-                      min={0}
-                      max={59}
-                      step={5}
-                      onChange={(m) => applyExpiryParts(expiryHours, m)}
-                    />
+                    <p className="text-[10px] font-bold tabular-nums text-foreground">
+                      {amount} ml
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Reminder
-                </p>
-                <MilkWarnPicker totalMinutes={warnMinutes} onChange={setWarnMinutes} />
-              </div>
-
-              <div className="relative overflow-hidden rounded-2xl border border-sky-200/60 bg-gradient-to-b from-sky-50/90 to-sky-100/40 py-4 dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-900/20">
-                <FrostVapor />
-                <div className="relative z-[1] flex flex-col items-center gap-1">
-                  <BottleVisual
-                    filled={amount > 0}
-                    amountMl={amount > 0 ? amount : null}
-                    active
-                    expiryStatus={expiryStatus}
-                    size="lg"
-                  />
-                  <p className="text-xs font-bold tabular-nums text-foreground">
-                    {amount} ml
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2 rounded-2xl bg-secondary/50 p-3 ring-1 ring-border">
+              <div className="flex gap-2">
                 {isFilled && (
                   <button
                     type="button"
                     disabled={saving}
                     onClick={handleClear}
-                    className="w-full rounded-xl bg-background py-3 text-sm font-semibold text-foreground ring-1 ring-border disabled:opacity-50"
+                    className="flex-1 rounded-xl bg-background py-3 text-sm font-semibold text-foreground ring-1 ring-border disabled:opacity-50"
                   >
                     Habis
                   </button>
@@ -287,7 +291,7 @@ export function MilkBottleSheet({
                   type="button"
                   disabled={saving}
                   onClick={onClose}
-                  className="w-full rounded-xl bg-background py-3 text-sm font-semibold text-foreground ring-1 ring-border disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-background py-3 text-sm font-semibold text-foreground ring-1 ring-border disabled:opacity-50"
                 >
                   Batal
                 </button>
@@ -295,7 +299,7 @@ export function MilkBottleSheet({
                   type="button"
                   disabled={saving || amount <= 0}
                   onClick={handleSave}
-                  className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                 >
                   {saving ? '...' : 'Simpan'}
                 </button>

@@ -23,8 +23,12 @@ export const MILK_AMOUNT_MAX_ML = 180
 export function getBottleDisplayNumber(slot: {
   slot_index: number
   bottle_number?: number | null
+  is_filled?: boolean
 }): number {
-  return slot.bottle_number ?? slot.slot_index + 1
+  if (slot.is_filled && slot.bottle_number != null) {
+    return slot.bottle_number
+  }
+  return slot.slot_index + 1
 }
 
 /** @deprecated use getMilkReminderSettings().warnBeforeMinutes */
