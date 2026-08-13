@@ -9,6 +9,7 @@ const CLEAR_FIELDS = {
   reminderEnabled: null,
   warnBeforeMinutes: null,
   note: null,
+  bottleNumber: null,
   loggedBy: null,
 } as const
 
@@ -20,6 +21,7 @@ type FilledPayload = {
   reminderEnabled: boolean | null
   warnBeforeMinutes: number | null
   note: string | null
+  bottleNumber: number | null
   loggedBy: string | null
 }
 
@@ -40,6 +42,7 @@ function toPayload(row: {
   reminderEnabled: boolean | null
   warnBeforeMinutes: number | null
   note: string | null
+  bottleNumber: number | null
   loggedBy: string | null
 }): FilledPayload | null {
   if (!isFilled(row)) return null
@@ -51,6 +54,7 @@ function toPayload(row: {
     reminderEnabled: row.reminderEnabled,
     warnBeforeMinutes: row.warnBeforeMinutes,
     note: row.note,
+    bottleNumber: row.bottleNumber,
     loggedBy: row.loggedBy,
   }
 }

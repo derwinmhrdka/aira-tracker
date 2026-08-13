@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   clampMilkWarnMinutes,
   formatMilkWarnBefore,
   MILK_WARN_PRESETS,
   MAX_MILK_WARN_MINUTES,
-  MIN_MILK_WARN_MINUTES,
 } from '@/lib/milk-storage'
 
 interface MilkWarnPickerProps {
@@ -16,97 +15,102 @@ interface MilkWarnPickerProps {
 
 function splitMinutes(total: number) {
   const clamped = clampMilkWarnMinutes(total)
-  return {
-    hours: Math.floor(clamped / 60),
-    minutes: clamped % 60,
-  }
+  return { hours: Math.floor(clamped / 60), minutes: clamped % 60 }
 }
 
 export function MilkWarnPicker({ totalMinutes, onChange }: MilkWarnPickerProps) {
-  const [hours, setHours] = useState(() => splitMinutes(totalMinutes).hours)
-  const [minutes, setMinutes] = useState(() => splitMinutes(totalMinutes).minutes)
+  const [customOpen, setCustomOpen] = useState(false)
+  const { hours, minutes } = splitMinutes(totalMinutes)
+  const presetMatch = MILK_WARN_PRESETS.some((p) => p.minutes === totalMinutes)
 
-  useEffect(() => {
-    const split = splitMinutes(totalMinutes)
-    setHours(split.hours)
-    setMinutes(split.minutes)
-  }, [totalMinutes])
-
-  const applyCustom = (nextHours: number, nextMinutes: number) => {
-    const total = clampMilkWarnMinutes(nextHours * 60 + nextMinutes)
-    setHours(Math.floor(total / 60))
-    setMinutes(total % 60)
-    onChange(total)
+  const applyTotal = (h: number, m: number) => {
+    onChange(clampMilkWarnMinutes(h * 60 + m))
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
-        Ingatkan{' '}
-        <span className="font-medium text-foreground">
-          {formatMilkWarnBefore(totalMinutes)}
-        </span>{' '}
-        sebelum expired
-      </p>
-
-      <div className="flex flex-wrap gap-1.5">
+    <div className="rounded-2xl bg-secondary/50 p-3">
+      <div className="mb-2 flex flex-wrap gap-1.5">
         {MILK_WARN_PRESETS.map((preset) => (
           <button
             key={preset.minutes}
             type="button"
-            onClick={() => onChange(preset.minutes)}
-            className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold ${
+            onClick={() => {
+              onChange(preset.minutes)
+              setCustomOpen(false)
+            }}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
               totalMinutes === preset.minutes
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-foreground'
+                : 'bg-background text-foreground ring-1 ring-border'
             }`}
           >
             {preset.label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setCustomOpen((v) => !v)}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+            customOpen || !presetMatch
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-background text-foreground ring-1 ring-border'
+          }`}
+        >
+          {customOpen || !presetMatch
+            ? formatMilkWarnBefore(totalMinutes)
+            : 'Lainnya'}
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label className="block">
-          <span className="mb-1 block text-xs text-muted-foreground">Jam</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={Math.floor(MAX_MILK_WARN_MINUTES / 60)}
-            value={hours}
-            onChange={(e) => {
-              const next = Number(e.target.value)
-              if (Number.isNaN(next)) return
-              setHours(next)
-            }}
-            onBlur={() => applyCustom(hours, minutes)}
-            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-xs text-muted-foreground">Menit</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={59}
-            step={5}
-            value={minutes}
-            onChange={(e) => {
-              const next = Number(e.target.value)
-              if (Number.isNaN(next)) return
-              setMinutes(next)
-            }}
-            onBlur={() => applyCustom(hours, minutes)}
-            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base"
-          />
-        </label>
-      </div>
-      <p className="text-[10px] text-muted-foreground">
-        Min {formatMilkWarnBefore(MIN_MILK_WARN_MINUTES)} · max{' '}
-        {formatMilkWarnBefore(MAX_MILK_WARN_MINUTES)}
-      </p>
+      {customOpen && (
+        <div className="flex items-center gap-2 pt-1">
+          <div className="flex flex-1 items-center rounded-xl bg-background ring-1 ring-border">
+            <button
+              type="button"
+              onClick={() => applyTotal(Math.max(0, hours - 1), minutes)}
+              className="flex h-10 w-10 items-center justify-center text-lg text-muted-foreground"
+            >
+              −
+            </button>
+            <div className="flex-1 text-center">
+              <span className="text-sm font-bold tabular-nums">{hours}</span>
+              <span className="ml-0.5 text-[10px] text-muted-foreground">jam</span>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                applyTotal(
+                  Math.min(Math.floor(MAX_MILK_WARN_MINUTES / 60), hours + 1),
+                  minutes
+                )
+              }
+              className="flex h-10 w-10 items-center justify-center text-lg text-muted-foreground"
+            >
+              +
+            </button>
+          </div>
+          <div className="flex flex-1 items-center rounded-xl bg-background ring-1 ring-border">
+            <button
+              type="button"
+              onClick={() => applyTotal(hours, Math.max(0, minutes - 5))}
+              className="flex h-10 w-10 items-center justify-center text-lg text-muted-foreground"
+            >
+              −
+            </button>
+            <div className="flex-1 text-center">
+              <span className="text-sm font-bold tabular-nums">{minutes}</span>
+              <span className="ml-0.5 text-[10px] text-muted-foreground">mnt</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => applyTotal(hours, Math.min(59, minutes + 5))}
+              className="flex h-10 w-10 items-center justify-center text-lg text-muted-foreground"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { MilkStorageSlot } from '@/lib/api-client'
@@ -10,10 +10,10 @@ import {
   getMilkReminderSettings,
   getSlotMilkExpiryStatus,
   MILK_EXPIRY_PRESETS_HOURS,
-  MILK_WARN_PRESETS,
 } from '@/lib/milk-storage'
 import { requestNotificationPermission } from '@/lib/reminder'
 import { BottleVisual, FrostVapor } from './milk-bottle-visual'
+import { MilkWarnPicker } from './milk-warn-picker'
 
 interface MilkBottleSheetProps {
   open: boolean
@@ -27,6 +27,8 @@ interface MilkBottleSheetProps {
   }) => Promise<void>
   onClear: () => Promise<void>
 }
+
+const ML_PRESETS = [30, 60, 90, 120, 150, 180] as const
 
 function toLocalInputValue(iso: string | null): string {
   const d = iso ? new Date(iso) : new Date()
@@ -50,8 +52,50 @@ function addHoursToLocalInput(baseLocal: string, hours: number): string {
   return toLocalInputValue(d.toISOString())
 }
 
-const inputClass =
-  'box-border h-[46px] w-full rounded-xl border border-border bg-secondary px-3 text-sm text-foreground outline-none ring-primary focus:ring-2'
+function splitLocalDateTime(local: string): { date: string; time: string } {
+  const [date = '', time = '00:00'] = local.split('T')
+  return { date, time: time.slice(0, 5) }
+}
+
+function combineLocalDateTime(date: string, time: string): string {
+  return `${date}T${time}`
+}
+
+function formatShort(local: string): string {
+  const d = new Date(local)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('id-ID', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-background text-foreground ring-1 ring-border'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
 
 export function MilkBottleSheet({
   open,
@@ -61,15 +105,16 @@ export function MilkBottleSheet({
   onClear,
 }: MilkBottleSheetProps) {
   const [mounted, setMounted] = useState(false)
-  const [amount, setAmount] = useState('30')
+  const [amount, setAmount] = useState(30)
   const [filledAt, setFilledAt] = useState(toLocalInputValue(null))
   const [expiresAt, setExpiresAt] = useState(toLocalInputValue(null))
   const [saving, setSaving] = useState(false)
   const [countdown, setCountdown] = useState('')
   const [warnMinutes, setWarnMinutes] = useState(DEFAULT_MILK_WARN_MINUTES)
+  const [manualExpiry, setManualExpiry] = useState(false)
+  const [manualFilled, setManualFilled] = useState(false)
 
   const globalReminder = getMilkReminderSettings()
-
   const isFilled = !!slot?.is_filled
 
   useEffect(() => {
@@ -79,7 +124,7 @@ export function MilkBottleSheet({
   useEffect(() => {
     if (!open || !slot) return
     setAmount(
-      slot.is_filled && slot.amount_ml != null ? String(slot.amount_ml) : '30'
+      slot.is_filled && slot.amount_ml != null ? slot.amount_ml : 30
     )
     const filledLocal = toLocalInputValue(slot.filled_at)
     setFilledAt(filledLocal)
@@ -89,6 +134,8 @@ export function MilkBottleSheet({
         : addHoursToLocalInput(filledLocal, 24)
     )
     setWarnMinutes(slot.warn_before_minutes ?? DEFAULT_MILK_WARN_MINUTES)
+    setManualExpiry(false)
+    setManualFilled(false)
   }, [open, slot])
 
   useEffect(() => {
@@ -110,14 +157,13 @@ export function MilkBottleSheet({
   }, [open, expiresAt])
 
   const handleSave = async () => {
-    const ml = parseInt(amount, 10)
-    if (!Number.isFinite(ml) || ml <= 0) return
+    if (!Number.isFinite(amount) || amount <= 0) return
     setSaving(true)
     try {
       if (expiresAt && globalReminder.enabled) {
         await requestNotificationPermission()
       }
-      const local = new Date(isFilled ? slot?.filled_at ?? filledAt : filledAt)
+      const local = new Date(filledAt)
       const filledIso = Number.isNaN(local.getTime())
         ? new Date().toISOString()
         : local.toISOString()
@@ -127,7 +173,7 @@ export function MilkBottleSheet({
         expiresIso = Number.isNaN(exp.getTime()) ? null : exp.toISOString()
       }
       await onSave({
-        amount_ml: ml,
+        amount_ml: amount,
         filled_at: filledIso,
         expires_at: expiresIso,
         warn_before_minutes: warnMinutes,
@@ -152,9 +198,23 @@ export function MilkBottleSheet({
     expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
     warn_before_minutes: warnMinutes,
   })
-  const filledBase = isFilled ? toLocalInputValue(slot?.filled_at ?? null) : filledAt
-  const previewMl = parseInt(amount, 10)
-  const previewFilled = Number.isFinite(previewMl) && previewMl > 0
+
+  const expirySubtitle =
+    expiresAt && countdown
+      ? countdown
+      : expiresAt
+        ? formatMilkExpiryRemaining(new Date(expiresAt).toISOString())
+        : ''
+
+  const expiryStatusClass =
+    expiryStatus === 'expired'
+      ? 'text-red-600 dark:text-red-400'
+      : expiryStatus === 'soon'
+        ? 'text-amber-700 dark:text-amber-300'
+        : 'text-muted-foreground'
+
+  const { date: expDate, time: expTime } = splitLocalDateTime(expiresAt)
+  const { date: fillDate, time: fillTime } = splitLocalDateTime(filledAt)
 
   if (!mounted) return null
 
@@ -181,116 +241,171 @@ export function MilkBottleSheet({
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
 
-            <div className="flex gap-4">
-              <div className="min-w-0 flex-1">
+            <div className="flex gap-3">
+              <div className="min-w-0 flex-1 space-y-4">
                 <h2 className="font-heading text-lg font-bold text-foreground">
                   Botol {slot.slot_index + 1}
                 </h2>
 
-                <div className="mt-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="min-w-0">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        Jumlah (ml)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={2000}
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        className={`${inputClass} font-semibold tabular-nums`}
-                        inputMode="numeric"
-                      />
-                    </div>
-
-                    <div className="min-w-0">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        {isFilled ? 'Countdown' : 'Time'}
-                      </label>
-                      {isFilled ? (
-                        <div
-                          className={`box-border flex h-[46px] w-full items-center rounded-xl border border-border bg-secondary px-3 text-sm font-semibold tabular-nums ${
-                            expiryStatus === 'expired'
-                              ? 'text-red-600 dark:text-red-400'
-                              : expiryStatus === 'soon'
-                                ? 'text-amber-700 dark:text-amber-300'
-                                : 'text-foreground'
-                          }`}
-                        >
-                          {expiresAt
-                            ? countdown ||
-                              formatMilkExpiryRemaining(
-                                new Date(expiresAt).toISOString()
-                              )
-                            : '—'}
-                        </div>
-                      ) : (
-                        <input
-                          type="datetime-local"
-                          value={filledAt}
-                          onChange={(e) => {
-                            setFilledAt(e.target.value)
-                            if (!slot?.expires_at) {
-                              setExpiresAt(addHoursToLocalInput(e.target.value, 24))
-                            }
-                          }}
-                          className={inputClass}
-                        />
-                      )}
-                    </div>
+                {/* Jumlah */}
+                <div>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
+                    Jumlah
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ML_PRESETS.map((ml) => (
+                      <Chip
+                        key={ml}
+                        active={amount === ml}
+                        onClick={() => setAmount(ml)}
+                      >
+                        {ml} ml
+                      </Chip>
+                    ))}
                   </div>
-
-                  <div className="min-w-0">
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Expired
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={expiresAt}
-                      onChange={(e) => setExpiresAt(e.target.value)}
-                      className={inputClass}
-                    />
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
-                        <button
-                          key={p.hours}
-                          type="button"
-                          onClick={() =>
-                            setExpiresAt(addHoursToLocalInput(filledBase, p.hours))
-                          }
-                          className="rounded-lg bg-secondary px-2.5 py-1.5 text-[10px] font-semibold text-foreground"
-                        >
-                          +{p.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0">
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Pengingat
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {MILK_WARN_PRESETS.map((p) => (
-                        <button
-                          key={p.minutes}
-                          type="button"
-                          onClick={() => setWarnMinutes(p.minutes)}
-                          className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold ${
-                            warnMinutes === p.minutes
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-secondary text-foreground'
-                          }`}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="mt-2 flex items-center rounded-xl bg-secondary/50 ring-1 ring-border">
+                    <button
+                      type="button"
+                      onClick={() => setAmount((v) => Math.max(1, v - 10))}
+                      className="flex h-11 w-11 items-center justify-center text-lg text-muted-foreground"
+                    >
+                      −
+                    </button>
+                    <span className="flex-1 text-center text-base font-bold tabular-nums text-foreground">
+                      {amount} ml
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAmount((v) => Math.min(2000, v + 10))}
+                      className="flex h-11 w-11 items-center justify-center text-lg text-muted-foreground"
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
 
-                <div className="mt-5 flex gap-2">
+                {/* Expired */}
+                <div>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
+                    Expired
+                  </p>
+                  <div
+                    className={`rounded-2xl bg-secondary/50 p-3 ring-1 ${
+                      expiryStatus === 'expired'
+                        ? 'ring-red-400/50'
+                        : expiryStatus === 'soon'
+                          ? 'ring-amber-400/50'
+                          : 'ring-border/50'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold capitalize text-foreground">
+                      {formatShort(expiresAt)}
+                    </p>
+                    {expirySubtitle && (
+                      <p className={`mt-0.5 text-xs font-semibold ${expiryStatusClass}`}>
+                        {expirySubtitle}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
+                        <Chip
+                          key={p.hours}
+                          active={false}
+                          onClick={() => {
+                            setExpiresAt(addHoursToLocalInput(filledAt, p.hours))
+                            setManualExpiry(false)
+                          }}
+                        >
+                          +{p.label}
+                        </Chip>
+                      ))}
+                    </div>
+                    {!manualExpiry ? (
+                      <button
+                        type="button"
+                        onClick={() => setManualExpiry(true)}
+                        className="mt-2 text-[11px] font-medium text-primary"
+                      >
+                        Atur tanggal & jam
+                      </button>
+                    ) : (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          value={expDate}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setExpiresAt(combineLocalDateTime(e.target.value, expTime))
+                            }
+                          }}
+                          className="rounded-xl bg-background px-2 py-2 text-xs ring-1 ring-border"
+                        />
+                        <input
+                          type="time"
+                          value={expTime}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setExpiresAt(combineLocalDateTime(expDate, e.target.value))
+                            }
+                          }}
+                          className="rounded-xl bg-background px-2 py-2 text-xs ring-1 ring-border"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Diisi — hidden unless needed */}
+                {manualFilled ? (
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Diisi
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 rounded-2xl bg-secondary/50 p-3 ring-1 ring-border/50">
+                      <input
+                        type="date"
+                        value={fillDate}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setFilledAt(combineLocalDateTime(e.target.value, fillTime))
+                          }
+                        }}
+                        className="rounded-xl bg-background px-2 py-2 text-xs ring-1 ring-border"
+                      />
+                      <input
+                        type="time"
+                        value={fillTime}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setFilledAt(combineLocalDateTime(fillDate, e.target.value))
+                          }
+                        }}
+                        className="rounded-xl bg-background px-2 py-2 text-xs ring-1 ring-border"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setManualFilled(true)}
+                    className="text-[11px] font-medium text-muted-foreground"
+                  >
+                    Ubah waktu diisi
+                  </button>
+                )}
+
+                {/* Pengingat */}
+                <div>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
+                    Pengingat
+                  </p>
+                  <MilkWarnPicker
+                    totalMinutes={warnMinutes}
+                    onChange={setWarnMinutes}
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-1">
                   {isFilled && (
                     <button
                       type="button"
@@ -311,7 +426,7 @@ export function MilkBottleSheet({
                   </button>
                   <button
                     type="button"
-                    disabled={saving || !amount || parseInt(amount, 10) <= 0}
+                    disabled={saving || amount <= 0}
                     onClick={handleSave}
                     className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                   >
@@ -320,21 +435,19 @@ export function MilkBottleSheet({
                 </div>
               </div>
 
-              <div className="relative flex w-[38%] max-w-[6.5rem] shrink-0 flex-col items-center justify-center self-stretch overflow-hidden rounded-2xl border border-sky-200/60 bg-gradient-to-b from-sky-50/90 to-sky-100/40 dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-900/20 sm:max-w-[7.5rem]">
+              <div className="relative flex w-[34%] max-w-[6rem] shrink-0 flex-col items-center justify-center self-stretch overflow-hidden rounded-2xl border border-sky-200/60 bg-gradient-to-b from-sky-50/90 to-sky-100/40 dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-900/20">
                 <FrostVapor />
-                <div className="relative z-[1] flex flex-col items-center gap-2 py-3">
+                <div className="relative z-[1] flex flex-col items-center gap-1 py-3">
                   <BottleVisual
-                    filled={previewFilled}
-                    amountMl={previewFilled ? previewMl : null}
+                    filled={amount > 0}
+                    amountMl={amount > 0 ? amount : null}
                     active
                     expiryStatus={expiryStatus}
                     size="lg"
                   />
-                  {previewFilled && (
-                    <p className="text-xs font-bold tabular-nums text-foreground">
-                      {previewMl} ml
-                    </p>
-                  )}
+                  <p className="text-xs font-bold tabular-nums text-foreground">
+                    {amount} ml
+                  </p>
                 </div>
               </div>
             </div>

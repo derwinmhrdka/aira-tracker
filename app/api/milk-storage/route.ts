@@ -22,6 +22,7 @@ function formatSlot(s: {
   reminderEnabled: boolean | null
   warnBeforeMinutes: number | null
   note: string | null
+  bottleNumber: number | null
   loggedBy: string | null
 }) {
   const filled = s.amountMl != null && s.amountMl > 0 && s.filledAt != null
@@ -34,6 +35,7 @@ function formatSlot(s: {
     reminder_enabled: filled ? s.reminderEnabled : null,
     warn_before_minutes: filled ? s.warnBeforeMinutes : null,
     note: s.note,
+    bottle_number: filled ? s.bottleNumber : null,
     logged_by: s.loggedBy,
     is_filled: filled,
   }
@@ -48,6 +50,7 @@ const emptySlot = (slotIndex: number) => ({
   reminder_enabled: null as boolean | null,
   warn_before_minutes: null as number | null,
   note: null as string | null,
+  bottle_number: null as number | null,
   logged_by: null as string | null,
   is_filled: false,
 })
@@ -241,6 +244,8 @@ export async function PATCH(request: NextRequest) {
     })
     const expiryChanged =
       existing?.expiresAt?.getTime() !== expiresAt?.getTime()
+    const bottleNumber =
+      existing?.bottleNumber ?? slotIndex + 1
 
     const slot = await prisma.milkStorageSlot.upsert({
       where: { slotIndex },
@@ -252,12 +257,14 @@ export async function PATCH(request: NextRequest) {
         reminderEnabled: null,
         warnBeforeMinutes: warnBeforeMinutes ?? null,
         note: note ?? null,
+        bottleNumber,
         loggedBy,
       },
       update: {
         amountMl: Math.round(amountMl),
         filledAt,
         expiresAt,
+        bottleNumber,
         ...(expiryChanged ? { expiryPushNotifiedFor: null } : {}),
         ...(reminderEnabled !== undefined ? { reminderEnabled } : {}),
         ...(warnBeforeMinutes !== undefined ? { warnBeforeMinutes } : {}),

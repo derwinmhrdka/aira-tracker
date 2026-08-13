@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { createPortal } from 'react-dom'
+import { motion, LayoutGroup } from 'framer-motion'
 import {
   api,
   type MilkStorageLayout,
@@ -19,6 +20,8 @@ import { BottleVisual, FrostVapor } from './milk-bottle-visual'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { LIVE_SYNC_MS } from '@/lib/use-live-sync'
 
+const DRAG_THRESHOLD_PX = 10
+
 function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
   if (!filled)
     return 'border-slate-300/80 bg-slate-200/80 dark:border-slate-600/50 dark:bg-slate-800/55'
@@ -27,6 +30,91 @@ function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
   if (status === 'soon')
     return 'border-amber-300/70 bg-amber-50/90 shadow-sm dark:border-amber-700/50 dark:bg-amber-950/25'
   return 'border-slate-300/70 bg-slate-200/70 shadow-sm dark:border-slate-600/45 dark:bg-slate-800/45'
+}
+
+function slotLayoutId(slot: MilkStorageSlot): string {
+  return slot.id ? `milk-${slot.id}` : `milk-pos-${slot.slot_index}`
+}
+
+function swapSlotsLocal(
+  slots: MilkStorageSlot[],
+  fromIndex: number,
+  toIndex: number
+): MilkStorageSlot[] {
+  const fromSlot = slots.find((s) => s.slot_index === fromIndex)
+  const toSlot = slots.find((s) => s.slot_index === toIndex)
+  if (!fromSlot || !toSlot) return slots
+  return slots.map((s) => {
+    if (s.slot_index === fromIndex) return { ...toSlot, slot_index: fromIndex }
+    if (s.slot_index === toIndex) return { ...fromSlot, slot_index: toIndex }
+    return s
+  })
+}
+
+function bottleLabel(slot: MilkStorageSlot): number {
+  return slot.bottle_number ?? slot.slot_index + 1
+}
+
+function BottleUnit({
+  slot,
+  expiry,
+  active,
+  faded,
+}: {
+  slot: MilkStorageSlot
+  expiry: MilkExpiryStatus
+  active?: boolean
+  faded?: boolean
+}) {
+  return (
+    <div
+      className={`w-full text-center transition-opacity ${faded ? 'opacity-25' : ''}`}
+    >
+      <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Bottle {bottleLabel(slot)}
+      </p>
+      <BottleVisual
+        filled={slot.is_filled}
+        amountMl={slot.amount_ml}
+        expiryStatus={expiry}
+        active={active}
+      />
+      <motion.p
+        key={slot.is_filled ? `ml-${slot.amount_ml}-${slot.slot_index}` : 'empty'}
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`mt-1.5 text-[11px] font-bold tabular-nums ${
+          slot.is_filled ? 'text-foreground' : 'text-muted-foreground'
+        }`}
+      >
+        {slot.is_filled ? `${slot.amount_ml} ml` : 'Kosong'}
+      </motion.p>
+      {slot.is_filled && slot.expires_at && (
+        <p
+          className={`mt-0.5 line-clamp-1 text-[9px] font-semibold tabular-nums ${
+            expiry === 'expired'
+              ? 'text-red-600 dark:text-red-400'
+              : expiry === 'soon'
+                ? 'text-amber-700 dark:text-amber-300'
+                : 'text-muted-foreground'
+          }`}
+        >
+          {expiry === 'expired'
+            ? 'Kadaluarsa'
+            : formatMilkExpiryRemaining(slot.expires_at)}
+        </p>
+      )}
+    </div>
+  )
+}
+
+type DragState = {
+  fromIndex: number
+  slot: MilkStorageSlot
+  startX: number
+  startY: number
+  x: number
+  y: number
 }
 
 export function MilkStorageCard() {
@@ -39,10 +127,15 @@ export function MilkStorageCard() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [, setTick] = useState(0)
   const [, setMilkReminderRev] = useState(0)
-  const [dragFrom, setDragFrom] = useState<number | null>(null)
+  const [drag, setDrag] = useState<DragState | null>(null)
   const [dropTarget, setDropTarget] = useState<number | null>(null)
   const [swapping, setSwapping] = useState(false)
   const skipClickRef = useRef(false)
+  const slotsBeforeSwapRef = useRef<MilkStorageSlot[] | null>(null)
+  const dragRef = useRef<DragState | null>(null)
+  const swappingRef = useRef(false)
+
+  swappingRef.current = swapping
 
   useEffect(() => {
     const onSettingsChange = () => setMilkReminderRev((v) => v + 1)
@@ -95,19 +188,86 @@ export function MilkStorageCard() {
     if (fromIndex === toIndex || swapping) return
     setSwapping(true)
     skipClickRef.current = true
+    slotsBeforeSwapRef.current = slots
+    setSlots((prev) => swapSlotsLocal(prev, fromIndex, toIndex))
     try {
       const res = await api.swapMilkStorageSlots(fromIndex, toIndex)
       setSlots(res.slots)
       void checkMilkExpiryReminders(res.slots)
     } catch {
-      /* keep previous */
+      if (slotsBeforeSwapRef.current) setSlots(slotsBeforeSwapRef.current)
     } finally {
+      slotsBeforeSwapRef.current = null
       setSwapping(false)
       window.setTimeout(() => {
         skipClickRef.current = false
       }, 150)
     }
   }
+
+  const resolveDropTarget = useCallback((clientX: number, clientY: number) => {
+    const el = document.elementFromPoint(clientX, clientY)
+    const cell = el?.closest('[data-slot-index]') as HTMLElement | null
+    if (!cell) return null
+    const idx = Number(cell.dataset.slotIndex)
+    return Number.isFinite(idx) ? idx : null
+  }, [])
+
+  const dragDistance = drag
+    ? Math.hypot(drag.x - drag.startX, drag.y - drag.startY)
+    : 0
+  const isDragging = drag != null && dragDistance >= DRAG_THRESHOLD_PX
+
+  const finishDrag = useCallback(
+    (clientX: number, clientY: number) => {
+      const prev = dragRef.current
+      dragRef.current = null
+      setDrag(null)
+      setDropTarget(null)
+      if (!prev) return
+      const dist = Math.hypot(clientX - prev.startX, clientY - prev.startY)
+      const target = resolveDropTarget(clientX, clientY)
+      if (dist < DRAG_THRESHOLD_PX) {
+        openSlot(prev.slot)
+      } else if (
+        target != null &&
+        target !== prev.fromIndex &&
+        !swappingRef.current
+      ) {
+        void handleSwap(prev.fromIndex, target)
+      }
+    },
+    [resolveDropTarget]
+  )
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!dragRef.current) return
+      dragRef.current = { ...dragRef.current, x: e.clientX, y: e.clientY }
+      setDrag({ ...dragRef.current })
+      setDropTarget(resolveDropTarget(e.clientX, e.clientY))
+    }
+
+    const onUp = (e: PointerEvent) => {
+      if (!dragRef.current) return
+      finishDrag(e.clientX, e.clientY)
+    }
+
+    const onCancel = () => {
+      dragRef.current = null
+      setDrag(null)
+      setDropTarget(null)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+    }
+  }, [finishDrag, resolveDropTarget])
 
   const handleSave = async (data: {
     amount_ml: number
@@ -148,6 +308,8 @@ export function MilkStorageCard() {
   const totalSlots = layout.rows * layout.cols
   const emptySlots = slots.filter((s) => !s.is_filled).length
 
+  const dragExpiry = drag ? getSlotMilkExpiryStatus(drag.slot) : 'none'
+
   return (
     <>
       <div className="relative mb-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
@@ -178,128 +340,103 @@ export function MilkStorageCard() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-3">
-                {Array.from({ length: layout.rows }).map((_, rowIdx) => {
-                  const rowSlots = slots.slice(
-                    rowIdx * layout.cols,
-                    rowIdx * layout.cols + layout.cols
-                  )
-                  return (
-                    <div key={rowIdx} className="relative">
-                      <div
-                        aria-hidden
-                        className="absolute inset-x-1 bottom-1 h-1.5 rounded-sm bg-border/60"
-                      />
+              <LayoutGroup>
+                <div className="space-y-3">
+                  {Array.from({ length: layout.rows }).map((_, rowIdx) => {
+                    const rowSlots = slots.slice(
+                      rowIdx * layout.cols,
+                      rowIdx * layout.cols + layout.cols
+                    )
+                    return (
+                      <div key={rowIdx} className="relative">
+                        <div
+                          aria-hidden
+                          className="absolute inset-x-1 bottom-1 h-1.5 rounded-sm bg-border/60"
+                        />
 
-                      <div className="relative grid gap-2 pb-3" style={gridStyle}>
-                        {rowSlots.map((slot) => {
-                          const expiry = getSlotMilkExpiryStatus(slot)
-                          const isDragging = dragFrom === slot.slot_index
-                          const isDropTarget = dropTarget === slot.slot_index
-                          return (
-                            <div
-                              key={slot.slot_index}
-                              onDragOver={(e) => {
-                                e.preventDefault()
-                                if (dragFrom != null) setDropTarget(slot.slot_index)
-                              }}
-                              onDragLeave={() => {
-                                if (dropTarget === slot.slot_index) setDropTarget(null)
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault()
-                                if (dragFrom != null) {
-                                  void handleSwap(dragFrom, slot.slot_index)
-                                }
-                                setDragFrom(null)
-                                setDropTarget(null)
-                              }}
-                              className={`rounded-xl border px-1 py-1.5 text-center backdrop-blur-[1px] transition-colors sm:py-2 ${slotBorderClass(slot.is_filled, expiry)} ${
-                                isDropTarget ? 'ring-2 ring-primary ring-offset-1' : ''
-                              } ${isDragging ? 'opacity-40' : ''}`}
-                            >
+                        <div className="relative grid gap-2 pb-3" style={gridStyle}>
+                          {rowSlots.map((slot) => {
+                            const expiry = getSlotMilkExpiryStatus(slot)
+                            const isSource =
+                              drag?.fromIndex === slot.slot_index && isDragging
+                            const isTarget = dropTarget === slot.slot_index
+
+                            return (
                               <div
-                                draggable={!swapping}
-                                onDragStart={(e) => {
-                                  setDragFrom(slot.slot_index)
-                                  e.dataTransfer.effectAllowed = 'move'
-                                  e.dataTransfer.setData(
-                                    'text/plain',
-                                    String(slot.slot_index)
-                                  )
-                                }}
-                                onDragEnd={() => {
-                                  setDragFrom(null)
-                                  setDropTarget(null)
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="mx-auto mb-0.5 cursor-grab touch-none select-none text-[11px] leading-none text-muted-foreground/80 active:cursor-grabbing"
-                                aria-label={`Tarik botol ${slot.slot_index + 1}`}
-                                title="Tarik untuk pindah"
-                              >
-                                ⠿
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => openSlot(slot)}
-                                className="w-full text-center"
-                              >
-                              <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Bottle {slot.slot_index + 1}
-                              </p>
-                              <BottleVisual
-                                filled={slot.is_filled}
-                                amountMl={slot.amount_ml}
-                                expiryStatus={expiry}
-                                active={
-                                  selected?.slot_index === slot.slot_index &&
-                                  sheetOpen
-                                }
-                              />
-                              <motion.p
-                                key={
-                                  slot.is_filled ? `ml-${slot.amount_ml}` : 'empty'
-                                }
-                                initial={{ opacity: 0, y: 4 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={`mt-1.5 text-[11px] font-bold tabular-nums ${
-                                  slot.is_filled
-                                    ? 'text-foreground'
-                                    : 'text-muted-foreground'
+                                key={slot.slot_index}
+                                data-slot-index={slot.slot_index}
+                                className={`rounded-xl border px-1 py-1.5 text-center backdrop-blur-[1px] transition-shadow sm:py-2 ${slotBorderClass(slot.is_filled, expiry)} ${
+                                  isTarget && isDragging
+                                    ? 'ring-2 ring-primary ring-offset-1'
+                                    : ''
                                 }`}
                               >
-                                {slot.is_filled
-                                  ? `${slot.amount_ml} ml`
-                                  : 'Kosong'}
-                              </motion.p>
-                              {slot.is_filled && slot.expires_at && (
-                                <p
-                                  className={`mt-0.5 line-clamp-1 text-[9px] font-semibold tabular-nums ${
-                                    expiry === 'expired'
-                                      ? 'text-red-600 dark:text-red-400'
-                                      : expiry === 'soon'
-                                        ? 'text-amber-700 dark:text-amber-300'
-                                        : 'text-muted-foreground'
-                                  }`}
+                                <motion.div
+                                  layout
+                                  layoutId={slotLayoutId(slot)}
+                                  transition={{
+                                    type: 'spring',
+                                    stiffness: 420,
+                                    damping: 32,
+                                  }}
                                 >
-                                  {expiry === 'expired'
-                                    ? 'Kadaluarsa'
-                                    : formatMilkExpiryRemaining(slot.expires_at)}
-                                </p>
-                              )}
-                              </button>
-                            </div>
-                          )
-                        })}
+                                  <div
+                                    onPointerDown={(e) => {
+                                      if (swapping || e.button !== 0) return
+                                      const next: DragState = {
+                                        fromIndex: slot.slot_index,
+                                        slot,
+                                        startX: e.clientX,
+                                        startY: e.clientY,
+                                        x: e.clientX,
+                                        y: e.clientY,
+                                      }
+                                      dragRef.current = next
+                                      setDrag(next)
+                                    }}
+                                    className="touch-none select-none active:cursor-grabbing"
+                                    style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                                  >
+                                    <BottleUnit
+                                      slot={slot}
+                                      expiry={expiry}
+                                      active={
+                                        selected?.slot_index === slot.slot_index &&
+                                        sheetOpen
+                                      }
+                                      faded={isSource}
+                                    />
+                                  </div>
+                                </motion.div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              </LayoutGroup>
             )}
           </div>
         </div>
       </div>
+
+      {isDragging &&
+        drag &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-[100] w-[5.5rem] rounded-xl border border-primary/30 bg-card/95 px-1 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.28)] ring-2 ring-primary/25 backdrop-blur-sm"
+            style={{
+              left: drag.x,
+              top: drag.y,
+              transform: 'translate(-50%, -50%) scale(1.06) rotate(-2deg)',
+            }}
+          >
+            <BottleUnit slot={drag.slot} expiry={dragExpiry} />
+          </div>,
+          document.body
+        )}
 
       <MilkBottleSheet
         open={sheetOpen}

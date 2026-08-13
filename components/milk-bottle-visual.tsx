@@ -6,6 +6,20 @@ import { MILK_BOTTLE_MAX_ML, type MilkExpiryStatus } from '@/lib/milk-storage'
 
 const SCALE_MARKS = [60, 120, 180, 240] as const
 
+/** Bottom of measurable fill (matches scale mark baseline). */
+const FILL_BOTTOM_Y = 68
+/** Vertical span from empty to full — same factor as scale marks. */
+const FILL_SPAN = 52
+
+export function mlToFillSurfaceY(ml: number): number {
+  const clamped = Math.min(MILK_BOTTLE_MAX_ML, Math.max(0, ml))
+  return FILL_BOTTOM_Y - (clamped / MILK_BOTTLE_MAX_ML) * FILL_SPAN
+}
+
+function scaleMarkY(markMl: number): number {
+  return FILL_BOTTOM_Y - (markMl / MILK_BOTTLE_MAX_ML) * FILL_SPAN
+}
+
 const BOTTLE_BODY =
   'M13 10 L13 8 L15 4 L25 4 L27 8 L27 10 L31 13 L31 64 C31 71 26 76 20 76 C14 76 9 71 9 64 L9 13 Z'
 
@@ -63,9 +77,7 @@ export function BottleVisual({
 }) {
   const clipId = useId().replace(/:/g, '')
   const ml = filled && amountMl != null ? amountMl : 0
-  const ratio = Math.min(1, Math.max(0, ml / MILK_BOTTLE_MAX_ML))
-  const fillPct = Math.max(8, ratio * 88)
-  const fillTop = 76 - (fillPct / 100) * 58
+  const fillTop = ml > 0 ? mlToFillSurfaceY(ml) : FILL_BOTTOM_Y
 
   const glassStroke =
     expiryStatus === 'expired'
@@ -154,7 +166,7 @@ export function BottleVisual({
         />
 
         {SCALE_MARKS.map((mark, i) => {
-          const y = 68 - (mark / MILK_BOTTLE_MAX_ML) * 52
+          const y = scaleMarkY(mark)
           return (
             <g key={mark}>
               <line

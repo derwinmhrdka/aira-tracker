@@ -256,6 +256,7 @@ model MilkStorageSlot {
   reminderEnabled       Boolean?  @map("reminder_enabled")
   warnBeforeMinutes     Int?      @map("warn_before_minutes")
   note                  String?
+  bottleNumber          Int?      @map("bottle_number")
   loggedBy              String?   @map("logged_by")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")

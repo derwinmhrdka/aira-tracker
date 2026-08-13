@@ -681,6 +681,7 @@ export interface MilkStorageSlot {
   reminder_enabled?: boolean | null
   warn_before_minutes?: number | null
   note: string | null
+  bottle_number?: number | null
   logged_by: string | null
   is_filled: boolean
 }
