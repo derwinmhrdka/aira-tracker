@@ -10,6 +10,7 @@ import {
 } from '@/lib/api-client'
 import {
   formatMilkExpiryRemaining,
+  getBottleDisplayNumber,
   getSlotMilkExpiryStatus,
   MILK_STORAGE_LAYOUT_DEFAULTS,
   type MilkExpiryStatus,
@@ -64,9 +65,8 @@ function swapSlotsLocal(
   })
 }
 
-function bottleLabel(slot: MilkStorageSlot): number | null {
-  if (!slot.is_filled) return null
-  return slot.bottle_number ?? slot.slot_index + 1
+function bottleLabel(slot: MilkStorageSlot): number {
+  return getBottleDisplayNumber(slot)
 }
 
 function BottleUnit({
@@ -85,9 +85,7 @@ function BottleUnit({
       className={`w-full text-center transition-opacity ${faded ? 'opacity-25' : ''}`}
     >
       <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {bottleLabel(slot) != null
-          ? `Bottle ${bottleLabel(slot)}`
-          : `Slot ${slot.slot_index + 1}`}
+        Botol {bottleLabel(slot)}
       </p>
       <BottleVisual
         filled={slot.is_filled}

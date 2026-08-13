@@ -20,6 +20,13 @@ export const MILK_BOTTLE_MAX_ML = 180
 /** Max ml input / storage per botol. */
 export const MILK_AMOUNT_MAX_ML = 180
 
+export function getBottleDisplayNumber(slot: {
+  slot_index: number
+  bottle_number?: number | null
+}): number {
+  return slot.bottle_number ?? slot.slot_index + 1
+}
+
 /** @deprecated use getMilkReminderSettings().warnBeforeMinutes */
 export const MILK_EXPIRY_WARN_HOURS = 6
 

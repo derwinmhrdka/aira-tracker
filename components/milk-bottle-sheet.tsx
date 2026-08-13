@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { MilkStorageSlot } from '@/lib/api-client'
 import {
   DEFAULT_MILK_WARN_MINUTES,
-  formatMilkExpiryRemaining,
+  getBottleDisplayNumber,
   getMilkReminderSettings,
   getSlotMilkExpiryStatus,
   MILK_AMOUNT_MAX_ML,
@@ -15,6 +15,7 @@ import {
 import { requestNotificationPermission } from '@/lib/reminder'
 import { BottleVisual, FrostVapor } from './milk-bottle-visual'
 import { MilkWarnPicker } from './milk-warn-picker'
+import { Chip, ScrollChipRow, splitTotalMinutes, StepperField } from './duration-picker'
 
 interface MilkBottleSheetProps {
   open: boolean
@@ -30,6 +31,7 @@ interface MilkBottleSheetProps {
 }
 
 const AMOUNT_STEP = 5
+const MAX_EXPIRY_HOURS = 168 // 7 hari
 
 function toLocalInputValue(iso: string | null): string {
   const d = iso ? new Date(iso) : new Date()
@@ -42,68 +44,27 @@ function toLocalInputValue(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function addHoursToLocalInput(baseLocal: string, hours: number): string {
-  const d = new Date(baseLocal)
-  if (Number.isNaN(d.getTime())) {
+function durationMinutesFromExpiry(filledLocal: string, expiresLocal: string): number {
+  const filled = new Date(filledLocal)
+  const exp = new Date(expiresLocal)
+  if (Number.isNaN(filled.getTime()) || Number.isNaN(exp.getTime())) return 24 * 60
+  return Math.max(0, Math.round((exp.getTime() - filled.getTime()) / 60_000))
+}
+
+function expiresFromDuration(filledLocal: string, totalMinutes: number): string {
+  const filled = new Date(filledLocal)
+  if (Number.isNaN(filled.getTime())) {
     const n = new Date()
-    n.setHours(n.getHours() + hours)
+    n.setMinutes(n.getMinutes() + totalMinutes)
     return toLocalInputValue(n.toISOString())
   }
-  d.setHours(d.getHours() + hours)
-  return toLocalInputValue(d.toISOString())
+  const next = new Date(filled)
+  next.setMinutes(next.getMinutes() + totalMinutes)
+  return toLocalInputValue(next.toISOString())
 }
 
-function splitLocalDateTime(local: string): { date: string; time: string } {
-  const [date = '', time = '00:00'] = local.split('T')
-  return { date, time: time.slice(0, 5) }
-}
-
-function combineLocalDateTime(date: string, time: string): string {
-  return `${date}T${time}`
-}
-
-function formatShort(local: string): string {
-  const d = new Date(local)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('id-ID', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function ScrollChipRow({ children }: { children: ReactNode }) {
-  return (
-    <div className="-mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {children}
-    </div>
-  )
-}
-
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active?: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
-        active
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-background text-foreground ring-1 ring-border'
-      }`}
-    >
-      {children}
-    </button>
-  )
+function clampExpiryMinutes(total: number): number {
+  return Math.min(MAX_EXPIRY_HOURS * 60, Math.max(0, Math.round(total)))
 }
 
 function clampAmount(ml: number): number {
@@ -121,13 +82,24 @@ export function MilkBottleSheet({
   const [amount, setAmount] = useState(30)
   const [filledAt, setFilledAt] = useState(toLocalInputValue(null))
   const [expiresAt, setExpiresAt] = useState(toLocalInputValue(null))
+  const [expiryMinutes, setExpiryMinutes] = useState(24 * 60)
   const [saving, setSaving] = useState(false)
-  const [countdown, setCountdown] = useState('')
   const [warnMinutes, setWarnMinutes] = useState(DEFAULT_MILK_WARN_MINUTES)
-  const [manualExpiry, setManualExpiry] = useState(false)
 
   const globalReminder = getMilkReminderSettings()
   const isFilled = !!slot?.is_filled
+
+  const { hours: expiryHours, minutes: expiryMins } = splitTotalMinutes(expiryMinutes)
+
+  const setExpiryDuration = (total: number) => {
+    const clamped = clampExpiryMinutes(total)
+    setExpiryMinutes(clamped)
+    setExpiresAt(expiresFromDuration(filledAt, clamped))
+  }
+
+  const applyExpiryParts = (h: number, m: number) => {
+    setExpiryDuration(h * 60 + m)
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -135,42 +107,23 @@ export function MilkBottleSheet({
 
   useEffect(() => {
     if (!open || !slot) return
-    setAmount(
-      clampAmount(
-        slot.is_filled && slot.amount_ml != null ? slot.amount_ml : 30
-      )
+    const next = clampAmount(
+      slot.is_filled && slot.amount_ml != null ? slot.amount_ml : 30
     )
+    setAmount(next)
     const filledLocal = toLocalInputValue(slot.filled_at)
     setFilledAt(filledLocal)
-    setExpiresAt(
-      slot.expires_at
-        ? toLocalInputValue(slot.expires_at)
-        : addHoursToLocalInput(filledLocal, 24)
-    )
+    const expLocal = slot.expires_at
+      ? toLocalInputValue(slot.expires_at)
+      : expiresFromDuration(filledLocal, 24 * 60)
+    setExpiresAt(expLocal)
+    setExpiryMinutes(durationMinutesFromExpiry(filledLocal, expLocal))
     setWarnMinutes(slot.warn_before_minutes ?? DEFAULT_MILK_WARN_MINUTES)
-    setManualExpiry(false)
   }, [open, slot])
 
-  useEffect(() => {
-    if (!open || !expiresAt) {
-      setCountdown('')
-      return
-    }
-    const tick = () => {
-      const exp = new Date(expiresAt)
-      setCountdown(
-        Number.isNaN(exp.getTime())
-          ? ''
-          : formatMilkExpiryRemaining(exp.toISOString())
-      )
-    }
-    tick()
-    const id = window.setInterval(tick, 30_000)
-    return () => window.clearInterval(id)
-  }, [open, expiresAt])
-
   const handleSave = async () => {
-    if (!Number.isFinite(amount) || amount <= 0) return
+    const finalAmount = clampAmount(amount)
+    if (finalAmount <= 0) return
     setSaving(true)
     try {
       if (expiresAt && globalReminder.enabled) {
@@ -186,7 +139,7 @@ export function MilkBottleSheet({
         expiresIso = Number.isNaN(exp.getTime()) ? null : exp.toISOString()
       }
       await onSave({
-        amount_ml: amount,
+        amount_ml: finalAmount,
         filled_at: filledIso,
         expires_at: expiresIso,
         warn_before_minutes: warnMinutes,
@@ -211,22 +164,6 @@ export function MilkBottleSheet({
     expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
     warn_before_minutes: warnMinutes,
   })
-
-  const expirySubtitle =
-    expiresAt && countdown
-      ? countdown
-      : expiresAt
-        ? formatMilkExpiryRemaining(new Date(expiresAt).toISOString())
-        : ''
-
-  const expiryStatusClass =
-    expiryStatus === 'expired'
-      ? 'text-red-600 dark:text-red-400'
-      : expiryStatus === 'soon'
-        ? 'text-amber-700 dark:text-amber-300'
-        : 'text-muted-foreground'
-
-  const { date: expDate, time: expTime } = splitLocalDateTime(expiresAt)
 
   if (!mounted) return null
 
@@ -253,153 +190,75 @@ export function MilkBottleSheet({
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
 
-            <div className="flex gap-3">
-              <div className="min-w-0 flex-1 space-y-4">
-                <h2 className="font-heading text-lg font-bold text-foreground">
-                  Botol {slot.slot_index + 1}
-                </h2>
+            <div className="space-y-4">
+              <h2 className="font-heading text-lg font-bold text-foreground">
+                Botol {getBottleDisplayNumber(slot)}
+              </h2>
 
-                <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Jumlah
-                  </p>
-                  <div className="flex items-center rounded-xl bg-secondary/50 ring-1 ring-border">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setAmount((v) => clampAmount(v - AMOUNT_STEP))
-                      }
-                      className="flex h-11 w-11 items-center justify-center text-lg text-muted-foreground"
-                    >
-                      −
-                    </button>
-                    <span className="flex-1 text-center text-base font-bold tabular-nums text-foreground">
-                      {amount} ml
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setAmount((v) => clampAmount(v + AMOUNT_STEP))
-                      }
-                      className="flex h-11 w-11 items-center justify-center text-lg text-muted-foreground"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Jumlah
+                </p>
+                <StepperField
+                  hideLabel
+                  label="ml"
+                  suffix="ml"
+                  value={amount}
+                  min={1}
+                  max={MILK_AMOUNT_MAX_ML}
+                  step={AMOUNT_STEP}
+                  onChange={(n) => setAmount(clampAmount(n))}
+                  outerClassName="w-full"
+                  inputClassName="w-full min-w-[2.5rem] max-w-[4rem] bg-transparent text-center text-base font-bold tabular-nums text-foreground outline-none"
+                />
+              </div>
 
-                <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Expired
-                  </p>
-                  <div
-                    className={`rounded-2xl bg-secondary/50 p-3 ring-1 ${
-                      expiryStatus === 'expired'
-                        ? 'ring-red-400/50'
-                        : expiryStatus === 'soon'
-                          ? 'ring-amber-400/50'
-                          : 'ring-border/50'
-                    }`}
-                  >
-                    <p className="text-sm font-semibold capitalize text-foreground">
-                      {formatShort(expiresAt)}
-                    </p>
-                    {expirySubtitle && (
-                      <p className={`mt-0.5 text-xs font-semibold ${expiryStatusClass}`}>
-                        {expirySubtitle}
-                      </p>
-                    )}
-                    <ScrollChipRow>
-                      {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
-                        <Chip
-                          key={p.hours}
-                          onClick={() => {
-                            setExpiresAt(addHoursToLocalInput(filledAt, p.hours))
-                            setManualExpiry(false)
-                          }}
-                        >
-                          +{p.label}
-                        </Chip>
-                      ))}
-                    </ScrollChipRow>
-                    {!manualExpiry ? (
-                      <button
-                        type="button"
-                        onClick={() => setManualExpiry(true)}
-                        className="mt-2 text-[11px] font-medium text-primary"
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Expired
+                </p>
+                <div className="space-y-2 rounded-2xl bg-secondary/50 p-3">
+                  <ScrollChipRow>
+                    {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
+                      <Chip
+                        key={p.hours}
+                        active={expiryMinutes === p.hours * 60}
+                        onClick={() => setExpiryDuration(p.hours * 60)}
                       >
-                        Atur tanggal & jam
-                      </button>
-                    ) : (
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        <input
-                          type="date"
-                          value={expDate}
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              setExpiresAt(combineLocalDateTime(e.target.value, expTime))
-                            }
-                          }}
-                          className="rounded-xl bg-background px-2 py-2 text-xs ring-1 ring-border"
-                        />
-                        <input
-                          type="time"
-                          value={expTime}
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              setExpiresAt(combineLocalDateTime(expDate, e.target.value))
-                            }
-                          }}
-                          className="rounded-xl bg-background px-2 py-2 text-xs ring-1 ring-border"
-                        />
-                      </div>
-                    )}
+                        +{p.label}
+                      </Chip>
+                    ))}
+                  </ScrollChipRow>
+                  <div className="flex gap-2">
+                    <StepperField
+                      label="jam"
+                      value={expiryHours}
+                      min={0}
+                      max={MAX_EXPIRY_HOURS}
+                      onChange={(h) => applyExpiryParts(h, expiryMins)}
+                    />
+                    <StepperField
+                      label="menit"
+                      value={expiryMins}
+                      min={0}
+                      max={59}
+                      step={5}
+                      onChange={(m) => applyExpiryParts(expiryHours, m)}
+                    />
                   </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Reminder
-                  </p>
-                  <MilkWarnPicker
-                    totalMinutes={warnMinutes}
-                    onChange={setWarnMinutes}
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-1">
-                  {isFilled && (
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={handleClear}
-                      className="flex-1 rounded-xl bg-secondary py-3 text-sm font-semibold text-foreground disabled:opacity-50"
-                    >
-                      Habis
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={onClose}
-                    className="flex-1 rounded-xl bg-secondary py-3 text-sm font-semibold text-foreground disabled:opacity-50"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving || amount <= 0}
-                    onClick={handleSave}
-                    className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                  >
-                    {saving ? '...' : 'Simpan'}
-                  </button>
                 </div>
               </div>
 
-              <div className="relative flex w-[34%] max-w-[6rem] shrink-0 flex-col items-center justify-center self-stretch overflow-hidden rounded-2xl border border-sky-200/60 bg-gradient-to-b from-sky-50/90 to-sky-100/40 dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-900/20">
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  Reminder
+                </p>
+                <MilkWarnPicker totalMinutes={warnMinutes} onChange={setWarnMinutes} />
+              </div>
+
+              <div className="relative overflow-hidden rounded-2xl border border-sky-200/60 bg-gradient-to-b from-sky-50/90 to-sky-100/40 py-4 dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-900/20">
                 <FrostVapor />
-                <div className="relative z-[1] flex flex-col items-center gap-1 py-3">
+                <div className="relative z-[1] flex flex-col items-center gap-1">
                   <BottleVisual
                     filled={amount > 0}
                     amountMl={amount > 0 ? amount : null}
@@ -411,6 +270,35 @@ export function MilkBottleSheet({
                     {amount} ml
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-2 rounded-2xl bg-secondary/50 p-3 ring-1 ring-border">
+                {isFilled && (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={handleClear}
+                    className="w-full rounded-xl bg-background py-3 text-sm font-semibold text-foreground ring-1 ring-border disabled:opacity-50"
+                  >
+                    Habis
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={onClose}
+                  className="w-full rounded-xl bg-background py-3 text-sm font-semibold text-foreground ring-1 ring-border disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={saving || amount <= 0}
+                  onClick={handleSave}
+                  className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {saving ? '...' : 'Simpan'}
+                </button>
               </div>
             </div>
           </motion.div>
