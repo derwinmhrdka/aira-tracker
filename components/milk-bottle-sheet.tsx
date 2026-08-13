@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { MilkStorageSlot } from '@/lib/api-client'
@@ -87,6 +87,7 @@ export function MilkBottleSheet({
   const [expiryMinutes, setExpiryMinutes] = useState(24 * 60)
   const [saving, setSaving] = useState(false)
   const [warnMinutes, setWarnMinutes] = useState(DEFAULT_MILK_WARN_MINUTES)
+  const suppressBackdropCloseRef = useRef(false)
 
   const globalReminder = getMilkReminderSettings()
   const isFilled = !!slot?.is_filled
@@ -106,6 +107,15 @@ export function MilkBottleSheet({
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!open) return
+    suppressBackdropCloseRef.current = true
+    const timer = window.setTimeout(() => {
+      suppressBackdropCloseRef.current = false
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [open])
 
   useEffect(() => {
     if (!open || !slot) return
@@ -178,7 +188,10 @@ export function MilkBottleSheet({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[70] bg-black/45"
-            onClick={onClose}
+            onClick={() => {
+              if (suppressBackdropCloseRef.current) return
+              onClose()
+            }}
           />
           <motion.div
             initial={{ y: '100%' }}

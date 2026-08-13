@@ -25,8 +25,8 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'BCG',
     title: 'BCG — catch-up',
     rules: [
-      'Optimal usia 0–4 minggu (idealnya sebelum 2 bulan).',
-      'Jika diberikan usia ≥3 bulan, wajib didahului uji tuberkulin (hasil negatif).',
+      'Optimal 0–4 minggu.',
+      '≥3 bulan: uji tuberkulin dulu (negatif).',
     ],
   },
   {
@@ -35,10 +35,9 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'Rotavirus',
     title: 'Rotavirus — batas usia ketat',
     rules: [
-      'Dosis pertama tidak boleh diberikan usia ≥15 minggu.',
-      'Jika bayi sudah lewat 14 minggu dan belum mulai, seri rotavirus tidak bisa dimulai/dikejar menurut jadwal IDAI.',
-      'Monovalen: 2 dosis total, selesai sebelum 24 minggu.',
-      'Pentavalen: 3 dosis total, selesai sebelum 32 minggu.',
+      'Dosis 1 max usia 14 minggu.',
+      'Monovalen: 2 dosis, selesai <24 minggu.',
+      'Pentavalen: 3 dosis, selesai <32 minggu.',
     ],
   },
   {
@@ -47,10 +46,9 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'PCV',
     title: 'PCV — catch-up jika jadwal awal terlewat',
     rules: [
-      'Belum vaksin sampai usia 7–12 bulan: 2 dosis PCV (interval 1 bulan), lalu booster setelah usia 12 bulan (interval 2 bulan dari dosis terakhir).',
-      'Belum vaksin usia 1–2 tahun: 2 dosis PCV, interval minimal 2 bulan (tanpa booster tambahan).',
-      'Belum vaksin usia 2–5 tahun: PCV10 → 2 dosis interval 2 bulan; PCV13/PCV15 → cukup 1 dosis.',
-      'Usia >5 tahun dengan risiko tinggi yang belum pernah vaksin PCV: 1 dosis PCV13/PCV15.',
+      '7–12 bln: 2 dosis + booster usia 12 bln.',
+      '1–2 thn: 2 dosis, jarak 2 bln.',
+      '2–5 thn: PCV10 2 dosis; PCV13/15 1 dosis.',
     ],
   },
   {
@@ -59,9 +57,9 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'DPT-HB-Hib',
     title: 'DPT-HB-Hib — skema & catch-up',
     rules: [
-      'Skema DTPw (program): dosis di usia 2, 3, 4 bulan + booster 18 bulan & 5–7 tahun.',
-      'Skema DTPa/hexavalen (swasta): dosis di usia 2, 4, 6 bulan + booster 18 bulan & 5–7 tahun.',
-      'Catch-up: konsultasikan dokter untuk interval minimal antar dosis jika terlewat.',
+      'DTPw: 2–3–4 bln + booster 18 bln & 5–7 thn.',
+      'DTPa/hexa: 2–4–6 bln + booster 18 bln & 5–7 thn.',
+      'Terlewat: konsultasi dokter untuk interval.',
     ],
   },
   {
@@ -70,9 +68,9 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'Polio',
     title: 'Polio — catch-up',
     rules: [
-      'Minimal 1 dosis IPV harus diberikan bersamaan dengan Polio-3 (usia 4 bulan).',
-      'IPV dosis ke-2 di usia 9 bulan (IDAI 2024).',
-      'Booster OPV/IPV usia 18 bulan dan 5–7 tahun.',
+      'IPV min 1 dosis bersama Polio-3 (4 bln).',
+      'IPV ke-2 di usia 9 bln.',
+      'Booster 18 bln & 5–7 thn.',
     ],
   },
   {
@@ -81,9 +79,9 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'Campak/MMR',
     title: 'Campak/MR/MMR — catch-up',
     rules: [
-      'Jika belum dapat Campak/MR di usia 9 bulan, bisa langsung MMR/MR di usia 12 bulan.',
-      'Booster MMR/MR usia 15 bulan: interval minimal 6 bulan dari dosis sebelumnya.',
-      'Booster MR usia 5–7 tahun (program BIAS di SD).',
+      'Terlewat MR 9 bln → MMR/MR di 12 bln.',
+      'Booster 15 bln: jarak min 6 bln dari dosis sebelumnya.',
+      'Booster MR 5–7 thn (BIAS).',
     ],
   },
   {
@@ -92,9 +90,8 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'Hepatitis A & Varisela',
     title: 'Hep A & Varisela — booster/seri',
     rules: [
-      'Hepatitis A: 2 dosis total, interval 6–12 bulan.',
-      'Varisela: 2 dosis setelah usia 12 bulan (interval 6 minggu–3 bulan).',
-      'Varisela usia ≥13 tahun: interval minimal 4–6 minggu.',
+      'Hep A: 2 dosis, jarak 6–12 bln.',
+      'Varisela: 2 dosis setelah 12 bln.',
     ],
   },
   {
@@ -103,9 +100,9 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'Influenza & JE',
     title: 'Influenza & Japanese Encephalitis',
     rules: [
-      'Influenza (<9 tahun): 2 dosis pertama interval 4 minggu, lalu 1× setahun.',
-      'Japanese Encephalitis: booster 1–2 tahun kemudian (daerah endemis / sebelum bepergian).',
-      'Tifoid: diulang setiap 3 tahun.',
+      'Influenza <9 thn: 2 dosis awal, lalu tahunan.',
+      'JE: booster 1–2 thn (endemis).',
+      'Tifoid: ulang 3 thn sekali.',
     ],
   },
 ]
@@ -155,15 +152,8 @@ export function getTimelineMilestoneLabel(weeks: number): string {
   return `${weeks} minggu`
 }
 
-export function formatTimelineSublabel(weeks: number): string {
-  if (weeks === 0) return 'Segera setelah lahir'
-  if (weeks in MILESTONE_LABEL) {
-    const label = MILESTONE_LABEL[weeks]
-    if (weeks >= 52) return `Program usia ${label}`
-    return `Target usia ${label}`
-  }
-  if (weeks >= 52) return `Usia ${weeks} minggu`
-  return `Usia ${weeks} minggu`
+export function formatTimelineSublabel(_weeks: number): string {
+  return ''
 }
 
 export function getDoseKind(doseLabel?: string | null): DoseKind {
@@ -176,7 +166,7 @@ export function getDoseKind(doseLabel?: string | null): DoseKind {
 export const DOSE_KIND_LABEL: Record<DoseKind, string> = {
   routine: 'Rutin',
   booster: 'Booster',
-  catchup: 'Catch-up',
+  catchup: 'Kejar',
 }
 
 export const DOSE_KIND_STYLE: Record<DoseKind, string> = {
@@ -191,22 +181,70 @@ export function formatVaccineRange(
   scheduledWeeks?: number | null
 ): string | null {
   if (minWeeks != null && maxWeeks != null) {
-    return `Range: ${minWeeks}–${maxWeeks} minggu`
+    return `${minWeeks}–${maxWeeks} mg`
   }
   if (maxWeeks != null && scheduledWeeks != null && maxWeeks !== scheduledWeeks) {
-    return `Range: hingga ${maxWeeks} minggu`
+    return `≤${maxWeeks} mg`
   }
   if (minWeeks != null && scheduledWeeks != null && minWeeks !== scheduledWeeks) {
-    return `Range: mulai ${minWeeks} minggu`
+    return `≥${minWeeks} mg`
   }
   if (scheduledWeeks != null && scheduledWeeks > 0) {
-    return `Range: ${scheduledWeeks} minggu`
+    return `${scheduledWeeks} mg`
   }
   return null
 }
 
 /** @deprecated use formatVaccineRange */
 export const formatVaccineWindow = formatVaccineRange
+
+export function getCatchUpRulesForVaccine(vaccineName: string): IdaiCatchUpRule[] {
+  const n = vaccineName.toLowerCase()
+
+  const matchesRule = (rule: IdaiCatchUpRule): boolean => {
+    const rv = rule.vaccine.toLowerCase()
+    const keywords = rv
+      .split(/[&/,]| dan /i)
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 3)
+
+    for (const kw of keywords) {
+      const kwNorm = kw.replace(/\([^)]*\)/g, '').trim()
+      const nameBase = n.split('(')[0].trim()
+      if (n.includes(kwNorm) || kwNorm.includes(nameBase)) return true
+    }
+
+    if (/bcg/.test(n) && /bcg/.test(rv)) return true
+    if (/rotavirus|\brv\b/.test(n) && /rotavirus/.test(rv)) return true
+    if (/pcv|pneumococ/.test(n) && /pcv/.test(rv)) return true
+    if (/dpt|dtp|pentavalen|hexavalen/.test(n) && /dpt/.test(rv)) return true
+    if (/^hib\b|\bhib\b/.test(n) && /dpt|hib/.test(rv)) return true
+    if (/polio|ipv|opv/.test(n) && /polio/.test(rv)) return true
+    if (/campak|mmr|\bmr\b/.test(n) && /campak|mmr|mr/.test(rv)) return true
+    if (/hepatitis\s*a/.test(n) && /hepatitis/.test(rv)) return true
+    if (/varisela|varicella/.test(n) && /varisela/.test(rv)) return true
+    if (/influenza|\bflu\b/.test(n) && /influenza/.test(rv)) return true
+    if (/japanese|encephalitis|\bje\b/.test(n) && /\bje\b|japanese/.test(rv)) return true
+
+    return false
+  }
+
+  return IDAI_CATCHUP_RULES.filter(matchesRule).sort((a, b) => a.order - b.order)
+}
+
+export function getCatchUpRuleLines(vaccineName: string): string[] {
+  const seen = new Set<string>()
+  const lines: string[] = []
+  for (const rule of getCatchUpRulesForVaccine(vaccineName)) {
+    for (const line of rule.rules) {
+      if (!seen.has(line)) {
+        seen.add(line)
+        lines.push(line)
+      }
+    }
+  }
+  return lines
+}
 
 export function groupImmunizationsTimeline(
   items: Immunization[]

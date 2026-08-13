@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { PageHeader } from './page-header'
 import { api, type Immunization } from '@/lib/api-client'
+import { ageInWeeks } from '@/lib/baby-utils'
 import {
   STATUS_LABEL,
   STATUS_STYLE,
@@ -12,11 +13,12 @@ import {
 import {
   DOSE_KIND_LABEL,
   DOSE_KIND_STYLE,
-  IDAI_CATCHUP_RULES,
   formatVaccineRange,
+  getCatchUpRuleLines,
   getDoseKind,
   groupImmunizationsTimeline,
 } from '@/lib/immunization-idai'
+import { ImmunizationScheduleChart } from './immunization-schedule-chart'
 
 interface ImmunizationsPageProps {
   onBack: () => void
@@ -49,6 +51,7 @@ function VaccineCard({
 }) {
   const status = (item.status ?? (item.is_done ? 'done' : 'upcoming')) as VaccineStatus
   const doseKind = getDoseKind(item.dose_label)
+  const catchUpLines = getCatchUpRuleLines(item.vaccine_name)
   const windowLabel = formatVaccineRange(
     item.min_weeks,
     item.max_weeks,
@@ -118,14 +121,13 @@ function VaccineCard({
           </div>
 
           {windowLabel && (
-            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+            <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
               {windowLabel}
             </p>
           )}
 
           {item.date_given && (
             <p className="mt-1 text-xs text-muted-foreground">
-              Diberikan:{' '}
               {new Date(item.date_given).toLocaleDateString('id-ID', {
                 day: 'numeric',
                 month: 'short',
@@ -134,16 +136,24 @@ function VaccineCard({
             </p>
           )}
 
-          {!item.is_done && item.schedule_notes && (
-            <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground/90">
-              {item.schedule_notes}
+          {item.notes && (
+            <p className="mt-1 text-[11px] italic text-muted-foreground">
+              {item.notes}
             </p>
           )}
 
-          {item.notes && (
-            <p className="mt-1 text-[11px] italic text-muted-foreground">
-              Catatan: {item.notes}
-            </p>
+          {catchUpLines.length > 0 &&
+            (status === 'overdue' || doseKind !== 'routine') && (
+            <ul className="mt-1.5 space-y-0.5">
+              {catchUpLines.slice(0, 2).map((line) => (
+                <li
+                  key={line}
+                  className="text-[10px] leading-snug text-muted-foreground"
+                >
+                  · {line}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 
@@ -213,11 +223,12 @@ function VaccineCard({
 export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
   const [items, setItems] = useState<Immunization[]>([])
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<'chart' | 'list'>('chart')
+  const [babyAgeWeeks, setBabyAgeWeeks] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [dateGiven, setDateGiven] = useState('')
   const [notes, setNotes] = useState('')
   const [showAdd, setShowAdd] = useState(false)
-  const [showCatchUp, setShowCatchUp] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAge, setNewAge] = useState('0')
   const [newNotes, setNewNotes] = useState('')
@@ -225,6 +236,11 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
 
   useEffect(() => {
     api.getImmunizations().then(setItems).finally(() => setLoading(false))
+    api.getBabyProfile().then((baby) => {
+      if (baby?.birth_date) {
+        setBabyAgeWeeks(ageInWeeks(baby.birth_date))
+      }
+    }).catch(() => {})
   }, [])
 
   const timeline = useMemo(() => groupImmunizationsTimeline(items), [items])
@@ -295,11 +311,32 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
 
   return (
     <div className="px-4 pt-6 pb-8">
-      <PageHeader
-        title="Imunisasi"
-        subtitle="Timeline jadwal IDAI · Program & anjuran"
-        onBack={onBack}
-      />
+      <PageHeader title="Imunisasi" onBack={onBack} />
+
+      <div className="mb-4 flex gap-1 rounded-xl bg-secondary/60 p-1">
+        <button
+          type="button"
+          onClick={() => setView('chart')}
+          className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
+            view === 'chart'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground'
+          }`}
+        >
+          Jadwal
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('list')}
+          className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
+            view === 'list'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground'
+          }`}
+        >
+          Daftar
+        </button>
+      </div>
 
       <div className="mb-4 flex gap-2 text-[11px]">
         <span className="rounded-full bg-secondary px-2.5 py-1 font-semibold text-foreground">
@@ -311,12 +348,6 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
           </span>
         )}
       </div>
-
-      {overdueCount > 0 && (
-        <div className="mb-4 rounded-xl border border-red-300/50 bg-red-50/50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/20 dark:text-red-300">
-          ⚠️ Ada vaksin terlambat — konsultasikan catch-up ke dokter/anak.
-        </div>
-      )}
 
       <button
         type="button"
@@ -366,6 +397,17 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
             <div key={i} className="h-20 animate-pulse rounded-xl bg-secondary" />
           ))}
         </div>
+      ) : view === 'chart' ? (
+        <ImmunizationScheduleChart
+          items={items}
+          babyAgeWeeks={babyAgeWeeks}
+          onSelectItem={(item) => {
+            if (!item.is_done) {
+              setView('list')
+              startEdit(item)
+            }
+          }}
+        />
       ) : (
         <div className="relative ml-1 pl-5">
           <div
@@ -403,7 +445,6 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
                   <h2 className="font-heading text-sm font-bold text-foreground">
                     {group.label}
                   </h2>
-                  <p className="text-[10px] text-muted-foreground">{group.sublabel}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -433,71 +474,6 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
           })}
         </div>
       )}
-
-      <div className="mt-4 rounded-2xl border border-border bg-card shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowCatchUp((v) => !v)}
-          className="flex w-full items-center justify-between px-4 py-3 text-left"
-        >
-          <div>
-            <p className="font-heading text-sm font-semibold text-foreground">
-              📋 Catch-up & Booster IDAI
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              Referensi jika jadwal terlewat
-            </p>
-          </div>
-          <span className="text-muted-foreground">{showCatchUp ? '▲' : '▼'}</span>
-        </button>
-
-        <AnimatePresence initial={false}>
-          {showCatchUp && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-t border-border/50"
-            >
-              <div className="relative ml-1 px-4 py-3 pl-5">
-                <div
-                  aria-hidden
-                  className="absolute bottom-2 left-[13px] top-2 w-0.5 bg-orange-200 dark:bg-orange-900/50"
-                />
-                {[...IDAI_CATCHUP_RULES]
-                  .sort((a, b) => a.order - b.order)
-                  .map((rule) => (
-                    <div key={rule.title} className="relative pb-5 last:pb-1">
-                      <div className="absolute -left-5 top-1 flex h-[16px] w-[16px] items-center justify-center rounded-full border-2 border-orange-400 bg-card">
-                        <div className="h-1.5 w-1.5 rounded-full bg-orange-400" />
-                      </div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
-                        {rule.ageLabel}
-                      </p>
-                      <p className="mt-0.5 text-xs font-semibold text-foreground">
-                        {rule.title}
-                      </p>
-                      <ul className="mt-1.5 space-y-1">
-                        {rule.rules.map((line) => (
-                          <li
-                            key={line}
-                            className="text-[11px] leading-snug text-muted-foreground"
-                          >
-                            · {line}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-                  Sumber: Pedoman Imunisasi IDAI. Konfirmasi catch-up dengan dokter
-                  anak.
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
     </div>
   )
 }

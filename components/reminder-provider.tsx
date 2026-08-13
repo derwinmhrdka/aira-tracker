@@ -33,6 +33,13 @@ export function ReminderProvider() {
 
   useEffect(() => {
     const check = async () => {
+      if (
+        typeof window !== 'undefined' &&
+        window.location.pathname.startsWith('/login')
+      ) {
+        return
+      }
+
       const settings = getReminderSettings()
       if (!isAnyReminderEnabled(settings)) return
 

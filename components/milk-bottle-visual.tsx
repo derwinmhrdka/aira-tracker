@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
+import { Snowflake } from 'lucide-react'
 import { MILK_BOTTLE_MAX_ML, type MilkExpiryStatus } from '@/lib/milk-storage'
 
 const SCALE_MARKS = [60, 120, 180] as const
@@ -80,75 +81,159 @@ function MilkPourBubbles({
   )
 }
 
+type SnowflakeSpec = {
+  left: string
+  size: number
+  delay: number
+  duration: number
+  drift: number
+  startTop: number
+}
+
+const AMBIENT_SNOWFLAKES: SnowflakeSpec[] = [
+  { left: '6%', size: 9, delay: 0, duration: 16, drift: 10, startTop: -4 },
+  { left: '18%', size: 7, delay: 2.4, duration: 19, drift: -8, startTop: -8 },
+  { left: '31%', size: 10, delay: 0.8, duration: 17, drift: 12, startTop: -6 },
+  { left: '44%', size: 6, delay: 4.1, duration: 21, drift: -6, startTop: -10 },
+  { left: '57%', size: 8, delay: 1.5, duration: 18, drift: 9, startTop: -5 },
+  { left: '69%', size: 11, delay: 3.2, duration: 20, drift: -11, startTop: -7 },
+  { left: '81%', size: 7, delay: 5.0, duration: 22, drift: 7, startTop: -9 },
+  { left: '92%', size: 8, delay: 1.1, duration: 19, drift: -9, startTop: -4 },
+  { left: '25%', size: 6, delay: 6.2, duration: 23, drift: 5, startTop: -12 },
+  { left: '50%', size: 9, delay: 2.9, duration: 17, drift: -7, startTop: -6 },
+  { left: '74%', size: 7, delay: 4.8, duration: 20, drift: 8, startTop: -8 },
+  { left: '38%', size: 8, delay: 7.1, duration: 18, drift: -10, startTop: -5 },
+]
+
+const BOTTLE_SNOWFLAKES: SnowflakeSpec[] = [
+  { left: '10%', size: 7, delay: 0, duration: 7.5, drift: 4, startTop: 2 },
+  { left: '72%', size: 6, delay: 1.2, duration: 8.2, drift: -5, startTop: 0 },
+  { left: '38%', size: 8, delay: 0.5, duration: 7.8, drift: 3, startTop: -4 },
+  { left: '58%', size: 6, delay: 2.0, duration: 8.6, drift: -3, startTop: 4 },
+  { left: '24%', size: 5, delay: 1.7, duration: 9.1, drift: 5, startTop: -2 },
+]
+
+function SoftSnowflakes({
+  variant = 'ambient',
+  scale = 1,
+}: {
+  variant?: 'ambient' | 'bottle'
+  scale?: number
+}) {
+  const flakes = variant === 'bottle' ? BOTTLE_SNOWFLAKES : AMBIENT_SNOWFLAKES
+  const maxOpacity = variant === 'bottle' ? 0.62 : 0.48
+
+  return (
+    <>
+      {flakes.map((f, i) => (
+        <motion.div
+          key={`${variant}-${i}`}
+          className="pointer-events-none absolute text-sky-300/70 dark:text-sky-200/45"
+          style={{ left: f.left, top: `${f.startTop}%` }}
+          initial={{ opacity: 0, y: 0, x: 0, rotate: 0 }}
+          animate={{
+            opacity: [0, maxOpacity, maxOpacity * 0.7, 0],
+            y:
+              variant === 'bottle'
+                ? [0, -10 * scale, -22 * scale, -34 * scale]
+                : [0, 48, 96, 140],
+            x: [0, f.drift, f.drift * 0.6, f.drift * 1.1],
+            rotate: [0, 45, 90, 140],
+          }}
+          transition={{
+            duration: f.duration,
+            repeat: Infinity,
+            ease: 'linear',
+            delay: f.delay,
+          }}
+        >
+          <Snowflake
+            strokeWidth={1.35}
+            style={{ width: f.size * scale, height: f.size * scale }}
+            aria-hidden
+          />
+        </motion.div>
+      ))}
+    </>
+  )
+}
+
 export function FrostVapor() {
   const puffs = [
-    { left: '6%', delay: 0, w: 32, drift: -4 },
-    { left: '28%', delay: 1.4, w: 24, drift: 5 },
-    { left: '52%', delay: 0.7, w: 28, drift: -3 },
-    { left: '74%', delay: 2.1, w: 22, drift: 4 },
-    { left: '40%', delay: 2.8, w: 20, drift: -5 },
-    { left: '88%', delay: 1.1, w: 18, drift: 3 },
+    { left: '4%', delay: 0, w: 40, drift: -5, h: 0.55 },
+    { left: '22%', delay: 1.2, w: 32, drift: 6, h: 0.5 },
+    { left: '38%', delay: 0.5, w: 36, drift: -4, h: 0.58 },
+    { left: '55%', delay: 1.8, w: 30, drift: 5, h: 0.52 },
+    { left: '68%', delay: 0.9, w: 34, drift: -6, h: 0.54 },
+    { left: '82%', delay: 2.3, w: 28, drift: 4, h: 0.48 },
+    { left: '12%', delay: 2.6, w: 26, drift: 3, h: 0.46 },
+    { left: '48%', delay: 3.1, w: 24, drift: -3, h: 0.44 },
+    { left: '90%', delay: 1.5, w: 22, drift: -4, h: 0.42 },
   ]
 
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-sky-200/30 via-sky-100/12 to-transparent dark:from-sky-400/15 dark:via-sky-500/5" />
       {puffs.map((p, i) => (
         <motion.div
           key={i}
-          className="absolute bottom-1 rounded-full bg-white/35 blur-lg dark:bg-sky-200/10"
-          style={{ left: p.left, width: p.w, height: p.w * 0.5 }}
-          initial={{ opacity: 0, y: 6, scale: 0.8, x: 0 }}
+          className="pointer-events-none absolute bottom-0 rounded-full bg-gradient-to-t from-sky-100/80 via-white/70 to-white/30 blur-[10px] shadow-[0_0_18px_rgba(186,230,253,0.45)] dark:from-sky-200/35 dark:via-sky-100/20 dark:to-transparent dark:shadow-[0_0_14px_rgba(125,211,252,0.25)]"
+          style={{ left: p.left, width: p.w, height: p.w * p.h }}
+          initial={{ opacity: 0, y: 8, scale: 0.75, x: 0 }}
           animate={{
-            opacity: [0, 0.35, 0.22, 0],
-            y: [6, -14, -32, -48],
-            x: [0, p.drift, p.drift * 0.6, p.drift * 1.2],
-            scale: [0.8, 1, 1.12, 1.28],
+            opacity: [0, 0.72, 0.48, 0],
+            y: [8, -18, -40, -62],
+            x: [0, p.drift, p.drift * 0.7, p.drift * 1.3],
+            scale: [0.75, 1.05, 1.18, 1.35],
           }}
           transition={{
-            duration: 6.5,
+            duration: 5.8,
             repeat: Infinity,
             ease: 'easeOut',
             delay: p.delay,
           }}
         />
       ))}
+      <SoftSnowflakes variant="ambient" />
     </div>
   )
 }
 
 function BottleColdVapor({ size = 'sm' }: { size?: keyof typeof SIZE_CLASS }) {
-  const scale = size === 'lg' ? 1.35 : 1
+  const scale = size === 'lg' ? 1.45 : 1.15
   const puffs = [
-    { left: '8%', bottom: '28%', delay: 0, w: 11, drift: 2.5, dur: 5.2 },
-    { left: '62%', bottom: '32%', delay: 0.9, w: 10, drift: -3, dur: 5.8 },
-    { left: '22%', bottom: '48%', delay: 1.6, w: 12, drift: 2, dur: 6.1 },
-    { left: '72%', bottom: '52%', delay: 0.4, w: 9, drift: -2.5, dur: 5.5 },
-    { left: '38%', bottom: '68%', delay: 2.2, w: 10, drift: 1.5, dur: 6.4 },
-    { left: '52%', bottom: '78%', delay: 1.2, w: 8, drift: -1.5, dur: 5.9 },
+    { left: '18%', top: '8%', delay: 0, w: 14, drift: 3, dur: 4.8 },
+    { left: '52%', top: '4%', delay: 0.7, w: 13, drift: -3.5, dur: 5.2 },
+    { left: '32%', top: '0%', delay: 1.3, w: 16, drift: 2.5, dur: 5.5 },
+    { left: '68%', top: '6%', delay: 0.3, w: 12, drift: -2.5, dur: 4.9 },
+    { left: '8%', top: '14%', delay: 1.9, w: 11, drift: 4, dur: 5.8 },
+    { left: '78%', top: '12%', delay: 1.1, w: 10, drift: -3, dur: 5.4 },
+    { left: '42%', top: '-6%', delay: 2.4, w: 15, drift: 1.5, dur: 6.1 },
+    { left: '58%', top: '-4%', delay: 0.5, w: 13, drift: -2, dur: 5.6 },
   ]
 
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-visible"
-      style={{ zIndex: 0 }}
+      className="pointer-events-none absolute -inset-x-3 -top-4 bottom-[38%] overflow-visible [&_*]:pointer-events-none"
+      style={{ zIndex: 2 }}
     >
       {puffs.map((p, i) => (
         <motion.div
           key={i}
-          className="absolute rounded-full bg-white/55 blur-[2.5px] dark:bg-sky-100/25"
+          className="pointer-events-none absolute rounded-full bg-gradient-to-t from-sky-50/90 via-white/75 to-white/20 blur-[3px] shadow-[0_0_10px_rgba(186,230,253,0.55)] dark:from-sky-100/40 dark:via-sky-50/25 dark:to-transparent dark:shadow-[0_0_8px_rgba(125,211,252,0.35)]"
           style={{
             left: p.left,
-            bottom: p.bottom,
+            top: p.top,
             width: p.w * scale,
-            height: p.w * scale * 0.62,
+            height: p.w * scale * 0.72,
           }}
-          initial={{ opacity: 0, y: 0, x: 0, scale: 0.75 }}
+          initial={{ opacity: 0, y: 4, x: 0, scale: 0.7 }}
           animate={{
-            opacity: [0, 0.42, 0.28, 0],
-            y: [0, -6 * scale, -14 * scale, -24 * scale],
-            x: [0, p.drift, p.drift * 1.4, p.drift * 0.8],
-            scale: [0.75, 1, 1.08, 1.18],
+            opacity: [0, 0.78, 0.52, 0],
+            y: [4, -8 * scale, -18 * scale, -32 * scale],
+            x: [0, p.drift, p.drift * 1.5, p.drift * 0.9],
+            scale: [0.7, 1.05, 1.15, 1.28],
           }}
           transition={{
             duration: p.dur,
@@ -158,6 +243,7 @@ function BottleColdVapor({ size = 'sm' }: { size?: keyof typeof SIZE_CLASS }) {
           }}
         />
       ))}
+      <SoftSnowflakes variant="bottle" scale={scale} />
     </div>
   )
 }
@@ -210,7 +296,10 @@ export function BottleVisual({
       mass: 0.8,
     })
 
-    const unsub = fillTopMotion.on('change', (v) => setFillTop(v))
+    const unsub = fillTopMotion.on('change', (v) => {
+      if (Number.isFinite(v)) setFillTop(v)
+    })
+    setFillTop(fillTopMotion.get())
     return () => {
       controls.stop()
       unsub()
@@ -227,10 +316,12 @@ export function BottleVisual({
   const glassFillId = `glassGrad-${clipId}`
   const milkFillId = `milkGrad-${clipId}`
   const showMilk = filled && targetMl > 0
+  const safeFillTop = Number.isFinite(fillTop)
+    ? fillTop
+    : mlToFillSurfaceY(targetMl)
 
   return (
-    <div className={`relative mx-auto ${SIZE_CLASS[size]}`}>
-      {showMilk && <BottleColdVapor size={size} />}
+    <div className={`relative mx-auto overflow-visible ${SIZE_CLASS[size]}`}>
       <motion.div
         className="relative z-[1] h-full w-full"
         animate={showMilk ? { y: [0, -1.5, 0] } : { y: 0 }}
@@ -250,7 +341,7 @@ export function BottleVisual({
         >
         <defs>
           <clipPath id={`bottle-clip-${clipId}`}>
-            <rect x={8} y={fillTop} width={24} height={76 - fillTop} />
+            <rect x={8} y={safeFillTop} width={24} height={Math.max(0, 76 - safeFillTop)} />
           </clipPath>
           <linearGradient id={glassFillId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="rgba(186, 230, 253, 0.95)" />
@@ -280,20 +371,23 @@ export function BottleVisual({
         {showMilk && (
           <g clipPath={`url(#bottle-clip-${clipId})`}>
             <path d={BOTTLE_BODY} fill={`url(#${milkFillId})`} stroke="none" />
-            <motion.ellipse
+            <motion.g
               key={`wave-${sloshKey}`}
-              cx={20}
-              cy={fillTop}
-              rx={9}
-              ry={2}
-              fill="rgba(255,255,255,0.92)"
-              initial={{ ry: 1.2 }}
-              animate={{
-                cx: [20, 21.5, 18.5, 20.3, 20],
-                ry: [1.2, 3.4, 2.9, 2.2, 2],
-              }}
+              initial={{ x: 0 }}
+              animate={{ x: [0, 1.5, -1.5, 0.3, 0] }}
               transition={{ duration: 0.65, ease: 'easeOut' }}
-            />
+            >
+              <motion.ellipse
+                cx={20}
+                cy={safeFillTop}
+                rx={9}
+                ry={2}
+                fill="rgba(255,255,255,0.92)"
+                initial={{ ry: 1.2 }}
+                animate={{ ry: [1.2, 3.4, 2.9, 2.2, 2] }}
+                transition={{ duration: 0.65, ease: 'easeOut' }}
+              />
+            </motion.g>
             <MilkPourBubbles burstKey={bubbleBurstKey} bubbles={pourBubbles} />
           </g>
         )}
@@ -341,6 +435,7 @@ export function BottleVisual({
         })}
         </svg>
       </motion.div>
+      {showMilk && <BottleColdVapor size={size} />}
     </div>
   )
 }

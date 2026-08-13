@@ -28,7 +28,13 @@ function LoginForm() {
     try {
       await api.login(pin, loggedBy)
       setLoggedBy(loggedBy)
-      const from = searchParams.get('from') || '/'
+      const rawFrom = searchParams.get('from') || '/'
+      const from =
+        rawFrom.startsWith('/') &&
+        !rawFrom.startsWith('/login') &&
+        !rawFrom.startsWith('/api')
+          ? rawFrom
+          : '/'
       router.push(from)
       router.refresh()
     } catch (err) {
@@ -65,6 +71,7 @@ function LoginForm() {
             </label>
             <select
               id="logged-by"
+              name="logged-by"
               value={loggedBy}
               onChange={(e) => setLoggedByState(e.target.value as LoggedBy)}
               className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground"
@@ -86,6 +93,7 @@ function LoginForm() {
             </label>
             <input
               id="pin"
+              name="pin"
               type="password"
               inputMode="numeric"
               pattern="[0-9]*"

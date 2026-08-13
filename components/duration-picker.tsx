@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 export function ScrollChipRow({ children }: { children: ReactNode }) {
   return (
@@ -49,6 +49,8 @@ export function StepperField({
   suffix,
   inputClassName,
   outerClassName,
+  id,
+  name,
 }: {
   label: string
   value: number
@@ -60,9 +62,14 @@ export function StepperField({
   suffix?: string
   inputClassName?: string
   outerClassName?: string
+  id?: string
+  name?: string
 }) {
   const [draft, setDraft] = useState(String(value))
   const focusedRef = useRef(false)
+  const generatedId = useId().replace(/:/g, '')
+  const inputId = id ?? `stepper-${generatedId}`
+  const inputName = name ?? inputId
 
   useEffect(() => {
     if (!focusedRef.current) setDraft(String(value))
@@ -93,6 +100,8 @@ export function StepperField({
         </button>
         <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5 px-0.5">
           <input
+            id={inputId}
+            name={inputName}
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"

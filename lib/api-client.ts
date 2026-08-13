@@ -72,7 +72,12 @@ async function apiFetch<T>(
   }
 
   if (res.status === 401) {
-    window.location.href = '/login'
+    if (
+      typeof window !== 'undefined' &&
+      !window.location.pathname.startsWith('/login')
+    ) {
+      window.location.href = '/login'
+    }
     throw new Error('Unauthorized')
   }
 

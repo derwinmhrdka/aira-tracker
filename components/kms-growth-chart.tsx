@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { Maximize2, X } from 'lucide-react'
 import {
   ComposedChart,
   Line,
@@ -318,6 +320,42 @@ function formatRangeLabel(range: MonthRange): string {
   return start === end ? `Bulan ${start}` : `${start}–${end} bln`
 }
 
+function FullscreenRotatedFrame({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] bg-background">
+      <div
+        className="absolute left-1/2 top-1/2 flex flex-col bg-card"
+        style={{
+          width: '100dvh',
+          height: '100dvw',
+          transform: 'translate(-50%, -50%) rotate(90deg)',
+        }}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
+          <p className="font-heading text-sm font-semibold text-foreground">{title}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-foreground"
+            aria-label="Tutup layar penuh"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col px-3 pb-3 pt-2">{children}</div>
+      </div>
+    </div>
+  )
+}
+
 export function KmsGrowthChart({
   growthLogs,
   birthDate,
@@ -331,6 +369,34 @@ export function KmsGrowthChart({
 
   const [viewRange, setViewRange] = useState<MonthRange>({ start: 0, end: MAX_MONTH })
   const [yDomain, setYDomain] = useState<YDomain | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!fullscreen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [fullscreen])
+
+  useEffect(() => {
+    if (!fullscreen) return
+    const id = window.requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [fullscreen])
 
   const fullData = useMemo(
     () =>
@@ -581,7 +647,7 @@ export function KmsGrowthChart({
 
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [applyZoom])
+  }, [applyZoom, fullscreen])
 
   const unit = metric === 'weight' ? 'kg' : 'cm'
   const label = metric === 'weight' ? 'berat badan' : 'panjang badan'
@@ -713,11 +779,15 @@ export function KmsGrowthChart({
     )
   }
 
-  return (
-    <div>
+  const chartTitle = metric === 'weight' ? 'KMS · Berat' : 'KMS · Panjang'
+
+  const chartPanel = (
+    <>
       <div
         ref={chartRef}
-        className="relative h-[240px] w-full cursor-grab touch-none select-none overscroll-contain active:cursor-grabbing"
+        className={`relative w-full cursor-grab touch-none select-none overscroll-contain active:cursor-grabbing ${
+          fullscreen ? 'h-full min-h-0 flex-1' : 'h-[240px]'
+        }`}
         style={{ touchAction: 'none' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -729,11 +799,21 @@ export function KmsGrowthChart({
         onPointerCancel={handlePointerCancel}
         onDoubleClick={resetZoom}
       >
+        {!fullscreen && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setFullscreen(true)
+            }}
+            className="absolute left-0 top-0 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-secondary/90 text-foreground shadow-sm"
+            aria-label="Layar penuh"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        )}
         <span className="absolute bottom-0 right-0 z-10 text-[10px] text-muted-foreground">
           Bulan
-        </span>
-        <span className="absolute bottom-1 left-0 right-8 z-10 text-center text-[9px] text-muted-foreground">
-          Geser kiri/kanan · pinch zoom · ketuk 2x reset
         </span>
         <span className="absolute right-0 top-0 z-10 rounded-full bg-secondary/80 px-2 py-0.5 text-[9px] text-muted-foreground">
           {formatRangeLabel(viewRange)} · {zoomLabel}
@@ -742,7 +822,12 @@ export function KmsGrowthChart({
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={visibleData}
-            margin={{ top: 16, right: 8, left: 4, bottom: 20 }}
+            margin={{
+              top: fullscreen ? 20 : 16,
+              right: fullscreen ? 16 : 8,
+              left: fullscreen ? 8 : 4,
+              bottom: fullscreen ? 24 : 20,
+            }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
             <XAxis
@@ -751,7 +836,10 @@ export function KmsGrowthChart({
               domain={[viewRange.start, viewRange.end]}
               ticks={xTicks}
               allowDecimals={false}
-              tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+              tick={{
+                fontSize: fullscreen ? 12 : 10,
+                fill: 'var(--muted-foreground)',
+              }}
               tickFormatter={(month) => String(Math.round(month))}
               tickMargin={6}
               axisLine={{ stroke: 'var(--border)' }}
@@ -759,8 +847,11 @@ export function KmsGrowthChart({
               minTickGap={8}
             />
             <YAxis
-              width={48}
-              tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+              width={fullscreen ? 56 : 48}
+              tick={{
+                fontSize: fullscreen ? 12 : 10,
+                fill: 'var(--muted-foreground)',
+              }}
               tickFormatter={(value) => formatAxisValue(Number(value), metric)}
               ticks={yTicks}
               tickMargin={2}
@@ -870,7 +961,7 @@ export function KmsGrowthChart({
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-3 rounded-xl bg-secondary/40 px-3 py-2.5">
+      <div className={`rounded-xl bg-secondary/40 px-3 py-2.5 ${fullscreen ? 'mt-2 shrink-0' : 'mt-3'}`}>
         <div className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 text-[10px] text-muted-foreground">
           <ChartLegendItem label="Data bayi">
             <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
@@ -889,6 +980,17 @@ export function KmsGrowthChart({
           </ChartLegendItem>
         </div>
       </div>
-    </div>
+    </>
   )
+
+  if (fullscreen && mounted) {
+    return createPortal(
+      <FullscreenRotatedFrame title={chartTitle} onClose={() => setFullscreen(false)}>
+        <div className="flex h-full min-h-0 flex-col">{chartPanel}</div>
+      </FullscreenRotatedFrame>,
+      document.body
+    )
+  }
+
+  return <div>{chartPanel}</div>
 }

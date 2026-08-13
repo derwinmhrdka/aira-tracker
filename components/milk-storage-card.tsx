@@ -239,7 +239,8 @@ export function MilkStorageCard() {
       const dist = Math.hypot(clientX - prev.startX, clientY - prev.startY)
       const target = resolveDropTarget(clientX, clientY)
       if (dist < DRAG_THRESHOLD_PX) {
-        openSlot(prev.slot)
+        const slotToOpen = prev.slot
+        window.setTimeout(() => openSlot(slotToOpen), 0)
       } else if (
         target != null &&
         target !== prev.fromIndex &&
@@ -394,6 +395,7 @@ export function MilkStorageCard() {
                                   <div
                                     onPointerDown={(e) => {
                                       if (swapping || e.button !== 0) return
+                                      e.currentTarget.setPointerCapture(e.pointerId)
                                       const next: DragState = {
                                         fromIndex: slot.slot_index,
                                         slot,
