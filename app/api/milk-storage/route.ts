@@ -5,11 +5,13 @@ import {
   MILK_STORAGE_LAYOUT_DEFAULTS,
   MILK_STORAGE_LAYOUT_KEY,
   MILK_REMINDER_SETTINGS_KEY,
+  clampMilkWarnMinutes,
   milkSlotCount,
   milkReminderSettingsToJson,
   normalizeMilkStorageLayout,
   parseMilkReminderSettings,
 } from '@/lib/milk-storage'
+import { swapMilkStorageSlots } from '@/lib/milk-slot-swap'
 
 function formatSlot(s: {
   id: string
@@ -17,6 +19,8 @@ function formatSlot(s: {
   amountMl: number | null
   filledAt: Date | null
   expiresAt: Date | null
+  reminderEnabled: boolean | null
+  warnBeforeMinutes: number | null
   note: string | null
   loggedBy: string | null
 }) {
@@ -27,6 +31,8 @@ function formatSlot(s: {
     amount_ml: filled ? s.amountMl : null,
     filled_at: filled ? s.filledAt!.toISOString() : null,
     expires_at: filled && s.expiresAt ? s.expiresAt.toISOString() : null,
+    reminder_enabled: filled ? s.reminderEnabled : null,
+    warn_before_minutes: filled ? s.warnBeforeMinutes : null,
     note: s.note,
     logged_by: s.loggedBy,
     is_filled: filled,
@@ -39,6 +45,8 @@ const emptySlot = (slotIndex: number) => ({
   amount_ml: null as number | null,
   filled_at: null as string | null,
   expires_at: null as string | null,
+  reminder_enabled: null as boolean | null,
+  warn_before_minutes: null as number | null,
   note: null as string | null,
   logged_by: null as string | null,
   is_filled: false,
@@ -114,6 +122,33 @@ export async function PATCH(request: NextRequest) {
       })
     }
 
+    if (body.swap && typeof body.swap === 'object') {
+      const fromIndex = Number(body.swap.from_index)
+      const toIndex = Number(body.swap.to_index)
+      if (
+        !Number.isInteger(fromIndex) ||
+        !Number.isInteger(toIndex) ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex > 23 ||
+        toIndex > 23
+      ) {
+        return NextResponse.json({ error: 'Indeks swap tidak valid' }, { status: 400 })
+      }
+      await swapMilkStorageSlots(fromIndex, toIndex)
+      const layout = await readLayout()
+      const slots = await prisma.milkStorageSlot.findMany({
+        orderBy: { slotIndex: 'asc' },
+      })
+      const byIndex = new Map(slots.map((s) => [s.slotIndex, s]))
+      const total = milkSlotCount(layout)
+      const items = Array.from({ length: total }, (_, i) => {
+        const existing = byIndex.get(i)
+        return existing ? formatSlot(existing) : emptySlot(i)
+      })
+      return NextResponse.json({ slots: items })
+    }
+
     if (body.layout && typeof body.layout === 'object') {
       const layout = normalizeMilkStorageLayout({
         ...MILK_STORAGE_LAYOUT_DEFAULTS,
@@ -144,6 +179,8 @@ export async function PATCH(request: NextRequest) {
             filledAt: null,
             expiresAt: null,
             expiryPushNotifiedFor: null,
+            reminderEnabled: null,
+            warnBeforeMinutes: null,
             note: null,
             loggedBy: null,
           },
@@ -182,6 +219,23 @@ export async function PATCH(request: NextRequest) {
     const loggedBy =
       parseLoggedBy(body.logged_by) ?? sessionLoggedBy ?? null
 
+    let reminderEnabled: boolean | null | undefined = undefined
+    if (body.reminder_enabled === null) {
+      reminderEnabled = null
+    } else if (typeof body.reminder_enabled === 'boolean') {
+      reminderEnabled = body.reminder_enabled
+    }
+
+    let warnBeforeMinutes: number | null | undefined = undefined
+    if (body.warn_before_minutes === null) {
+      warnBeforeMinutes = null
+    } else if (body.warn_before_minutes != null) {
+      const parsed = Number(body.warn_before_minutes)
+      if (Number.isFinite(parsed)) {
+        warnBeforeMinutes = clampMilkWarnMinutes(parsed)
+      }
+    }
+
     const existing = await prisma.milkStorageSlot.findUnique({
       where: { slotIndex },
     })
@@ -195,6 +249,8 @@ export async function PATCH(request: NextRequest) {
         amountMl: Math.round(amountMl),
         filledAt,
         expiresAt,
+        reminderEnabled: null,
+        warnBeforeMinutes: warnBeforeMinutes ?? null,
         note: note ?? null,
         loggedBy,
       },
@@ -203,6 +259,8 @@ export async function PATCH(request: NextRequest) {
         filledAt,
         expiresAt,
         ...(expiryChanged ? { expiryPushNotifiedFor: null } : {}),
+        ...(reminderEnabled !== undefined ? { reminderEnabled } : {}),
+        ...(warnBeforeMinutes !== undefined ? { warnBeforeMinutes } : {}),
         ...(note !== undefined ? { note } : {}),
         loggedBy,
       },

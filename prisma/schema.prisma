@@ -253,6 +253,8 @@ model MilkStorageSlot {
   filledAt              DateTime? @map("filled_at")
   expiresAt             DateTime? @map("expires_at")
   expiryPushNotifiedFor DateTime? @map("expiry_push_notified_for")
+  reminderEnabled       Boolean?  @map("reminder_enabled")
+  warnBeforeMinutes     Int?      @map("warn_before_minutes")
   note                  String?
   loggedBy              String?   @map("logged_by")
   createdAt             DateTime  @default(now()) @map("created_at")

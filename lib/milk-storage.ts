@@ -130,6 +130,22 @@ export function getMilkWarnBeforeMs(settings = getMilkReminderSettings()): numbe
   return settings.warnBeforeMinutes * 60 * 1000
 }
 
+export type SlotReminderInput = {
+  warn_before_minutes?: number | null
+}
+
+export function resolveSlotReminder(
+  slot: SlotReminderInput,
+  global: MilkReminderSettings = getMilkReminderSettings()
+): { enabled: boolean; warnBeforeMinutes: number } {
+  return {
+    enabled: global.enabled,
+    warnBeforeMinutes: clampMilkWarnMinutes(
+      slot.warn_before_minutes ?? DEFAULT_MILK_WARN_MINUTES
+    ),
+  }
+}
+
 export const MILK_EXPIRY_PRESETS_HOURS = [
   { hours: 4, label: '4 jam' },
   { hours: 24, label: '24 jam' },
@@ -165,18 +181,34 @@ export function formatMilkTime(iso: string | null | undefined): string {
   })
 }
 
+export function getSlotMilkExpiryStatus(
+  slot: SlotReminderInput & { expires_at?: string | null },
+  now = Date.now(),
+  global?: MilkReminderSettings
+): MilkExpiryStatus {
+  if (!slot.expires_at) return 'none'
+  const exp = new Date(slot.expires_at).getTime()
+  if (Number.isNaN(exp)) return 'none'
+  if (exp <= now) return 'expired'
+  const resolved = resolveSlotReminder(slot, global)
+  if (!resolved.enabled) return 'ok'
+  const warnMs = resolved.warnBeforeMinutes * 60 * 1000
+  if (exp - now <= warnMs) return 'soon'
+  return 'ok'
+}
+
 export function getMilkExpiryStatus(
   expiresAt: string | null | undefined,
   now = Date.now(),
   warnMinutes = getMilkReminderSettings().warnBeforeMinutes
 ): MilkExpiryStatus {
-  if (!expiresAt) return 'none'
-  const exp = new Date(expiresAt).getTime()
-  if (Number.isNaN(exp)) return 'none'
-  if (exp <= now) return 'expired'
-  const warnMs = clampMilkWarnMinutes(warnMinutes) * 60 * 1000
-  if (exp - now <= warnMs) return 'soon'
-  return 'ok'
+  return getSlotMilkExpiryStatus(
+    {
+      expires_at: expiresAt,
+      warn_before_minutes: warnMinutes,
+    },
+    now
+  )
 }
 
 export function formatMilkExpiryRemaining(

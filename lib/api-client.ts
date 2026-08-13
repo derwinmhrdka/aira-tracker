@@ -287,6 +287,8 @@ export const api = {
     filled_at?: string
     expires_at?: string | null
     note?: string
+    reminder_enabled?: boolean | null
+    warn_before_minutes?: number | null
   }) =>
     apiFetch<{ slot: MilkStorageSlot }>('/api/milk-storage', {
       method: 'PATCH',
@@ -297,6 +299,12 @@ export const api = {
     apiFetch<{ slot: MilkStorageSlot }>('/api/milk-storage', {
       method: 'PATCH',
       body: JSON.stringify({ slot_index: slotIndex, clear: true }),
+    }),
+
+  swapMilkStorageSlots: (fromIndex: number, toIndex: number) =>
+    apiFetch<{ slots: MilkStorageSlot[] }>('/api/milk-storage', {
+      method: 'PATCH',
+      body: JSON.stringify({ swap: { from_index: fromIndex, to_index: toIndex } }),
     }),
 
   toggleTitle: (id: string) =>
@@ -670,6 +678,8 @@ export interface MilkStorageSlot {
   amount_ml: number | null
   filled_at: string | null
   expires_at: string | null
+  reminder_enabled?: boolean | null
+  warn_before_minutes?: number | null
   note: string | null
   logged_by: string | null
   is_filled: boolean

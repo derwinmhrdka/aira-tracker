@@ -2,7 +2,7 @@ import webpush from 'web-push'
 import { prisma } from '@/lib/prisma'
 import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
 import { getVaccineStatus } from '@/lib/immunization-utils'
-import { MILK_REMINDER_SETTINGS_KEY, parseMilkReminderSettings } from '@/lib/milk-storage'
+import { MILK_REMINDER_SETTINGS_KEY, parseMilkReminderSettings, resolveSlotReminder } from '@/lib/milk-storage'
 
 const publicKey = process.env.VAPID_PUBLIC_KEY
 const privateKey = process.env.VAPID_PRIVATE_KEY
@@ -206,12 +206,10 @@ export async function getMilkReminderSettingsFromDb() {
 
 export async function sendMilkExpiryPushes(): Promise<{ sent: number }> {
   const settings = await getMilkReminderSettingsFromDb()
-  if (!settings.enabled) return { sent: 0 }
 
   const hasSub = await prisma.pushSubscription.findFirst()
   if (!hasSub) return { sent: 0 }
 
-  const warnMs = settings.warnBeforeMinutes * 60 * 1000
   const now = Date.now()
 
   const slots = await prisma.milkStorageSlot.findMany({
@@ -226,7 +224,18 @@ export async function sendMilkExpiryPushes(): Promise<{ sent: number }> {
   let sent = 0
   for (const slot of slots) {
     if (!slot.expiresAt) continue
+
+    const resolved = resolveSlotReminder(
+      {
+        reminder_enabled: slot.reminderEnabled,
+        warn_before_minutes: slot.warnBeforeMinutes,
+      },
+      settings
+    )
+    if (!resolved.enabled) continue
+
     const exp = slot.expiresAt.getTime()
+    const warnMs = resolved.warnBeforeMinutes * 60 * 1000
     if (exp - now > warnMs) continue
     if (slot.expiryPushNotifiedFor?.getTime() === exp) continue
 

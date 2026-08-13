@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   api,
@@ -9,179 +9,15 @@ import {
 } from '@/lib/api-client'
 import {
   formatMilkExpiryRemaining,
-  getMilkExpiryStatus,
-  MILK_BOTTLE_MAX_ML,
+  getSlotMilkExpiryStatus,
   MILK_STORAGE_LAYOUT_DEFAULTS,
   type MilkExpiryStatus,
 } from '@/lib/milk-storage'
 import { checkMilkExpiryReminders } from '@/lib/milk-expiry-reminder'
 import { MilkBottleSheet } from './milk-bottle-sheet'
+import { BottleVisual, FrostVapor } from './milk-bottle-visual'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { LIVE_SYNC_MS } from '@/lib/use-live-sync'
-
-const SCALE_MARKS = [60, 120, 180, 240] as const
-
-const BOTTLE_BODY =
-  'M13 10 L13 8 L15 4 L25 4 L27 8 L27 10 L31 13 L31 64 C31 71 26 76 20 76 C14 76 9 71 9 64 L9 13 Z'
-
-function FrostVapor() {
-  const puffs = [
-    { left: '8%', delay: 0, w: 28 },
-    { left: '32%', delay: 1.2, w: 22 },
-    { left: '58%', delay: 0.6, w: 26 },
-    { left: '78%', delay: 1.8, w: 20 },
-    { left: '45%', delay: 2.4, w: 18 },
-  ]
-
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {puffs.map((p, i) => (
-        <motion.div
-          key={i}
-          className="absolute bottom-2 rounded-full bg-sky-200/40 blur-md dark:bg-sky-400/10"
-          style={{ left: p.left, width: p.w, height: p.w * 0.55 }}
-          initial={{ opacity: 0, y: 8, scale: 0.85 }}
-          animate={{
-            opacity: [0, 0.45, 0.25, 0],
-            y: [8, -18, -36, -52],
-            scale: [0.85, 1, 1.15, 1.25],
-          }}
-          transition={{
-            duration: 5.5,
-            repeat: Infinity,
-            ease: 'easeOut',
-            delay: p.delay,
-          }}
-        />
-      ))}
-    </div>
-  )
-}
-
-function BottleVisual({
-  filled,
-  amountMl,
-  active,
-  expiryStatus,
-}: {
-  filled: boolean
-  amountMl: number | null
-  active?: boolean
-  expiryStatus: MilkExpiryStatus
-}) {
-  const clipId = useId().replace(/:/g, '')
-  const ml = filled && amountMl != null ? amountMl : 0
-  const ratio = Math.min(1, Math.max(0, ml / MILK_BOTTLE_MAX_ML))
-  const fillPct = Math.max(8, ratio * 88)
-  const fillTop = 76 - (fillPct / 100) * 58
-
-  const glassStroke =
-    expiryStatus === 'expired'
-      ? '#dc2626'
-      : expiryStatus === 'soon'
-        ? '#d97706'
-        : '#334155'
-
-  return (
-    <motion.div
-      className="relative mx-auto h-[5rem] w-[2.75rem] sm:h-[5.75rem] sm:w-[3.1rem]"
-      animate={filled ? { y: [0, -1.5, 0] } : { y: 0 }}
-      transition={
-        filled
-          ? { duration: 2.4, repeat: Infinity, ease: 'easeInOut' }
-          : { duration: 0.2 }
-      }
-      whileHover={{ scale: 1.04 }}
-      style={active ? { scale: 1.06 } : undefined}
-    >
-      <svg
-        viewBox="0 0 40 80"
-        className="h-full w-full"
-        shapeRendering="geometricPrecision"
-        aria-hidden
-      >
-        <defs>
-          <clipPath id={`bottle-clip-${clipId}`}>
-            <rect x="8" y={fillTop} width="24" height={76 - fillTop} />
-          </clipPath>
-          <linearGradient id={`milkGrad-${clipId}`} x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#e2e8f0" />
-            <stop offset="100%" stopColor="#ffffff" />
-          </linearGradient>
-        </defs>
-
-        {/* Cap */}
-        <rect
-          x="15"
-          y="0"
-          width="10"
-          height="4"
-          rx="0.5"
-          fill="#cbd5e1"
-          stroke={glassStroke}
-          strokeWidth="1.5"
-        />
-
-        {/* Body fill */}
-        <path d={BOTTLE_BODY} fill="#f1f5f9" stroke="none" />
-
-        {/* Milk */}
-        {filled && ml > 0 && (
-          <g clipPath={`url(#bottle-clip-${clipId})`}>
-            <path d={BOTTLE_BODY} fill={`url(#milkGrad-${clipId})`} stroke="none" />
-            <ellipse
-              cx="20"
-              cy={fillTop}
-              rx="9"
-              ry="2"
-              fill="rgba(255,255,255,0.9)"
-            />
-          </g>
-        )}
-
-        {/* Body outline — drawn last for crisp edge */}
-        <path
-          d={BOTTLE_BODY}
-          fill="none"
-          stroke={glassStroke}
-          strokeWidth="2.25"
-          strokeLinejoin="miter"
-          strokeLinecap="square"
-          vectorEffect="non-scaling-stroke"
-        />
-
-        {/* Scale marks */}
-        {SCALE_MARKS.map((mark, i) => {
-          const y = 68 - (mark / MILK_BOTTLE_MAX_ML) * 52
-          return (
-            <g key={mark}>
-              <line
-                x1="27"
-                y1={y}
-                x2="30"
-                y2={y}
-                stroke="#64748b"
-                strokeWidth="1.2"
-                strokeLinecap="square"
-              />
-              {i % 2 === 0 && (
-                <text
-                  x="10"
-                  y={y + 2.5}
-                  fontSize="4.5"
-                  fill="#475569"
-                  fontWeight="700"
-                >
-                  {mark}
-                </text>
-              )}
-            </g>
-          )
-        })}
-      </svg>
-    </motion.div>
-  )
-}
 
 function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
   if (!filled)
@@ -203,6 +39,10 @@ export function MilkStorageCard() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [, setTick] = useState(0)
   const [, setMilkReminderRev] = useState(0)
+  const [dragFrom, setDragFrom] = useState<number | null>(null)
+  const [dropTarget, setDropTarget] = useState<number | null>(null)
+  const [swapping, setSwapping] = useState(false)
+  const skipClickRef = useRef(false)
 
   useEffect(() => {
     const onSettingsChange = () => setMilkReminderRev((v) => v + 1)
@@ -246,14 +86,34 @@ export function MilkStorageCard() {
   }, [slots])
 
   const openSlot = (slot: MilkStorageSlot) => {
+    if (skipClickRef.current) return
     setSelected(slot)
     setSheetOpen(true)
+  }
+
+  const handleSwap = async (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || swapping) return
+    setSwapping(true)
+    skipClickRef.current = true
+    try {
+      const res = await api.swapMilkStorageSlots(fromIndex, toIndex)
+      setSlots(res.slots)
+      void checkMilkExpiryReminders(res.slots)
+    } catch {
+      /* keep previous */
+    } finally {
+      setSwapping(false)
+      window.setTimeout(() => {
+        skipClickRef.current = false
+      }, 150)
+    }
   }
 
   const handleSave = async (data: {
     amount_ml: number
     filled_at: string
     expires_at: string | null
+    warn_before_minutes: number
   }) => {
     if (!selected) return
     const res = await api.upsertMilkStorageSlot({
@@ -261,6 +121,7 @@ export function MilkStorageCard() {
       amount_ml: data.amount_ml,
       filled_at: data.filled_at,
       expires_at: data.expires_at,
+      warn_before_minutes: data.warn_before_minutes,
     })
     setSlots((prev) =>
       prev.map((s) => (s.slot_index === res.slot.slot_index ? res.slot : s))
@@ -303,7 +164,6 @@ export function MilkStorageCard() {
             Available : {emptySlots}/{totalSlots}
           </span>
         </div>
-
         <div className="relative max-h-[min(22rem,52vh)] overflow-y-auto overscroll-contain bg-gradient-to-b from-sky-50/40 to-card px-3 py-3 dark:from-sky-950/15 sm:max-h-none sm:overflow-visible sm:py-4">
           <FrostVapor />
 
@@ -333,15 +193,57 @@ export function MilkStorageCard() {
 
                       <div className="relative grid gap-2 pb-3" style={gridStyle}>
                         {rowSlots.map((slot) => {
-                          const expiry = getMilkExpiryStatus(slot.expires_at)
+                          const expiry = getSlotMilkExpiryStatus(slot)
+                          const isDragging = dragFrom === slot.slot_index
+                          const isDropTarget = dropTarget === slot.slot_index
                           return (
-                            <motion.button
+                            <div
                               key={slot.slot_index}
-                              type="button"
-                              whileTap={{ scale: 0.96 }}
-                              onClick={() => openSlot(slot)}
-                              className={`rounded-xl border px-1 py-1.5 text-center backdrop-blur-[1px] transition-colors sm:py-2 ${slotBorderClass(slot.is_filled, expiry)}`}
+                              onDragOver={(e) => {
+                                e.preventDefault()
+                                if (dragFrom != null) setDropTarget(slot.slot_index)
+                              }}
+                              onDragLeave={() => {
+                                if (dropTarget === slot.slot_index) setDropTarget(null)
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault()
+                                if (dragFrom != null) {
+                                  void handleSwap(dragFrom, slot.slot_index)
+                                }
+                                setDragFrom(null)
+                                setDropTarget(null)
+                              }}
+                              className={`rounded-xl border px-1 py-1.5 text-center backdrop-blur-[1px] transition-colors sm:py-2 ${slotBorderClass(slot.is_filled, expiry)} ${
+                                isDropTarget ? 'ring-2 ring-primary ring-offset-1' : ''
+                              } ${isDragging ? 'opacity-40' : ''}`}
                             >
+                              <div
+                                draggable={!swapping}
+                                onDragStart={(e) => {
+                                  setDragFrom(slot.slot_index)
+                                  e.dataTransfer.effectAllowed = 'move'
+                                  e.dataTransfer.setData(
+                                    'text/plain',
+                                    String(slot.slot_index)
+                                  )
+                                }}
+                                onDragEnd={() => {
+                                  setDragFrom(null)
+                                  setDropTarget(null)
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mx-auto mb-0.5 cursor-grab touch-none select-none text-[11px] leading-none text-muted-foreground/80 active:cursor-grabbing"
+                                aria-label={`Tarik botol ${slot.slot_index + 1}`}
+                                title="Tarik untuk pindah"
+                              >
+                                ⠿
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => openSlot(slot)}
+                                className="w-full text-center"
+                              >
                               <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 Bottle {slot.slot_index + 1}
                               </p>
@@ -385,7 +287,8 @@ export function MilkStorageCard() {
                                     : formatMilkExpiryRemaining(slot.expires_at)}
                                 </p>
                               )}
-                            </motion.button>
+                              </button>
+                            </div>
                           )
                         })}
                       </div>

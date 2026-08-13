@@ -1,4 +1,7 @@
-import { getMilkReminderSettings } from '@/lib/milk-storage'
+import {
+  getMilkReminderSettings,
+  resolveSlotReminder,
+} from '@/lib/milk-storage'
 import { checkServerMilkReminder } from '@/lib/push-client'
 
 const NOTIFIED_KEY = 'baby_tracker_milk_expiry_notified'
@@ -57,12 +60,12 @@ export type MilkExpiryCheckSlot = {
   amount_ml: number | null
   expires_at: string | null
   is_filled: boolean
+  warn_before_minutes?: number | null
 }
 
 /** Cek slot yang mau/sudah kadaluarsa dan kirim notifikasi (sekali per expires_at). */
 export async function checkMilkExpiryReminders(slots: MilkExpiryCheckSlot[]) {
-  const settings = getMilkReminderSettings()
-  if (!settings.enabled) return
+  const global = getMilkReminderSettings()
 
   if (await hasPushSubscription()) {
     await checkServerMilkReminder()
@@ -70,14 +73,18 @@ export async function checkMilkExpiryReminders(slots: MilkExpiryCheckSlot[]) {
   }
 
   const now = Date.now()
-  const warnMs = settings.warnBeforeMinutes * 60 * 1000
   const notified = readNotified()
   let changed = false
 
   for (const slot of slots) {
     if (!slot.is_filled || !slot.expires_at) continue
+
+    const resolved = resolveSlotReminder(slot, global)
+    if (!resolved.enabled) continue
+
     const exp = new Date(slot.expires_at).getTime()
     if (Number.isNaN(exp)) continue
+    const warnMs = resolved.warnBeforeMinutes * 60 * 1000
     if (exp - now > warnMs) continue
 
     const key = `slot-${slot.slot_index}`

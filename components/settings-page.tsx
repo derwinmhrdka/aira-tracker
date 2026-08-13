@@ -30,7 +30,6 @@ import {
   type MilkStorageLayout,
 } from '@/lib/milk-storage'
 import { syncMilkReminderSettingsToServer } from '@/lib/milk-expiry-reminder'
-import { MilkWarnPicker } from './milk-warn-picker'
 import { api } from '@/lib/api-client'
 import { exportHistoryCsv, exportGrowthCsv, exportFullCsv } from '@/lib/export-csv'
 import { exportHistoryPdf, exportGrowthPdf, exportFullPdf } from '@/lib/export-pdf'
@@ -285,16 +284,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     setTimeout(() => setToast(null), 2000)
   }
 
-  const setMilkWarnBefore = async (minutes: number) => {
-    const next = setMilkReminderSettings({ warnBeforeMinutes: minutes })
-    setMilkReminder(next)
-    try {
-      await syncMilkReminderSettingsToServer(next)
-    } catch {
-      /* keep local */
-    }
-  }
-
   const handleExport = async (type: 'history' | 'growth' | 'all') => {
     setExporting(true)
     try {
@@ -509,11 +498,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         <p className="mb-3 text-xs text-muted-foreground">
           Grid botol di beranda. Default 1×4.
         </p>
-        <p className="mb-3 text-[11px] text-muted-foreground/90">
-          Notif botol ASI via push — tetap jalan saat app ditutup (butuh VAPID +
-          cron).
-        </p>
-
         <div className="mb-4 rounded-xl border border-border/60 bg-secondary/30 p-3">
           <p className="mb-2 text-xs font-medium text-foreground">
             Pengingat expired
@@ -521,7 +505,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <button
             type="button"
             onClick={toggleMilkReminder}
-            className={`mb-3 w-full rounded-xl py-2.5 text-sm font-semibold ${
+            className={`w-full rounded-xl py-2.5 text-sm font-semibold ${
               milkReminder.enabled
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-secondary text-foreground'
@@ -529,12 +513,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           >
             {milkReminder.enabled ? '🔔 On' : '🔕 Off'}
           </button>
-          {milkReminder.enabled && (
-            <MilkWarnPicker
-              totalMinutes={milkReminder.warnBeforeMinutes}
-              onChange={setMilkWarnBefore}
-            />
-          )}
         </div>
 
         <p className="mb-2 text-xs font-medium text-muted-foreground">Baris</p>
