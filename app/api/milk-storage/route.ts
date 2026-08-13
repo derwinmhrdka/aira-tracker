@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withAuth, parseLoggedBy } from '@/lib/api-helpers'
 import {
+  MILK_AMOUNT_MAX_ML,
   MILK_STORAGE_LAYOUT_DEFAULTS,
   MILK_STORAGE_LAYOUT_KEY,
   MILK_REMINDER_SETTINGS_KEY,
@@ -26,6 +27,7 @@ function formatSlot(s: {
   loggedBy: string | null
 }) {
   const filled = s.amountMl != null && s.amountMl > 0 && s.filledAt != null
+  const bottleNumber = filled ? (s.bottleNumber ?? s.slotIndex + 1) : null
   return {
     id: s.id,
     slot_index: s.slotIndex,
@@ -35,7 +37,7 @@ function formatSlot(s: {
     reminder_enabled: filled ? s.reminderEnabled : null,
     warn_before_minutes: filled ? s.warnBeforeMinutes : null,
     note: s.note,
-    bottle_number: filled ? s.bottleNumber : null,
+    bottle_number: bottleNumber,
     logged_by: s.loggedBy,
     is_filled: filled,
   }
@@ -76,6 +78,25 @@ export async function GET() {
     const slots = await prisma.milkStorageSlot.findMany({
       orderBy: { slotIndex: 'asc' },
     })
+
+    // Backfill bottle_number for legacy rows
+    await Promise.all(
+      slots
+        .filter(
+          (s) =>
+            s.amountMl != null &&
+            s.amountMl > 0 &&
+            s.filledAt != null &&
+            s.bottleNumber == null
+        )
+        .map((s) =>
+          prisma.milkStorageSlot.update({
+            where: { slotIndex: s.slotIndex },
+            data: { bottleNumber: s.slotIndex + 1 },
+          })
+        )
+    )
+
     const byIndex = new Map(slots.map((s) => [s.slotIndex, s]))
     const total = milkSlotCount(layout)
     const items = Array.from({ length: total }, (_, i) => {
@@ -185,6 +206,7 @@ export async function PATCH(request: NextRequest) {
             reminderEnabled: null,
             warnBeforeMinutes: null,
             note: null,
+            bottleNumber: null,
             loggedBy: null,
           },
         })
@@ -194,9 +216,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     const amountMl = Number(body.amount_ml)
-    if (!Number.isFinite(amountMl) || amountMl <= 0 || amountMl > 2000) {
+    if (!Number.isFinite(amountMl) || amountMl <= 0 || amountMl > MILK_AMOUNT_MAX_ML) {
       return NextResponse.json(
-        { error: 'amount_ml harus 1–2000' },
+        { error: `amount_ml harus 1–${MILK_AMOUNT_MAX_ML}` },
         { status: 400 }
       )
     }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   clampMilkWarnMinutes,
   formatMilkWarnBefore,
@@ -11,6 +11,14 @@ import {
 interface MilkWarnPickerProps {
   totalMinutes: number
   onChange: (minutes: number) => void
+}
+
+function ScrollChipRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="-mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {children}
+    </div>
+  )
 }
 
 function splitMinutes(total: number) {
@@ -29,7 +37,7 @@ export function MilkWarnPicker({ totalMinutes, onChange }: MilkWarnPickerProps) 
 
   return (
     <div className="rounded-2xl bg-secondary/50 p-3">
-      <div className="mb-2 flex flex-wrap gap-1.5">
+      <ScrollChipRow>
         {MILK_WARN_PRESETS.map((preset) => (
           <button
             key={preset.minutes}
@@ -38,7 +46,7 @@ export function MilkWarnPicker({ totalMinutes, onChange }: MilkWarnPickerProps) 
               onChange(preset.minutes)
               setCustomOpen(false)
             }}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
               totalMinutes === preset.minutes
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-background text-foreground ring-1 ring-border'
@@ -50,7 +58,7 @@ export function MilkWarnPicker({ totalMinutes, onChange }: MilkWarnPickerProps) 
         <button
           type="button"
           onClick={() => setCustomOpen((v) => !v)}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+          className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
             customOpen || !presetMatch
               ? 'bg-primary text-primary-foreground'
               : 'bg-background text-foreground ring-1 ring-border'
@@ -60,10 +68,10 @@ export function MilkWarnPicker({ totalMinutes, onChange }: MilkWarnPickerProps) 
             ? formatMilkWarnBefore(totalMinutes)
             : 'Lainnya'}
         </button>
-      </div>
+      </ScrollChipRow>
 
       {customOpen && (
-        <div className="flex items-center gap-2 pt-1">
+        <div className="mt-2 flex items-center gap-2">
           <div className="flex flex-1 items-center rounded-xl bg-background ring-1 ring-border">
             <button
               type="button"

@@ -34,17 +34,28 @@ function isFilled(row: {
   return row.amountMl != null && row.amountMl > 0 && row.filledAt != null
 }
 
-function toPayload(row: {
-  amountMl: number | null
-  filledAt: Date | null
-  expiresAt: Date | null
-  expiryPushNotifiedFor: Date | null
-  reminderEnabled: boolean | null
-  warnBeforeMinutes: number | null
-  note: string | null
-  bottleNumber: number | null
-  loggedBy: string | null
-}): FilledPayload | null {
+function resolveBottleNumber(
+  row: { bottleNumber: number | null; amountMl: number | null; filledAt: Date | null },
+  slotIndex: number
+): number | null {
+  if (!isFilled(row)) return null
+  return row.bottleNumber ?? slotIndex + 1
+}
+
+function toPayload(
+  row: {
+    amountMl: number | null
+    filledAt: Date | null
+    expiresAt: Date | null
+    expiryPushNotifiedFor: Date | null
+    reminderEnabled: boolean | null
+    warnBeforeMinutes: number | null
+    note: string | null
+    bottleNumber: number | null
+    loggedBy: string | null
+  },
+  slotIndex: number
+): FilledPayload | null {
   if (!isFilled(row)) return null
   return {
     amountMl: row.amountMl,
@@ -54,7 +65,7 @@ function toPayload(row: {
     reminderEnabled: row.reminderEnabled,
     warnBeforeMinutes: row.warnBeforeMinutes,
     note: row.note,
-    bottleNumber: row.bottleNumber,
+    bottleNumber: resolveBottleNumber(row, slotIndex),
     loggedBy: row.loggedBy,
   }
 }
@@ -89,8 +100,8 @@ export async function swapMilkStorageSlots(fromIndex: number, toIndex: number) {
       tx.milkStorageSlot.findUnique({ where: { slotIndex: toIndex } }),
     ])
 
-    const fromData = fromRow ? toPayload(fromRow) : null
-    const toData = toRow ? toPayload(toRow) : null
+    const fromData = fromRow ? toPayload(fromRow, fromIndex) : null
+    const toData = toRow ? toPayload(toRow, toIndex) : null
 
     await writeSlot(tx, fromIndex, toData)
     await writeSlot(tx, toIndex, fromData)

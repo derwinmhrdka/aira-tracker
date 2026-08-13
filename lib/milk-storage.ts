@@ -15,7 +15,10 @@ export const MILK_STORAGE_ROWS_OPTIONS = [1, 2, 3, 4] as const
 export const MILK_STORAGE_COLS_OPTIONS = [2, 3, 4, 5, 6] as const
 
 /** Visual fill cap — ml di atas ini dianggap penuh. */
-export const MILK_BOTTLE_MAX_ML = 240
+export const MILK_BOTTLE_MAX_ML = 180
+
+/** Max ml input / storage per botol. */
+export const MILK_AMOUNT_MAX_ML = 180
 
 /** @deprecated use getMilkReminderSettings().warnBeforeMinutes */
 export const MILK_EXPIRY_WARN_HOURS = 6

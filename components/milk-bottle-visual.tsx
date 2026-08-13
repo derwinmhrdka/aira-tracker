@@ -1,14 +1,12 @@
 'use client'
 
-import { useId } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useId, useRef, useState } from 'react'
+import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
 import { MILK_BOTTLE_MAX_ML, type MilkExpiryStatus } from '@/lib/milk-storage'
 
-const SCALE_MARKS = [60, 120, 180, 240] as const
+const SCALE_MARKS = [60, 120, 180] as const
 
-/** Bottom of measurable fill (matches scale mark baseline). */
 const FILL_BOTTOM_Y = 68
-/** Vertical span from empty to full — same factor as scale marks. */
 const FILL_SPAN = 52
 
 export function mlToFillSurfaceY(ml: number): number {
@@ -76,8 +74,32 @@ export function BottleVisual({
   size?: keyof typeof SIZE_CLASS
 }) {
   const clipId = useId().replace(/:/g, '')
-  const ml = filled && amountMl != null ? amountMl : 0
-  const fillTop = ml > 0 ? mlToFillSurfaceY(ml) : FILL_BOTTOM_Y
+  const targetMl = filled && amountMl != null ? amountMl : 0
+  const prevTargetRef = useRef(targetMl)
+  const [sloshKey, setSloshKey] = useState(0)
+
+  const animatedMl = useMotionValue(targetMl)
+  const fillTopMotion = useTransform(animatedMl, (v) => mlToFillSurfaceY(v))
+  const [fillTop, setFillTop] = useState(() => mlToFillSurfaceY(targetMl))
+
+  useEffect(() => {
+    const increasing = targetMl > prevTargetRef.current
+    prevTargetRef.current = targetMl
+    if (increasing && targetMl > 0) setSloshKey((k) => k + 1)
+
+    const controls = animate(animatedMl, targetMl, {
+      type: 'spring',
+      stiffness: 160,
+      damping: 22,
+      mass: 0.8,
+    })
+
+    const unsub = fillTopMotion.on('change', (v) => setFillTop(v))
+    return () => {
+      controls.stop()
+      unsub()
+    }
+  }, [targetMl, animatedMl, fillTopMotion])
 
   const glassStroke =
     expiryStatus === 'expired'
@@ -88,13 +110,14 @@ export function BottleVisual({
 
   const glassFillId = `glassGrad-${clipId}`
   const milkFillId = `milkGrad-${clipId}`
+  const showMilk = filled && targetMl > 0
 
   return (
     <motion.div
       className={`relative mx-auto ${SIZE_CLASS[size]}`}
-      animate={filled ? { y: [0, -1.5, 0] } : { y: 0 }}
+      animate={showMilk ? { y: [0, -1.5, 0] } : { y: 0 }}
       transition={
-        filled
+        showMilk
           ? { duration: 2.4, repeat: Infinity, ease: 'easeInOut' }
           : { duration: 0.2 }
       }
@@ -109,7 +132,7 @@ export function BottleVisual({
       >
         <defs>
           <clipPath id={`bottle-clip-${clipId}`}>
-            <rect x="8" y={fillTop} width="24" height={76 - fillTop} />
+            <rect x={8} y={fillTop} width={24} height={76 - fillTop} />
           </clipPath>
           <linearGradient id={glassFillId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="rgba(186, 230, 253, 0.95)" />
@@ -136,15 +159,22 @@ export function BottleVisual({
 
         <path d={BOTTLE_BODY} fill={`url(#${glassFillId})`} stroke="none" />
 
-        {filled && ml > 0 && (
+        {showMilk && (
           <g clipPath={`url(#bottle-clip-${clipId})`}>
             <path d={BOTTLE_BODY} fill={`url(#${milkFillId})`} stroke="none" />
-            <ellipse
-              cx="20"
+            <motion.ellipse
+              key={`wave-${sloshKey}`}
+              cx={20}
               cy={fillTop}
-              rx="9"
-              ry="2"
+              rx={9}
+              ry={2}
               fill="rgba(255,255,255,0.92)"
+              initial={{ ry: 1.2 }}
+              animate={{
+                cx: [20, 21.5, 18.5, 20.3, 20],
+                ry: [1.2, 3.4, 2.9, 2.2, 2],
+              }}
+              transition={{ duration: 0.65, ease: 'easeOut' }}
             />
           </g>
         )}
@@ -165,7 +195,7 @@ export function BottleVisual({
           strokeLinecap="square"
         />
 
-        {SCALE_MARKS.map((mark, i) => {
+        {SCALE_MARKS.map((mark) => {
           const y = scaleMarkY(mark)
           return (
             <g key={mark}>
@@ -178,17 +208,15 @@ export function BottleVisual({
                 strokeWidth="1.2"
                 strokeLinecap="square"
               />
-              {i % 2 === 0 && (
-                <text
-                  x="10"
-                  y={y + 2.5}
-                  fontSize="4.5"
-                  fill="#475569"
-                  fontWeight="700"
-                >
-                  {mark}
-                </text>
-              )}
+              <text
+                x="10"
+                y={y + 2.5}
+                fontSize="4.5"
+                fill="#475569"
+                fontWeight="700"
+              >
+                {mark}
+              </text>
             </g>
           )
         })}

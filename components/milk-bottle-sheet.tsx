@@ -9,6 +9,7 @@ import {
   formatMilkExpiryRemaining,
   getMilkReminderSettings,
   getSlotMilkExpiryStatus,
+  MILK_AMOUNT_MAX_ML,
   MILK_EXPIRY_PRESETS_HOURS,
 } from '@/lib/milk-storage'
 import { requestNotificationPermission } from '@/lib/reminder'
@@ -28,7 +29,7 @@ interface MilkBottleSheetProps {
   onClear: () => Promise<void>
 }
 
-const ML_PRESETS = [30, 60, 90, 120, 150, 180] as const
+const AMOUNT_STEP = 5
 
 function toLocalInputValue(iso: string | null): string {
   const d = iso ? new Date(iso) : new Date()
@@ -73,6 +74,14 @@ function formatShort(local: string): string {
   })
 }
 
+function ScrollChipRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="-mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {children}
+    </div>
+  )
+}
+
 function Chip({
   active,
   onClick,
@@ -86,7 +95,7 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${
         active
           ? 'bg-primary text-primary-foreground'
           : 'bg-background text-foreground ring-1 ring-border'
@@ -95,6 +104,10 @@ function Chip({
       {children}
     </button>
   )
+}
+
+function clampAmount(ml: number): number {
+  return Math.min(MILK_AMOUNT_MAX_ML, Math.max(1, ml))
 }
 
 export function MilkBottleSheet({
@@ -112,7 +125,6 @@ export function MilkBottleSheet({
   const [countdown, setCountdown] = useState('')
   const [warnMinutes, setWarnMinutes] = useState(DEFAULT_MILK_WARN_MINUTES)
   const [manualExpiry, setManualExpiry] = useState(false)
-  const [manualFilled, setManualFilled] = useState(false)
 
   const globalReminder = getMilkReminderSettings()
   const isFilled = !!slot?.is_filled
@@ -124,7 +136,9 @@ export function MilkBottleSheet({
   useEffect(() => {
     if (!open || !slot) return
     setAmount(
-      slot.is_filled && slot.amount_ml != null ? slot.amount_ml : 30
+      clampAmount(
+        slot.is_filled && slot.amount_ml != null ? slot.amount_ml : 30
+      )
     )
     const filledLocal = toLocalInputValue(slot.filled_at)
     setFilledAt(filledLocal)
@@ -135,7 +149,6 @@ export function MilkBottleSheet({
     )
     setWarnMinutes(slot.warn_before_minutes ?? DEFAULT_MILK_WARN_MINUTES)
     setManualExpiry(false)
-    setManualFilled(false)
   }, [open, slot])
 
   useEffect(() => {
@@ -214,7 +227,6 @@ export function MilkBottleSheet({
         : 'text-muted-foreground'
 
   const { date: expDate, time: expTime } = splitLocalDateTime(expiresAt)
-  const { date: fillDate, time: fillTime } = splitLocalDateTime(filledAt)
 
   if (!mounted) return null
 
@@ -247,26 +259,16 @@ export function MilkBottleSheet({
                   Botol {slot.slot_index + 1}
                 </h2>
 
-                {/* Jumlah */}
                 <div>
                   <p className="mb-2 text-xs font-medium text-muted-foreground">
                     Jumlah
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ML_PRESETS.map((ml) => (
-                      <Chip
-                        key={ml}
-                        active={amount === ml}
-                        onClick={() => setAmount(ml)}
-                      >
-                        {ml} ml
-                      </Chip>
-                    ))}
-                  </div>
-                  <div className="mt-2 flex items-center rounded-xl bg-secondary/50 ring-1 ring-border">
+                  <div className="flex items-center rounded-xl bg-secondary/50 ring-1 ring-border">
                     <button
                       type="button"
-                      onClick={() => setAmount((v) => Math.max(1, v - 10))}
+                      onClick={() =>
+                        setAmount((v) => clampAmount(v - AMOUNT_STEP))
+                      }
                       className="flex h-11 w-11 items-center justify-center text-lg text-muted-foreground"
                     >
                       −
@@ -276,7 +278,9 @@ export function MilkBottleSheet({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setAmount((v) => Math.min(2000, v + 10))}
+                      onClick={() =>
+                        setAmount((v) => clampAmount(v + AMOUNT_STEP))
+                      }
                       className="flex h-11 w-11 items-center justify-center text-lg text-muted-foreground"
                     >
                       +
@@ -284,7 +288,6 @@ export function MilkBottleSheet({
                   </div>
                 </div>
 
-                {/* Expired */}
                 <div>
                   <p className="mb-2 text-xs font-medium text-muted-foreground">
                     Expired
@@ -306,11 +309,10 @@ export function MilkBottleSheet({
                         {expirySubtitle}
                       </p>
                     )}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <ScrollChipRow>
                       {MILK_EXPIRY_PRESETS_HOURS.map((p) => (
                         <Chip
                           key={p.hours}
-                          active={false}
                           onClick={() => {
                             setExpiresAt(addHoursToLocalInput(filledAt, p.hours))
                             setManualExpiry(false)
@@ -319,7 +321,7 @@ export function MilkBottleSheet({
                           +{p.label}
                         </Chip>
                       ))}
-                    </div>
+                    </ScrollChipRow>
                     {!manualExpiry ? (
                       <button
                         type="button"
@@ -355,49 +357,9 @@ export function MilkBottleSheet({
                   </div>
                 </div>
 
-                {/* Diisi — hidden unless needed */}
-                {manualFilled ? (
-                  <div>
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">
-                      Diisi
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 rounded-2xl bg-secondary/50 p-3 ring-1 ring-border/50">
-                      <input
-                        type="date"
-                        value={fillDate}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            setFilledAt(combineLocalDateTime(e.target.value, fillTime))
-                          }
-                        }}
-                        className="rounded-xl bg-background px-2 py-2 text-xs ring-1 ring-border"
-                      />
-                      <input
-                        type="time"
-                        value={fillTime}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            setFilledAt(combineLocalDateTime(fillDate, e.target.value))
-                          }
-                        }}
-                        className="rounded-xl bg-background px-2 py-2 text-xs ring-1 ring-border"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setManualFilled(true)}
-                    className="text-[11px] font-medium text-muted-foreground"
-                  >
-                    Ubah waktu diisi
-                  </button>
-                )}
-
-                {/* Pengingat */}
                 <div>
                   <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Pengingat
+                    Reminder
                   </p>
                   <MilkWarnPicker
                     totalMinutes={warnMinutes}

@@ -33,7 +33,18 @@ function slotBorderClass(filled: boolean, status: MilkExpiryStatus) {
 }
 
 function slotLayoutId(slot: MilkStorageSlot): string {
-  return slot.id ? `milk-${slot.id}` : `milk-pos-${slot.slot_index}`
+  if (slot.is_filled && slot.bottle_number != null) {
+    return `milk-bottle-${slot.bottle_number}`
+  }
+  return `milk-empty-${slot.slot_index}`
+}
+
+function normalizeSlot(slot: MilkStorageSlot): MilkStorageSlot {
+  if (!slot.is_filled) return slot
+  return {
+    ...slot,
+    bottle_number: slot.bottle_number ?? slot.slot_index + 1,
+  }
 }
 
 function swapSlotsLocal(
@@ -41,8 +52,10 @@ function swapSlotsLocal(
   fromIndex: number,
   toIndex: number
 ): MilkStorageSlot[] {
-  const fromSlot = slots.find((s) => s.slot_index === fromIndex)
-  const toSlot = slots.find((s) => s.slot_index === toIndex)
+  const fromSlot = normalizeSlot(
+    slots.find((s) => s.slot_index === fromIndex)!
+  )
+  const toSlot = normalizeSlot(slots.find((s) => s.slot_index === toIndex)!)
   if (!fromSlot || !toSlot) return slots
   return slots.map((s) => {
     if (s.slot_index === fromIndex) return { ...toSlot, slot_index: fromIndex }
@@ -51,7 +64,8 @@ function swapSlotsLocal(
   })
 }
 
-function bottleLabel(slot: MilkStorageSlot): number {
+function bottleLabel(slot: MilkStorageSlot): number | null {
+  if (!slot.is_filled) return null
   return slot.bottle_number ?? slot.slot_index + 1
 }
 
@@ -71,7 +85,9 @@ function BottleUnit({
       className={`w-full text-center transition-opacity ${faded ? 'opacity-25' : ''}`}
     >
       <p className="mb-0.5 text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Bottle {bottleLabel(slot)}
+        {bottleLabel(slot) != null
+          ? `Bottle ${bottleLabel(slot)}`
+          : `Slot ${slot.slot_index + 1}`}
       </p>
       <BottleVisual
         filled={slot.is_filled}
