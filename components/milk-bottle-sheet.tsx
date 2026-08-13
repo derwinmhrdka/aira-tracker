@@ -11,6 +11,8 @@ import {
   getSlotMilkExpiryStatus,
   MILK_AMOUNT_MAX_ML,
   MILK_EXPIRY_PRESETS_HOURS,
+  clampMilkExpiryMinutes,
+  MAX_MILK_EXPIRY_MINUTES,
 } from '@/lib/milk-storage'
 import { requestNotificationPermission } from '@/lib/reminder'
 import { BottleVisual, FrostVapor } from './milk-bottle-visual'
@@ -31,7 +33,7 @@ interface MilkBottleSheetProps {
 }
 
 const AMOUNT_STEP = 5
-const MAX_EXPIRY_HOURS = 168 // 7 hari
+const MAX_EXPIRY_HOURS = Math.floor(MAX_MILK_EXPIRY_MINUTES / 60)
 
 function toLocalInputValue(iso: string | null): string {
   const d = iso ? new Date(iso) : new Date()
@@ -64,7 +66,7 @@ function expiresFromDuration(filledLocal: string, totalMinutes: number): string 
 }
 
 function clampExpiryMinutes(total: number): number {
-  return Math.min(MAX_EXPIRY_HOURS * 60, Math.max(0, Math.round(total)))
+  return clampMilkExpiryMinutes(total)
 }
 
 function clampAmount(ml: number): number {
@@ -244,7 +246,7 @@ export function MilkBottleSheet({
                           value={expiryMins}
                           min={0}
                           max={59}
-                          step={5}
+                          step={1}
                           onChange={(m) => applyExpiryParts(expiryHours, m)}
                         />
                       </div>
@@ -259,7 +261,7 @@ export function MilkBottleSheet({
                   </div>
                 </div>
 
-                <div className="relative flex w-[5.75rem] shrink-0 flex-col items-center justify-center overflow-hidden rounded-2xl border border-sky-200/60 bg-gradient-to-b from-sky-50/90 to-sky-100/40 px-2 py-3 dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-900/20 sm:w-[6.25rem]">
+                <div className="relative flex w-[5.75rem] shrink-0 flex-col items-center justify-center overflow-visible rounded-2xl border border-sky-200/60 bg-gradient-to-b from-sky-50/90 to-sky-100/40 px-2 py-3 dark:border-sky-800/40 dark:from-sky-950/40 dark:to-sky-900/20 sm:w-[6.25rem]">
                   <FrostVapor />
                   <div className="relative z-[1] flex flex-col items-center gap-1">
                     <BottleVisual

@@ -46,7 +46,7 @@ export function MilkWarnPicker({ totalMinutes, onChange }: MilkWarnPickerProps) 
           value={minutes}
           min={0}
           max={59}
-          step={5}
+          step={1}
           onChange={(m) => applyTotal(hours, m)}
         />
       </div>

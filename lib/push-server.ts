@@ -2,7 +2,7 @@ import webpush from 'web-push'
 import { prisma } from '@/lib/prisma'
 import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
 import { getVaccineStatus } from '@/lib/immunization-utils'
-import { MILK_REMINDER_SETTINGS_KEY, getBottleDisplayNumber, parseMilkReminderSettings, resolveSlotReminder } from '@/lib/milk-storage'
+import { MILK_REMINDER_SETTINGS_KEY, getBottleDisplayNumber, parseMilkReminderSettings, resolveSlotReminder, formatMilkExpiryPushMessage } from '@/lib/milk-storage'
 
 const publicKey = process.env.VAPID_PUBLIC_KEY
 const privateKey = process.env.VAPID_PRIVATE_KEY
@@ -244,14 +244,15 @@ export async function sendMilkExpiryPushes(): Promise<{ sent: number }> {
       slot_index: slot.slotIndex,
       bottle_number: slot.bottleNumber,
     })
-    const expired = exp <= now
+    const { title, body } = formatMilkExpiryPushMessage(
+      bottleNum,
+      ml,
+      slot.expiresAt,
+      now
+    )
     const result = await sendPushToAll({
-      title: expired
-        ? '🥛 ASI sudah melewati batas waktu'
-        : '🥛 ASI hampir melewati batas',
-      body: expired
-        ? `Botol ${bottleNum} (${ml} ml) sudah kadaluarsa — cek freezer`
-        : `Botol ${bottleNum} (${ml} ml) mendekati batas waktu`,
+      title,
+      body,
       url: '/',
     })
 

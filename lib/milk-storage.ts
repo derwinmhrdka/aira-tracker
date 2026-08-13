@@ -65,8 +65,10 @@ export function dedupeClientMilkSlots<
 /** @deprecated use getMilkReminderSettings().warnBeforeMinutes */
 export const MILK_EXPIRY_WARN_HOURS = 6
 
-export const MIN_MILK_WARN_MINUTES = 60
+export const MIN_MILK_WARN_MINUTES = 0
 export const MAX_MILK_WARN_MINUTES = 7 * 24 * 60
+export const MIN_MILK_EXPIRY_MINUTES = 0
+export const MAX_MILK_EXPIRY_MINUTES = 7 * 24 * 60
 export const DEFAULT_MILK_WARN_MINUTES = MILK_EXPIRY_WARN_HOURS * 60
 
 const MILK_REMINDER_KEY = 'baby_tracker_milk_reminder'
@@ -95,6 +97,13 @@ export function clampMilkWarnMinutes(minutes: number): number {
   return Math.min(
     MAX_MILK_WARN_MINUTES,
     Math.max(MIN_MILK_WARN_MINUTES, Math.round(minutes))
+  )
+}
+
+export function clampMilkExpiryMinutes(minutes: number): number {
+  return Math.min(
+    MAX_MILK_EXPIRY_MINUTES,
+    Math.max(MIN_MILK_EXPIRY_MINUTES, Math.round(minutes))
   )
 }
 
@@ -270,4 +279,29 @@ export function formatMilkExpiryRemaining(
   if (hours >= 48) return `${Math.floor(hours / 24)} hari lagi`
   if (hours >= 1) return `${hours} jam lagi`
   return `${Math.max(1, mins)} mnt lagi`
+}
+
+export function formatMilkExpiryPushMessage(
+  bottleNum: number,
+  ml: number,
+  expiresAt: string | Date,
+  now = Date.now()
+): { title: string; body: string } {
+  const iso =
+    expiresAt instanceof Date ? expiresAt.toISOString() : expiresAt
+  const exp = new Date(iso).getTime()
+  const expired = !Number.isNaN(exp) && exp <= now
+  const remaining = formatMilkExpiryRemaining(iso, now)
+
+  if (expired) {
+    return {
+      title: '🥛 ASI sudah melewati batas waktu',
+      body: `Botol ${bottleNum} (${ml} ml) sudah kadaluarsa! Buang segera!`,
+    }
+  }
+
+  return {
+    title: '🥛 ASI hampir melewati batas',
+    body: `Botol ${bottleNum} (${ml} ml) kadaluarsa ${remaining}! Cek freezer`,
+  }
 }

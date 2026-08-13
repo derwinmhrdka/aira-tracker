@@ -2,6 +2,7 @@ import {
   getMilkReminderSettings,
   getBottleDisplayNumber,
   resolveSlotReminder,
+  formatMilkExpiryPushMessage,
 } from '@/lib/milk-storage'
 import { checkServerMilkReminder } from '@/lib/push-client'
 
@@ -92,16 +93,15 @@ export async function checkMilkExpiryReminders(slots: MilkExpiryCheckSlot[]) {
     const key = `slot-${slot.slot_index}`
     if (notified[key] === slot.expires_at) continue
 
-    const ml = slot.amount_ml ?? '?'
+    const ml = slot.amount_ml ?? 0
     const bottleNum = getBottleDisplayNumber(slot)
-    const expired = exp <= now
-    await notify(
-      expired ? '🥛 ASI sudah melewati batas waktu' : '🥛 ASI hampir melewati batas',
-      expired
-        ? `Botol ${bottleNum} (${ml} ml) sudah kadaluarsa — cek freezer`
-        : `Botol ${bottleNum} (${ml} ml) mendekati batas waktu`,
-      `milk-expiry-${slot.slot_index}`
+    const { title, body } = formatMilkExpiryPushMessage(
+      bottleNum,
+      ml,
+      slot.expires_at,
+      now
     )
+    await notify(title, body, `milk-expiry-${slot.slot_index}`)
 
     notified[key] = slot.expires_at
     changed = true
