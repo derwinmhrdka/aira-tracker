@@ -38,7 +38,13 @@ COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
 COPY --from=builder /app/node_modules/@esbuild ./node_modules/@esbuild
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 
+# Prisma CLI for deploy-time db push (self-contained — partial node_modules copy misses deps like `effect`)
 USER root
+RUN mkdir -p /opt/prisma-cli \
+  && cd /opt/prisma-cli \
+  && npm init -y \
+  && npm install --ignore-scripts prisma@6.19.3
+ENV PATH="/opt/prisma-cli/node_modules/.bin:${PATH}"
 RUN mkdir -p uploads && chown -R nextjs:nodejs uploads
 USER nextjs
 EXPOSE 3000
