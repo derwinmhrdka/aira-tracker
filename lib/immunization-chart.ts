@@ -16,7 +16,21 @@ export type ChartCell = {
   kind: ChartCellKind
 }
 
+export type ChartDoseBar = ChartCell & {
+  startWeeks: number
+  endWeeks: number
+  lane: number
+}
+
 export type ChartRow = {
+  id: string
+  label: string
+  bars: ChartDoseBar[]
+  laneCount: number
+}
+
+/** @deprecated discrete cell grid — use ChartDoseBar */
+export type ChartRowCells = {
   id: string
   label: string
   cells: Map<string, ChartCell[]>
@@ -151,8 +165,114 @@ export function getChartCellKind(item: Immunization): ChartCellKind {
 export function extractDoseDisplay(doseLabel?: string | null): string {
   if (!doseLabel) return '•'
   if (/tunggal/i.test(doseLabel)) return '1'
+  if (/booster/i.test(doseLabel)) {
+    const n = doseLabel.match(/(\d+)/)
+    return n ? `B${n[1]}` : 'B'
+  }
   const match = doseLabel.match(/(\d+)/)
   return match ? match[1] : '•'
+}
+
+function extractDoseSortOrder(doseLabel?: string | null): number {
+  if (!doseLabel) return 99
+  if (/booster/i.test(doseLabel)) {
+    const n = doseLabel.match(/(\d+)/)
+    return 50 + (n ? parseInt(n[1], 10) : 0)
+  }
+  const match = doseLabel.match(/(\d+)/)
+  return match ? parseInt(match[1], 10) : 99
+}
+
+function intervalsOverlap(
+  a: { start: number; end: number },
+  b: { start: number; end: number }
+): boolean {
+  return a.start < b.end && b.start < a.end
+}
+
+export function getDoseWeekRange(item: Immunization): { start: number; end: number } {
+  const scheduled =
+    item.scheduled_age_weeks ??
+    (item.scheduled_age_months > 0 ? item.scheduled_age_months * 4 : 0)
+
+  const min = item.min_weeks ?? scheduled
+  const max = item.max_weeks ?? scheduled
+
+  if (min !== max) {
+    return { start: Math.max(0, min), end: Math.max(min + 1, max) }
+  }
+
+  const col = IDAI_CHART_COLUMNS.find(
+    (c) => scheduled >= c.minWeeks && scheduled <= c.maxWeeks
+  )
+  if (col) {
+    return { start: col.minWeeks, end: col.maxWeeks + 1 }
+  }
+
+  return { start: scheduled, end: scheduled + 4 }
+}
+
+function assignBarLanes(
+  bars: { startWeeks: number; endWeeks: number; sortOrder: number }[]
+): number[] {
+  const sorted = bars
+    .map((b, index) => ({ ...b, index }))
+    .sort((a, b) => a.startWeeks - b.startWeeks || a.sortOrder - b.sortOrder)
+
+  const laneBars: { startWeeks: number; endWeeks: number }[][] = []
+  const lanes = new Array(bars.length).fill(0)
+
+  for (const bar of sorted) {
+    let lane = 0
+    while (
+      lane < laneBars.length &&
+      laneBars[lane].some((existing) =>
+        intervalsOverlap(
+          { start: bar.startWeeks, end: bar.endWeeks },
+          { start: existing.startWeeks, end: existing.endWeeks }
+        )
+      )
+    ) {
+      lane++
+    }
+
+    if (!laneBars[lane]) laneBars[lane] = []
+    laneBars[lane].push({ startWeeks: bar.startWeeks, endWeeks: bar.endWeeks })
+    lanes[bar.index] = lane
+  }
+
+  return lanes
+}
+
+export const CHART_MONTH_COL_WIDTH = 40
+export const CHART_YEAR_COL_WIDTH = 36
+export const CHART_BAR_HEIGHT = 18
+export const CHART_BAR_GAP = 4
+export const CHART_ROW_PAD = 6
+
+export function getChartTimelineBounds(columns: ChartAgeColumn[] = IDAI_CHART_COLUMNS) {
+  return {
+    start: columns[0].minWeeks,
+    end: columns[columns.length - 1].maxWeeks + 1,
+  }
+}
+
+export function getChartGridWidthPx(columns: ChartAgeColumn[] = IDAI_CHART_COLUMNS): number {
+  return columns.reduce(
+    (sum, col) =>
+      sum + (col.group === 'month' ? CHART_MONTH_COL_WIDTH : CHART_YEAR_COL_WIDTH),
+    0
+  )
+}
+
+export function weeksToGridPx(
+  weeks: number,
+  columns: ChartAgeColumn[] = IDAI_CHART_COLUMNS
+): number {
+  const { start, end } = getChartTimelineBounds(columns)
+  const totalWidth = getChartGridWidthPx(columns)
+  const clamped = Math.min(end, Math.max(start, weeks))
+  return ((clamped - start) / (end - start)) * totalWidth
 }
 
 export function getChartColumnForBabyWeeks(babyWeeks: number): string | null {
@@ -170,42 +290,63 @@ export function buildImmunizationChart(items: Immunization[]): {
   columns: ChartAgeColumn[]
   rows: ChartRow[]
 } {
-  const rowMap = new Map<string, ChartRow>()
+  const rowMap = new Map<
+    string,
+    { label: string; items: Immunization[] }
+  >()
 
   for (const item of items) {
     const rowLabel = normalizeVaccineChartRow(item.vaccine_name)
     const rowId = rowLabel.toLowerCase().replace(/\s+/g, '-')
-    const weeks =
-      item.scheduled_age_weeks ??
-      (item.scheduled_age_months > 0 ? item.scheduled_age_months * 4 : 0)
-    const colId = weeksToChartColumnId(weeks)
 
     if (!rowMap.has(rowId)) {
-      rowMap.set(rowId, { id: rowId, label: rowLabel, cells: new Map() })
+      rowMap.set(rowId, { label: rowLabel, items: [] })
     }
-
-    const row = rowMap.get(rowId)!
-    const list = row.cells.get(colId) ?? []
-    list.push({
-      item,
-      doseDisplay: extractDoseDisplay(item.dose_label),
-      kind: getChartCellKind(item),
-    })
-    row.cells.set(colId, list)
+    rowMap.get(rowId)!.items.push(item)
   }
 
   const orderedRows: ChartRow[] = []
+
+  const buildRow = (id: string, label: string, rowItems: Immunization[]): ChartRow => {
+    const draft = rowItems.map((item) => {
+      const range = getDoseWeekRange(item)
+      return {
+        item,
+        doseDisplay: extractDoseDisplay(item.dose_label),
+        kind: getChartCellKind(item),
+        startWeeks: range.start,
+        endWeeks: range.end,
+        sortOrder: extractDoseSortOrder(item.dose_label),
+        lane: 0,
+      }
+    })
+
+    const lanes = assignBarLanes(draft)
+    const bars: ChartDoseBar[] = draft.map((bar, i) => ({
+      item: bar.item,
+      doseDisplay: bar.doseDisplay,
+      kind: bar.kind,
+      startWeeks: bar.startWeeks,
+      endWeeks: bar.endWeeks,
+      lane: lanes[i],
+    }))
+
+    const laneCount = bars.length > 0 ? Math.max(...bars.map((b) => b.lane)) + 1 : 1
+
+    return { id, label, bars, laneCount }
+  }
+
   for (const label of CHART_ROW_ORDER) {
     const id = label.toLowerCase().replace(/\s+/g, '-')
-    const row = rowMap.get(id)
-    if (row) {
-      orderedRows.push(row)
+    const entry = rowMap.get(id)
+    if (entry) {
+      orderedRows.push(buildRow(id, entry.label, entry.items))
       rowMap.delete(id)
     }
   }
 
-  for (const row of rowMap.values()) {
-    orderedRows.push(row)
+  for (const [id, entry] of rowMap.entries()) {
+    orderedRows.push(buildRow(id, entry.label, entry.items))
   }
 
   return { columns: IDAI_CHART_COLUMNS, rows: orderedRows }

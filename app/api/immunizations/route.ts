@@ -3,6 +3,21 @@ import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/api-helpers'
 import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
 import { getVaccineStatus } from '@/lib/immunization-utils'
+import type { VaccinePaymentMethod } from '@prisma/client'
+
+const PAYMENT_METHODS = new Set<string>([
+  'INHEALTH',
+  'FULLERTON',
+  'PUSKESMAS',
+  'CASH',
+])
+
+function parsePaymentMethod(raw: unknown): VaccinePaymentMethod | null | undefined {
+  if (raw === undefined) return undefined
+  if (raw === null || raw === '') return null
+  const v = String(raw).toUpperCase()
+  return PAYMENT_METHODS.has(v) ? (v as VaccinePaymentMethod) : null
+}
 
 function formatItem(
   i: {
@@ -19,6 +34,10 @@ function formatItem(
     dateGiven: Date | null
     notes: string | null
     isCustom: boolean
+    paymentMethod: VaccinePaymentMethod | null
+    costIdr: number | null
+    vaccineProduct: string | null
+    location: string | null
   },
   babyAgeMonths: number,
   babyAgeWeeks: number
@@ -37,6 +56,10 @@ function formatItem(
     date_given: i.dateGiven?.toISOString().split('T')[0] ?? null,
     notes: i.notes,
     is_custom: i.isCustom,
+    payment_method: i.paymentMethod,
+    cost_idr: i.costIdr,
+    vaccine_product: i.vaccineProduct,
+    location: i.location,
     status: getVaccineStatus(i.isDone, i.scheduledAgeMonths, babyAgeMonths, {
       scheduledAgeWeeks: i.scheduledAgeWeeks,
       minWeeks: i.minWeeks,
@@ -120,6 +143,19 @@ export async function PATCH(request: NextRequest) {
               ? new Date(body.date_given)
               : undefined,
         notes: body.notes !== undefined ? body.notes : undefined,
+        paymentMethod: parsePaymentMethod(body.payment_method),
+        costIdr:
+          body.cost_idr === null
+            ? null
+            : body.cost_idr !== undefined
+              ? Math.max(0, Math.round(Number(body.cost_idr) || 0))
+              : undefined,
+        vaccineProduct:
+          body.vaccine_product !== undefined
+            ? body.vaccine_product?.trim() || null
+            : undefined,
+        location:
+          body.location !== undefined ? body.location?.trim() || null : undefined,
       },
     })
 

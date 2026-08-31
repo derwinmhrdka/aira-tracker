@@ -153,6 +153,10 @@ export async function POST(request: NextRequest) {
               isDone: i.is_done ?? false,
               dateGiven: i.date_given ? new Date(i.date_given) : null,
               notes: i.notes ?? null,
+              paymentMethod: i.payment_method ?? null,
+              costIdr: i.cost_idr ?? null,
+              vaccineProduct: i.vaccine_product ?? null,
+              location: i.location ?? null,
             },
           })
         } else {
@@ -171,6 +175,10 @@ export async function POST(request: NextRequest) {
               dateGiven: i.date_given ? new Date(i.date_given) : null,
               notes: i.notes ?? null,
               isCustom: i.is_custom ?? true,
+              paymentMethod: i.payment_method ?? null,
+              costIdr: i.cost_idr ?? null,
+              vaccineProduct: i.vaccine_product ?? null,
+              location: i.location ?? null,
             },
           })
         }

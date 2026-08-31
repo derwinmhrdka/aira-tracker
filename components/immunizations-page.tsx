@@ -3,7 +3,12 @@
 import { useMemo, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { PageHeader } from './page-header'
-import { api, type Immunization } from '@/lib/api-client'
+import {
+  api,
+  type Immunization,
+  type VaccinePaymentMethod,
+  type VaccineStrategySettings,
+} from '@/lib/api-client'
 import { ageInWeeks } from '@/lib/baby-utils'
 import {
   STATUS_LABEL,
@@ -18,36 +23,78 @@ import {
   getDoseKind,
   groupImmunizationsTimeline,
 } from '@/lib/immunization-idai'
+import {
+  formatIdr,
+  PAYMENT_METHOD_LABEL,
+  PAYMENT_METHOD_STYLE,
+} from '@/lib/vaccine-strategy'
 import { ImmunizationScheduleChart } from './immunization-schedule-chart'
+import { VaccineStrategyPanel } from './vaccine-strategy-panel'
+import { VaccineStrategySettingsSheet } from './vaccine-strategy-settings-sheet'
 
 interface ImmunizationsPageProps {
   onBack: () => void
 }
 
+type VaccineEditForm = {
+  dateGiven: string
+  notes: string
+  paymentMethod: VaccinePaymentMethod | ''
+  costIdr: string
+  vaccineProduct: string
+  location: string
+}
+
+const PAYMENT_OPTIONS: { value: VaccinePaymentMethod | ''; label: string }[] = [
+  { value: '', label: '—' },
+  { value: 'INHEALTH', label: 'Inhealth' },
+  { value: 'FULLERTON', label: 'Fullerton' },
+  { value: 'PUSKESMAS', label: 'Puskesmas' },
+  { value: 'CASH', label: 'Cash' },
+]
+
+function emptyEditForm(): VaccineEditForm {
+  return {
+    dateGiven: new Date().toISOString().split('T')[0],
+    notes: '',
+    paymentMethod: '',
+    costIdr: '',
+    vaccineProduct: '',
+    location: '',
+  }
+}
+
+function editFormFromItem(item: Immunization): VaccineEditForm {
+  return {
+    dateGiven: item.date_given || new Date().toISOString().split('T')[0],
+    notes: item.notes ?? '',
+    paymentMethod: item.payment_method ?? '',
+    costIdr: item.cost_idr != null ? String(item.cost_idr) : '',
+    vaccineProduct: item.vaccine_product ?? '',
+    location: item.location ?? '',
+  }
+}
+
 function VaccineCard({
   item,
   editingId,
-  dateGiven,
-  notes,
+  form,
   onToggle,
   onStartEdit,
   onConfirm,
   onUncheck,
   onRemove,
-  setDateGiven,
-  setNotes,
+  onFormChange,
 }: {
   item: Immunization
   editingId: string | null
-  dateGiven: string
-  notes: string
+  form: VaccineEditForm
   onToggle: (item: Immunization) => void
   onStartEdit: (item: Immunization) => void
   onConfirm: (id: string) => void
   onUncheck: (item: Immunization) => void
   onRemove: (item: Immunization) => void
-  setDateGiven: (v: string) => void
-  setNotes: (v: string) => void
+  onFormChange: (patch: Partial<VaccineEditForm>) => void
 }) {
   const status = (item.status ?? (item.is_done ? 'done' : 'upcoming')) as VaccineStatus
   const doseKind = getDoseKind(item.dose_label)
@@ -78,17 +125,15 @@ function VaccineCard({
           {item.is_done ? '✅' : status === 'overdue' ? '⚠️' : '⬜'}
         </button>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className="font-heading text-sm font-semibold text-foreground">
-              {item.vaccine_name}
-              {item.dose_label ? (
-                <span className="font-normal text-muted-foreground">
-                  {' '}
-                  · {item.dose_label}
-                </span>
-              ) : null}
-            </p>
-          </div>
+          <p className="font-heading text-sm font-semibold text-foreground">
+            {item.vaccine_name}
+            {item.dose_label ? (
+              <span className="font-normal text-muted-foreground">
+                {' '}
+                · {item.dose_label}
+              </span>
+            ) : null}
+          </p>
 
           <div className="mt-1.5 flex flex-wrap gap-1">
             <span
@@ -103,19 +148,11 @@ function VaccineCard({
                 {DOSE_KIND_LABEL[doseKind]}
               </span>
             )}
-            {item.is_national_program === false && (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                Anjuran
-              </span>
-            )}
-            {item.is_national_program !== false && !item.is_custom && (
-              <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] text-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
-                Program
-              </span>
-            )}
-            {item.is_custom && (
-              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                Custom
+            {item.payment_method && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PAYMENT_METHOD_STYLE[item.payment_method]}`}
+              >
+                {PAYMENT_METHOD_LABEL[item.payment_method]}
               </span>
             )}
           </div>
@@ -133,28 +170,36 @@ function VaccineCard({
                 month: 'short',
                 year: 'numeric',
               })}
+              {item.vaccine_product ? ` · ${item.vaccine_product}` : ''}
+              {item.cost_idr != null && item.cost_idr > 0
+                ? ` · ${formatIdr(item.cost_idr)}`
+                : item.payment_method === 'INHEALTH'
+                  ? ' · Rp0'
+                  : ''}
             </p>
           )}
 
+          {item.location && (
+            <p className="mt-0.5 text-[10px] text-muted-foreground">{item.location}</p>
+          )}
+
           {item.notes && (
-            <p className="mt-1 text-[11px] italic text-muted-foreground">
-              {item.notes}
-            </p>
+            <p className="mt-1 text-[11px] italic text-muted-foreground">{item.notes}</p>
           )}
 
           {catchUpLines.length > 0 &&
             (status === 'overdue' || doseKind !== 'routine') && (
-            <ul className="mt-1.5 space-y-0.5">
-              {catchUpLines.slice(0, 2).map((line) => (
-                <li
-                  key={line}
-                  className="text-[10px] leading-snug text-muted-foreground"
-                >
-                  · {line}
-                </li>
-              ))}
-            </ul>
-          )}
+              <ul className="mt-1.5 space-y-0.5">
+                {catchUpLines.slice(0, 2).map((line) => (
+                  <li
+                    key={line}
+                    className="text-[10px] leading-snug text-muted-foreground"
+                  >
+                    · {line}
+                  </li>
+                ))}
+              </ul>
+            )}
         </div>
 
         <div className="flex shrink-0 flex-col gap-1">
@@ -185,15 +230,55 @@ function VaccineCard({
         <div className="mt-2 space-y-2 border-t border-border/50 pt-2">
           <input
             type="date"
-            value={dateGiven}
-            onChange={(e) => setDateGiven(e.target.value)}
+            value={form.dateGiven}
+            onChange={(e) => onFormChange({ dateGiven: e.target.value })}
+            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              value={form.paymentMethod}
+              onChange={(e) =>
+                onFormChange({
+                  paymentMethod: e.target.value as VaccinePaymentMethod | '',
+                })
+              }
+              className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+            >
+              {PAYMENT_OPTIONS.map((opt) => (
+                <option key={opt.value || 'none'} value={opt.value}>
+                  {opt.label === '—' ? 'Bayar pakai' : opt.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={form.costIdr}
+              onChange={(e) => onFormChange({ costIdr: e.target.value })}
+              placeholder="Biaya (Rp)"
+              className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+            />
+          </div>
+          <input
+            type="text"
+            value={form.vaccineProduct}
+            onChange={(e) => onFormChange({ vaccineProduct: e.target.value })}
+            placeholder="Produk (Hexaxim, Rotarix, …)"
             className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
           />
           <input
             type="text"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Catatan (lokasi, batch, dll)"
+            value={form.location}
+            onChange={(e) => onFormChange({ location: e.target.value })}
+            placeholder="Lokasi (RS / klinik)"
+            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+          />
+          <input
+            type="text"
+            value={form.notes}
+            onChange={(e) => onFormChange({ notes: e.target.value })}
+            placeholder="Catatan"
             className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
           />
           <div className="flex gap-2">
@@ -222,25 +307,32 @@ function VaccineCard({
 
 export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
   const [items, setItems] = useState<Immunization[]>([])
+  const [strategy, setStrategy] = useState<VaccineStrategySettings | null>(null)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'chart' | 'list'>('chart')
+  const [view, setView] = useState<'chart' | 'list' | 'strategy'>('chart')
   const [babyAgeWeeks, setBabyAgeWeeks] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [dateGiven, setDateGiven] = useState('')
-  const [notes, setNotes] = useState('')
+  const [editForm, setEditForm] = useState<VaccineEditForm>(emptyEditForm())
   const [showAdd, setShowAdd] = useState(false)
+  const [showStrategySettings, setShowStrategySettings] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAge, setNewAge] = useState('0')
   const [newNotes, setNewNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    api.getImmunizations().then(setItems).finally(() => setLoading(false))
-    api.getBabyProfile().then((baby) => {
-      if (baby?.birth_date) {
-        setBabyAgeWeeks(ageInWeeks(baby.birth_date))
-      }
-    }).catch(() => {})
+    Promise.all([api.getImmunizations(), api.getVaccineStrategy()])
+      .then(([immunizations, strategyData]) => {
+        setItems(immunizations)
+        setStrategy(strategyData)
+      })
+      .finally(() => setLoading(false))
+    api
+      .getBabyProfile()
+      .then((baby) => {
+        if (baby?.birth_date) setBabyAgeWeeks(ageInWeeks(baby.birth_date))
+      })
+      .catch(() => {})
   }, [])
 
   const timeline = useMemo(() => groupImmunizationsTimeline(items), [items])
@@ -249,8 +341,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
 
   const startEdit = (item: Immunization) => {
     setEditingId(item.id)
-    setDateGiven(item.date_given || new Date().toISOString().split('T')[0])
-    setNotes(item.notes ?? '')
+    setEditForm(editFormFromItem(item))
   }
 
   const toggle = async (item: Immunization) => {
@@ -260,8 +351,15 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
   const confirmDate = async (id: string) => {
     const updated = await api.updateImmunization(id, {
       is_done: true,
-      date_given: dateGiven,
-      notes: notes.trim() || undefined,
+      date_given: editForm.dateGiven,
+      notes: editForm.notes.trim() || undefined,
+      payment_method: editForm.paymentMethod || null,
+      cost_idr:
+        editForm.costIdr.trim() === ''
+          ? null
+          : Math.max(0, Math.round(Number(editForm.costIdr) || 0)),
+      vaccine_product: editForm.vaccineProduct.trim() || null,
+      location: editForm.location.trim() || null,
     })
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)))
     setEditingId(null)
@@ -271,6 +369,8 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     const updated = await api.updateImmunization(item.id, {
       is_done: false,
       date_given: null,
+      payment_method: null,
+      cost_idr: null,
     })
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, ...updated } : i))
@@ -309,33 +409,32 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     setItems((prev) => prev.filter((i) => i.id !== item.id))
   }
 
+  const saveStrategySettings = async (data: Parameters<
+    typeof api.updateVaccineStrategy
+  >[0]) => {
+    const next = await api.updateVaccineStrategy(data)
+    setStrategy(next)
+  }
+
   return (
     <div className="px-4 pt-6 pb-8">
       <PageHeader title="Imunisasi" onBack={onBack} />
 
       <div className="mb-4 flex gap-1 rounded-xl bg-secondary/60 p-1">
-        <button
-          type="button"
-          onClick={() => setView('chart')}
-          className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
-            view === 'chart'
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground'
-          }`}
-        >
-          Jadwal
-        </button>
-        <button
-          type="button"
-          onClick={() => setView('list')}
-          className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
-            view === 'list'
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground'
-          }`}
-        >
-          Daftar
-        </button>
+        {(['chart', 'list', 'strategy'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setView(tab)}
+            className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
+              view === tab
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground'
+            }`}
+          >
+            {tab === 'chart' ? 'Jadwal' : tab === 'list' ? 'Daftar' : 'Strategi'}
+          </button>
+        ))}
       </div>
 
       <div className="mb-4 flex gap-2 text-[11px]">
@@ -349,15 +448,17 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setShowAdd((v) => !v)}
-        className="mb-4 w-full rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-foreground"
-      >
-        {showAdd ? 'Batal' : '+ Tambah Vaksin Custom'}
-      </button>
+      {view !== 'strategy' && (
+        <button
+          type="button"
+          onClick={() => setShowAdd((v) => !v)}
+          className="mb-4 w-full rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-foreground"
+        >
+          {showAdd ? 'Batal' : '+ Tambah Vaksin Custom'}
+        </button>
+      )}
 
-      {showAdd && (
+      {showAdd && view !== 'strategy' && (
         <div className="mb-4 space-y-2 rounded-xl border border-border bg-card p-3">
           <input
             type="text"
@@ -408,6 +509,12 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
             }
           }}
         />
+      ) : view === 'strategy' && strategy ? (
+        <VaccineStrategyPanel
+          strategy={strategy}
+          immunizations={items}
+          onEditSettings={() => setShowStrategySettings(true)}
+        />
       ) : (
         <div className="relative ml-1 pl-5">
           <div
@@ -453,15 +560,15 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
                       key={item.id}
                       item={item}
                       editingId={editingId}
-                      dateGiven={dateGiven}
-                      notes={notes}
+                      form={editForm}
                       onToggle={toggle}
                       onStartEdit={startEdit}
                       onConfirm={confirmDate}
                       onUncheck={uncheck}
                       onRemove={removeCustom}
-                      setDateGiven={setDateGiven}
-                      setNotes={setNotes}
+                      onFormChange={(patch) =>
+                        setEditForm((prev) => ({ ...prev, ...patch }))
+                      }
                     />
                   ))}
                 </div>
@@ -473,6 +580,15 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
             )
           })}
         </div>
+      )}
+
+      {strategy && (
+        <VaccineStrategySettingsSheet
+          open={showStrategySettings}
+          strategy={strategy}
+          onClose={() => setShowStrategySettings(false)}
+          onSave={saveStrategySettings}
+        />
       )}
     </div>
   )

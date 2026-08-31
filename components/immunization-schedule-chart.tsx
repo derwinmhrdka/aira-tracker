@@ -10,11 +10,19 @@ import {
 } from '@/lib/immunization-utils'
 import {
   buildImmunizationChart,
+  CHART_BAR_GAP,
+  CHART_BAR_HEIGHT,
   CHART_KIND_LABEL,
   CHART_KIND_STYLE,
+  CHART_MONTH_COL_WIDTH,
+  CHART_ROW_PAD,
+  CHART_YEAR_COL_WIDTH,
   getChartColumnForBabyWeeks,
+  getChartGridWidthPx,
+  weeksToGridPx,
   type ChartCell,
   type ChartCellKind,
+  type ChartDoseBar,
 } from '@/lib/immunization-chart'
 import { formatVaccineRange } from '@/lib/immunization-idai'
 
@@ -26,30 +34,35 @@ type ImmunizationScheduleChartProps = {
 
 function cellStatusRing(status?: VaccineStatus, isDone?: boolean): string {
   if (isDone) return 'ring-2 ring-green-500 ring-offset-1 ring-offset-card'
-  if (status === 'overdue') return 'ring-2 ring-red-500 ring-offset-1 ring-offset-card animate-pulse'
+  if (status === 'overdue')
+    return 'ring-2 ring-red-500 ring-offset-1 ring-offset-card animate-pulse'
   if (status === 'due') return 'ring-2 ring-amber-400 ring-offset-1 ring-offset-card'
   return ''
 }
 
-function ChartCellButton({
-  cell,
+function ChartDoseBarButton({
+  bar,
   onClick,
 }: {
-  cell: ChartCell
+  bar: ChartDoseBar
   onClick: () => void
 }) {
-  const status = (cell.item.status ??
-    (cell.item.is_done ? 'done' : 'upcoming')) as VaccineStatus
-  const kindStyle = CHART_KIND_STYLE[cell.kind]
+  const status = (bar.item.status ??
+    (bar.item.is_done ? 'done' : 'upcoming')) as VaccineStatus
+  const kindStyle = CHART_KIND_STYLE[bar.kind]
+  const left = weeksToGridPx(bar.startWeeks)
+  const width = Math.max(weeksToGridPx(bar.endWeeks) - left, 14)
+  const top = bar.lane * (CHART_BAR_HEIGHT + CHART_BAR_GAP) + CHART_ROW_PAD
 
   return (
     <button
       type="button"
       onClick={onClick}
-      title={`${cell.item.vaccine_name} · ${cell.item.dose_label ?? 'dosis'}`}
-      className={`flex h-8 min-w-[2rem] items-center justify-center rounded-md text-[11px] font-bold tabular-nums transition-transform active:scale-95 ${kindStyle} ${cellStatusRing(status, cell.item.is_done)}`}
+      title={`${bar.item.vaccine_name} · ${bar.item.dose_label ?? 'dosis'}`}
+      style={{ left, width, top, height: CHART_BAR_HEIGHT }}
+      className={`absolute flex min-w-[14px] items-center justify-center rounded-md px-1 text-[10px] font-bold tabular-nums transition-transform active:scale-[0.98] ${kindStyle} ${cellStatusRing(status, bar.item.is_done)}`}
     >
-      {cell.item.is_done ? '✓' : cell.doseDisplay}
+      <span className="truncate">{bar.item.is_done ? '✓' : bar.doseDisplay}</span>
     </button>
   )
 }
@@ -171,6 +184,33 @@ function CellDetailSheet({
   )
 }
 
+function ChartGridBackground({
+  columns,
+  babyColumnId,
+  height,
+}: {
+  columns: ReturnType<typeof buildImmunizationChart>['columns']
+  babyColumnId: string | null
+  height: number
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 flex" style={{ height }}>
+      {columns.map((col) => (
+        <div
+          key={col.id}
+          className={`relative shrink-0 border-r border-border/25 last:border-r-0 ${
+            col.group === 'month' ? 'w-10' : 'w-9'
+          } ${babyColumnId === col.id ? 'bg-primary/[0.06]' : ''}`}
+        >
+          {babyColumnId === col.id && (
+            <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-primary/50" />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ImmunizationScheduleChart({
   items,
   babyAgeWeeks,
@@ -182,8 +222,15 @@ export function ImmunizationScheduleChart({
 
   const monthColumns = columns.filter((c) => c.group === 'month')
   const yearColumns = columns.filter((c) => c.group === 'year')
+  const gridWidth = getChartGridWidthPx(columns)
 
-  const legendKinds: ChartCellKind[] = ['primer', 'catchup', 'booster', 'endemic', 'highrisk']
+  const legendKinds: ChartCellKind[] = [
+    'primer',
+    'catchup',
+    'booster',
+    'endemic',
+    'highrisk',
+  ]
 
   return (
     <div className="space-y-3">
@@ -210,7 +257,6 @@ export function ImmunizationScheduleChart({
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm [-webkit-overflow-scrolling:touch]">
         <div className="min-w-max">
-          {/* Header row */}
           <div className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur-sm">
             <div className="flex">
               <div className="sticky left-0 z-30 w-[5.5rem] shrink-0 border-r border-border bg-card px-2 py-2">
@@ -222,7 +268,7 @@ export function ImmunizationScheduleChart({
                 <div className="flex border-b border-border/60">
                   <div
                     className="flex shrink-0 items-end px-1 py-1"
-                    style={{ width: monthColumns.length * 40 }}
+                    style={{ width: monthColumns.length * CHART_MONTH_COL_WIDTH }}
                   >
                     <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                       Bulan
@@ -230,7 +276,7 @@ export function ImmunizationScheduleChart({
                   </div>
                   <div
                     className="flex shrink-0 items-end border-l border-border/60 px-1 py-1"
-                    style={{ width: yearColumns.length * 36 }}
+                    style={{ width: yearColumns.length * CHART_YEAR_COL_WIDTH }}
                   >
                     <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                       Tahun
@@ -273,61 +319,48 @@ export function ImmunizationScheduleChart({
             </div>
           </div>
 
-          {/* Data rows */}
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className="flex border-b border-border/50 last:border-b-0"
-            >
-              <div className="sticky left-0 z-10 w-[5.5rem] shrink-0 border-r border-border bg-card px-2 py-2">
-                <p className="text-[10px] font-semibold leading-tight text-foreground">
-                  {row.label}
-                </p>
-              </div>
-              <div className="flex">
-                {columns.map((col) => {
-                  const cells = row.cells.get(col.id) ?? []
-                  const hasDone = cells.some((c) => c.item.is_done)
-                  const hasOverdue = cells.some((c) => c.item.status === 'overdue')
+          {rows.map((row) => {
+            const rowHeight =
+              row.laneCount * (CHART_BAR_HEIGHT + CHART_BAR_GAP) + CHART_ROW_PAD * 2
 
-                  return (
-                    <div
-                      key={col.id}
-                      className={`flex w-[${col.group === 'month' ? '2.5rem' : '2.25rem'}] shrink-0 items-center justify-center border-r border-border/30 p-0.5 last:border-r-0 ${
-                        col.group === 'month' ? 'w-10' : 'w-9'
-                      } ${babyColumnId === col.id ? 'bg-primary/[0.06]' : ''} ${
-                        hasOverdue ? 'bg-red-50/40 dark:bg-red-950/10' : hasDone ? 'bg-green-50/30 dark:bg-green-950/10' : ''
-                      }`}
-                    >
-                      {cells.length > 0 ? (
-                        <div className="flex flex-col gap-0.5">
-                          {cells.length <= 2 ? (
-                            cells.map((cell) => (
-                              <ChartCellButton
-                                key={cell.item.id}
-                                cell={cell}
-                                onClick={() => setSelectedCells(cells)}
-                              />
-                            ))
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedCells(cells)}
-                              className="flex h-8 min-w-[2rem] items-center justify-center rounded-md bg-sky-500 text-[10px] font-bold text-white"
-                            >
-                              {cells.length}
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="h-8 w-8" aria-hidden />
-                      )}
-                    </div>
-                  )
-                })}
+            return (
+              <div
+                key={row.id}
+                className="flex border-b border-border/50 last:border-b-0"
+              >
+                <div className="sticky left-0 z-10 flex w-[5.5rem] shrink-0 items-center border-r border-border bg-card px-2 py-2">
+                  <p className="text-[10px] font-semibold leading-tight text-foreground">
+                    {row.label}
+                  </p>
+                </div>
+                <div
+                  className="relative shrink-0"
+                  style={{ width: gridWidth, height: rowHeight }}
+                >
+                  <ChartGridBackground
+                    columns={columns}
+                    babyColumnId={babyColumnId}
+                    height={rowHeight}
+                  />
+                  {row.bars.map((bar) => (
+                    <ChartDoseBarButton
+                      key={bar.item.id}
+                      bar={bar}
+                      onClick={() =>
+                        setSelectedCells([
+                          {
+                            item: bar.item,
+                            doseDisplay: bar.doseDisplay,
+                            kind: bar.kind,
+                          },
+                        ])
+                      }
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 

@@ -103,6 +103,10 @@ export async function GET() {
         date_given: i.dateGiven?.toISOString().split('T')[0] ?? null,
         notes: i.notes,
         is_custom: i.isCustom,
+        payment_method: i.paymentMethod,
+        cost_idr: i.costIdr,
+        vaccine_product: i.vaccineProduct,
+        location: i.location,
       })),
       development: development.map((d) => ({
         age_group_months: d.ageGroupMonths,

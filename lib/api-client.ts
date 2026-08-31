@@ -386,6 +386,15 @@ export const api = {
   deleteImmunization: (id: string) =>
     apiFetch(`/api/immunizations/${id}`, { method: 'DELETE' }),
 
+  getVaccineStrategy: () =>
+    apiFetch<VaccineStrategySettings>('/api/immunizations/strategy'),
+
+  updateVaccineStrategy: (data: Partial<VaccineStrategySettingsPayload>) =>
+    apiFetch<VaccineStrategySettings>('/api/immunizations/strategy', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   getDevelopmentChecklist: () =>
     apiFetch<DevelopmentItem[]>('/api/development-checklist'),
 
@@ -757,6 +766,8 @@ export interface CreateEventInput {
   notes?: string
 }
 
+export type VaccinePaymentMethod = 'INHEALTH' | 'FULLERTON' | 'PUSKESMAS' | 'CASH'
+
 export interface Immunization {
   id: string
   vaccine_name: string
@@ -771,6 +782,10 @@ export interface Immunization {
   date_given?: string | null
   notes?: string | null
   is_custom?: boolean
+  payment_method?: VaccinePaymentMethod | null
+  cost_idr?: number | null
+  vaccine_product?: string | null
+  location?: string | null
   status?: 'done' | 'overdue' | 'due' | 'upcoming'
 }
 
@@ -816,4 +831,46 @@ export interface BackupData {
   milestones: unknown[]
   immunizations: unknown[]
   development: unknown[]
+}
+
+export type VaccineStrategyVisit = {
+  id: string
+  order: number
+  title: string
+  targetDate?: string | null
+  targetDateEnd?: string | null
+  ageLabel?: string
+  actions: string
+  paymentMethod: VaccinePaymentMethod
+  estimatedCostIdr?: number | null
+  notes?: string | null
+}
+
+export type InsuranceRule = {
+  id: VaccinePaymentMethod
+  label: string
+  annualLimitIdr?: number
+  resetMonth?: number
+  resetDay?: number
+  notes: string[]
+}
+
+export type VaccineStrategySettings = {
+  clinicName?: string
+  doctorName?: string
+  rotavirusType?: string
+  visitGapWeeks?: number
+  fullertonUsedBeforeTrackingIdr?: number
+  insuranceRules: InsuranceRule[]
+  visits: VaccineStrategyVisit[]
+}
+
+export type VaccineStrategySettingsPayload = {
+  clinic_name?: string
+  doctor_name?: string
+  rotavirus_type?: string
+  visit_gap_weeks?: number
+  fullerton_used_before_tracking_idr?: number
+  insurance_rules?: InsuranceRule[]
+  visits?: VaccineStrategyVisit[]
 }
