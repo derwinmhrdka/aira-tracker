@@ -7,7 +7,9 @@ import {
   computePlafonSummaries,
   formatIdr,
   formatVisitDate,
+  getVisitDisplayTotal,
   getVisitPlanRangeWarning,
+  sortVisitsByDateAsc,
   PAYMENT_METHOD_LABEL,
   PAYMENT_METHOD_STYLE,
   visitDisplayLabel,
@@ -51,6 +53,10 @@ export function VaccineStrategyPanel({
     () => computePlafonSummaries(immunizations, strategy),
     [immunizations, strategy]
   )
+  const sortedVisits = useMemo(
+    () => sortVisitsByDateAsc(strategy.visits),
+    [strategy.visits]
+  )
 
   return (
     <div className="space-y-3">
@@ -79,12 +85,12 @@ export function VaccineStrategyPanel({
       </div>
 
       <div className="space-y-1.5">
-        {strategy.visits.length === 0 ? (
+        {sortedVisits.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border py-6 text-center text-xs text-muted-foreground">
             Belum ada rencana
           </p>
         ) : (
-          strategy.visits.map((visit) => {
+          sortedVisits.map((visit) => {
             const rangeWarning = getVisitPlanRangeWarning(visit, immunizations, birthDate)
             const vaccineDetail = visitVaccineDetail(visit)
             return (
@@ -118,7 +124,7 @@ export function VaccineStrategyPanel({
                     {formatVisitDate(visit)}
                     {' · '}
                     <span className="text-[9px]">
-                      {formatIdr(visit.estimatedCostIdr > 0 ? visit.estimatedCostIdr : 0)}
+                      {formatIdr(getVisitDisplayTotal(visit))}
                     </span>
                   </p>
                   {vaccineDetail && (

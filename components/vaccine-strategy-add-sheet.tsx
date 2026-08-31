@@ -19,6 +19,7 @@ import {
   getCatalogOptionsForPlan,
   getCatalogPrice,
   getCatalogRecommendedLabel,
+  getVisitDisplayTotal,
   getVaccinePlanRangeWarning,
   isImmunizationCompatibleWithPlan,
   isManualCatalogId,
@@ -596,7 +597,17 @@ export function VaccineStrategyAddSheet({
                   Estimasi ({lines.length} vaksin)
                 </p>
                 <p className="text-[11px] font-bold tabular-nums text-foreground">
-                  {formatIdr(estimate.plafonImpactIdr > 0 ? estimate.plafonImpactIdr : 0)}
+                  {formatIdr(
+                    getVisitDisplayTotal({
+                      id: '',
+                      order: 0,
+                      paymentMethod,
+                      dsaCostIdr: dsa,
+                      vaccineCostIdr: estimate.vaccineCostIdr,
+                      estimatedCostIdr: 0,
+                      vaccines: [],
+                    })
+                  )}
                 </p>
               </div>
             </div>

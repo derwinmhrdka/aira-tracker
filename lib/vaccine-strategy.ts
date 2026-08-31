@@ -468,7 +468,7 @@ export function estimateStrategyCost(
     case 'FULLERTON':
       return {
         vaccineCostIdr,
-        dsaCostIdr: 0,
+        dsaCostIdr,
         totalOutOfPocketIdr: dsaCostIdr,
         plafonImpactIdr: vaccineCostIdr,
       }
@@ -510,7 +510,7 @@ export function estimateVisitCost(
     case 'FULLERTON':
       return {
         vaccineCostIdr: vaccineTotal,
-        dsaCostIdr: 0,
+        dsaCostIdr,
         totalOutOfPocketIdr: dsaCostIdr,
         plafonImpactIdr: vaccineTotal,
       }
@@ -522,6 +522,46 @@ export function estimateVisitCost(
         plafonImpactIdr: vaccineTotal + dsaCostIdr,
       }
   }
+}
+
+/** Total biaya kunjungan untuk tampilan (vaksin + DSA). */
+export function getVisitDisplayTotal(visit: VaccineStrategyVisit): number {
+  const vaccine = visit.vaccineCostIdr ?? 0
+  const dsa = visit.dsaCostIdr ?? 0
+  if (visit.paymentMethod === 'INHEALTH' || visit.paymentMethod === 'PUSKESMAS') {
+    return 0
+  }
+  return vaccine + dsa
+}
+
+/** Dampak ke plafon asuransi (tanpa DSA cash). */
+export function getVisitPlafonImpact(visit: VaccineStrategyVisit): number {
+  if (visit.paymentMethod === 'FULLERTON') {
+    return visit.vaccineCostIdr ?? 0
+  }
+  if (visit.paymentMethod === 'CASH') {
+    return getVisitDisplayTotal(visit)
+  }
+  return 0
+}
+
+/** Urutkan rencana kunjungan berdasarkan tanggal (naik), tanpa tanggal di akhir. */
+export function sortVisitsByDateAsc(visits: VaccineStrategyVisit[]): VaccineStrategyVisit[] {
+  return [...visits]
+    .sort((a, b) => {
+      const dateA = a.targetDate ?? ''
+      const dateB = b.targetDate ?? ''
+      if (dateA && dateB) {
+        const cmp = dateA.localeCompare(dateB)
+        if (cmp !== 0) return cmp
+      } else if (dateA && !dateB) {
+        return -1
+      } else if (!dateA && dateB) {
+        return 1
+      }
+      return a.order - b.order
+    })
+    .map((visit, index) => ({ ...visit, order: index + 1 }))
 }
 
 function migrateLegacyVisit(raw: Record<string, unknown>, order: number): VaccineStrategyVisit {
@@ -638,7 +678,12 @@ export function parseStrategySettings(raw: unknown): VaccineStrategySettings {
       Array.isArray(o.insuranceRules) && o.insuranceRules.length > 0
         ? o.insuranceRules
         : DEFAULT_INSURANCE_RULES,
-    visits: [...visits].sort((a, b) => a.order - b.order),
+    visits: sortVisitsByDateAsc(
+      visits.map((visit) => ({
+        ...visit,
+        estimatedCostIdr: getVisitDisplayTotal(visit),
+      }))
+    ),
   }
 }
 
@@ -686,7 +731,7 @@ export type PlafonSummary = {
 function sumPlanned(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
   return visits
     .filter((v) => v.paymentMethod === method)
-    .reduce((sum, v) => sum + (v.estimatedCostIdr ?? 0), 0)
+    .reduce((sum, v) => sum + getVisitPlafonImpact(v), 0)
 }
 
 export function computePlafonSummaries(
@@ -917,14 +962,13 @@ export function buildStrategyVisit(input: {
   )
 
   const first = vaccineRows[0]
-
-  return {
+  const savedVisit: VaccineStrategyVisit = {
     id: input.id ?? `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     order: input.order,
     paymentMethod: input.paymentMethod,
-    dsaCostIdr: est.dsaCostIdr,
+    dsaCostIdr: input.dsaCostIdr,
     vaccineCostIdr: est.vaccineCostIdr,
-    estimatedCostIdr: est.plafonImpactIdr,
+    estimatedCostIdr: 0,
     targetDate: input.targetDate ?? null,
     vaccines: vaccineRows,
     immunizationId: first?.immunizationId ?? null,
@@ -932,6 +976,8 @@ export function buildStrategyVisit(input: {
     vaccineName: first?.vaccineName,
     vaccineProduct: first?.vaccineProduct ?? null,
   }
+  savedVisit.estimatedCostIdr = getVisitDisplayTotal(savedVisit)
+  return savedVisit
 }
 
 export function getVaccineInclusiveWeekRange(item: Immunization): {
@@ -1161,7 +1207,7 @@ export function syncCompletedImmunizationVisits(
   }
 
   return {
-    visits: visits.map((visit, index) => ({ ...visit, order: index + 1 })),
+    visits: sortVisitsByDateAsc(visits),
     added: true,
   }
 }

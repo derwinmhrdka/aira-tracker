@@ -34,6 +34,7 @@ import { VaccineStrategySettingsSheet } from './vaccine-strategy-settings-sheet'
 import { VaccineStrategyAddSheet } from './vaccine-strategy-add-sheet'
 import {
   syncCompletedImmunizationVisits,
+  sortVisitsByDateAsc,
   type VaccineStrategyVisit,
 } from '@/lib/vaccine-strategy'
 
@@ -425,16 +426,13 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     catalogPrices: Record<string, number>
   }) => {
     if (!strategy) return
-    const visits = editingVisit
-      ? strategy.visits.map((visit) =>
-          visit.id === editingVisit.id
-            ? { ...data.visit, order: visit.order }
-            : visit
-        )
-      : [...strategy.visits, data.visit].map((visit, index) => ({
-          ...visit,
-          order: index + 1,
-        }))
+    const visits = sortVisitsByDateAsc(
+      editingVisit
+        ? strategy.visits.map((visit) =>
+            visit.id === editingVisit.id ? data.visit : visit
+          )
+        : [...strategy.visits, data.visit]
+    )
     const catalogPrices = {
       ...(strategy.catalogPrices ?? {}),
       ...data.catalogPrices,
@@ -445,9 +443,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
 
   const deleteStrategyVisit = async (id: string) => {
     if (!strategy) return
-    const visits = strategy.visits
-      .filter((v) => v.id !== id)
-      .map((v, i) => ({ ...v, order: i + 1 }))
+    const visits = sortVisitsByDateAsc(strategy.visits.filter((v) => v.id !== id))
     await saveStrategySettings({ visits })
   }
 
