@@ -408,13 +408,13 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
 
   const addStrategyVisit = async (data: {
     visit: VaccineStrategyVisit
-    vaccinePriceIdr: number
+    catalogPrices: Record<string, number>
   }) => {
     if (!strategy) return
     const visits = [...strategy.visits, data.visit].map((v, i) => ({ ...v, order: i + 1 }))
     const catalogPrices = {
       ...(strategy.catalogPrices ?? {}),
-      [data.visit.vaccineCatalogId]: data.vaccinePriceIdr,
+      ...data.catalogPrices,
     }
     await saveStrategySettings({ visits, catalog_prices: catalogPrices })
   }

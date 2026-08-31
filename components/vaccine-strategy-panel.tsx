@@ -11,6 +11,7 @@ import {
   PAYMENT_METHOD_LABEL,
   PAYMENT_METHOD_STYLE,
   visitDisplayLabel,
+  visitVaccineDetail,
 } from '@/lib/vaccine-strategy'
 
 type VaccineStrategyPanelProps = {
@@ -83,6 +84,7 @@ export function VaccineStrategyPanel({
         ) : (
           strategy.visits.map((visit) => {
             const rangeWarning = getVisitPlanRangeWarning(visit, immunizations, birthDate)
+            const vaccineDetail = visitVaccineDetail(visit)
             return (
               <div
                 key={visit.id}
@@ -108,6 +110,9 @@ export function VaccineStrategyPanel({
                       {formatIdr(visit.estimatedCostIdr > 0 ? visit.estimatedCostIdr : 0)}
                     </span>
                   </p>
+                  {vaccineDetail && (
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{vaccineDetail}</p>
+                  )}
                   {rangeWarning && (
                     <p className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-400">
                       ⚠ {rangeWarning.shortMessage}

@@ -7,9 +7,12 @@ import {
   buildImmunizationChart,
   CHART_BAR_GAP,
   CHART_BAR_HEIGHT,
+  CHART_KIND_DESCRIPTION,
   CHART_KIND_LABEL,
   CHART_KIND_STYLE,
   CHART_MONTH_COL_WIDTH,
+  CHART_NOW_DESCRIPTION,
+  CHART_NOW_LABEL,
   CHART_ROW_PAD,
   CHART_YEAR_COL_WIDTH,
   getChartColumnForBabyWeeks,
@@ -186,14 +189,65 @@ function ChartGridBackground({
           key={col.id}
           className={`relative shrink-0 border-r border-border/25 last:border-r-0 ${
             col.group === 'month' ? 'w-10' : 'w-9'
-          } ${babyColumnId === col.id ? 'bg-primary/[0.06]' : ''}`}
+          }`}
         >
           {babyColumnId === col.id && (
-            <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-primary/50" />
+            <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-primary/60" />
           )}
         </div>
       ))}
     </div>
+  )
+}
+
+type LegendInfoKey = ChartCellKind | 'now'
+
+function LegendInfoSheet({
+  kind,
+  onClose,
+}: {
+  kind: LegendInfoKey
+  onClose: () => void
+}) {
+  const isNow = kind === 'now'
+  const title = isNow ? CHART_NOW_LABEL : CHART_KIND_LABEL[kind]
+  const description = isNow ? CHART_NOW_DESCRIPTION : CHART_KIND_DESCRIPTION[kind]
+  const swatchClass = isNow ? 'bg-primary' : CHART_KIND_STYLE[kind]
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[72] bg-black/45"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+        className="fixed inset-x-0 bottom-0 z-[73] rounded-t-3xl border border-border bg-card p-5 shadow-2xl"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex shrink-0 rounded ${isNow ? 'h-3.5 w-0.5' : 'h-3.5 w-3.5'} ${swatchClass}`}
+          />
+          <h3 className="font-heading text-sm font-bold text-foreground">{title}</h3>
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full rounded-xl bg-secondary py-2.5 text-sm font-semibold text-foreground"
+        >
+          Tutup
+        </button>
+      </motion.div>
+    </>
   )
 }
 
@@ -204,6 +258,7 @@ export function ImmunizationScheduleChart({
 }: ImmunizationScheduleChartProps) {
   const { columns, rows } = useMemo(() => buildImmunizationChart(items), [items])
   const [selectedCells, setSelectedCells] = useState<ChartCell[] | null>(null)
+  const [legendInfo, setLegendInfo] = useState<LegendInfoKey | null>(null)
   const babyColumnId = babyAgeWeeks != null ? getChartColumnForBabyWeeks(babyAgeWeeks) : null
 
   const monthColumns = columns.filter((c) => c.group === 'month')
@@ -222,20 +277,30 @@ export function ImmunizationScheduleChart({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-secondary/30 px-3 py-2">
         {legendKinds.map((kind) => (
-          <div key={kind} className="flex items-center gap-1">
+          <button
+            key={kind}
+            type="button"
+            onClick={() => setLegendInfo(kind)}
+            className="flex items-center gap-1 rounded-md px-1 py-0.5 active:bg-secondary/80"
+          >
             <span
               className={`inline-flex h-3.5 w-3.5 rounded ${CHART_KIND_STYLE[kind]}`}
             />
-            <span className="text-[10px] text-muted-foreground">
-              {CHART_KIND_LABEL[kind]}
-            </span>
-          </div>
+            <span className="text-[10px] text-muted-foreground">{CHART_KIND_LABEL[kind]}</span>
+          </button>
         ))}
         {babyColumnId && (
-          <div className="flex items-center gap-1">
-            <span className="inline-block h-3.5 w-0.5 bg-primary" />
-            <span className="text-[10px] text-primary">Sekarang</span>
-          </div>
+          <>
+            <span className="text-[10px] text-muted-foreground/40">|</span>
+            <button
+              type="button"
+              onClick={() => setLegendInfo('now')}
+              className="flex items-center gap-1 rounded-md px-1 py-0.5 active:bg-secondary/80"
+            >
+              <span className="inline-block h-3.5 w-0.5 bg-primary" />
+              <span className="text-[10px] text-primary">{CHART_NOW_LABEL}</span>
+            </button>
+          </>
         )}
       </div>
 
@@ -253,14 +318,9 @@ export function ImmunizationScheduleChart({
                   {monthColumns.map((col) => (
                     <div
                       key={col.id}
-                      className={`relative flex w-10 shrink-0 flex-col items-center justify-end border-r border-border/40 py-1.5 ${
-                        babyColumnId === col.id ? 'bg-primary/10' : ''
-                      }`}
+                      className="relative flex w-10 shrink-0 flex-col items-center justify-end border-r border-border/40 py-1.5"
                     >
-                      {babyColumnId === col.id && (
-                        <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-primary/70" />
-                      )}
-                      <span className="relative text-[10px] font-bold tabular-nums text-foreground">
+                      <span className="text-[10px] font-bold tabular-nums text-foreground">
                         {col.label}
                       </span>
                     </div>
@@ -268,14 +328,9 @@ export function ImmunizationScheduleChart({
                   {yearColumns.map((col) => (
                     <div
                       key={col.id}
-                      className={`relative flex w-9 shrink-0 flex-col items-center justify-end border-r border-border/40 py-1.5 last:border-r-0 ${
-                        babyColumnId === col.id ? 'bg-primary/10' : ''
-                      }`}
+                      className="relative flex w-9 shrink-0 flex-col items-center justify-end border-r border-border/40 py-1.5 last:border-r-0"
                     >
-                      {babyColumnId === col.id && (
-                        <span className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-primary/70" />
-                      )}
-                      <span className="relative text-[10px] font-bold tabular-nums text-foreground">
+                      <span className="text-[10px] font-bold tabular-nums text-foreground">
                         {col.label}
                       </span>
                     </div>
@@ -331,6 +386,9 @@ export function ImmunizationScheduleChart({
       </div>
 
       <AnimatePresence>
+        {legendInfo && (
+          <LegendInfoSheet kind={legendInfo} onClose={() => setLegendInfo(null)} />
+        )}
         {selectedCells && (
           <CellDetailSheet
             cells={selectedCells}

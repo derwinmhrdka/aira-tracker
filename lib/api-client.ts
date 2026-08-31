@@ -833,19 +833,30 @@ export interface BackupData {
   development: unknown[]
 }
 
-export type VaccineStrategyVisit = {
+export type StrategyVisitVaccine = {
   id: string
-  order: number
   immunizationId?: string | null
   vaccineCatalogId: string
   vaccineName: string
   vaccineProduct?: string | null
+  vaccineCostIdr: number
+}
+
+export type VaccineStrategyVisit = {
+  id: string
+  order: number
   paymentMethod: VaccinePaymentMethod
   dsaCostIdr: number
   vaccineCostIdr: number
   estimatedCostIdr: number
   targetDate?: string | null
-  /** @deprecated legacy */
+  vaccines: StrategyVisitVaccine[]
+  /** @deprecated single-vaccine legacy */
+  immunizationId?: string | null
+  vaccineCatalogId?: string
+  vaccineName?: string
+  vaccineProduct?: string | null
+  /** @deprecated legacy display */
   title?: string
   actions?: string
   notes?: string | null

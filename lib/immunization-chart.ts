@@ -378,3 +378,21 @@ export const CHART_KIND_STYLE: Record<ChartCellKind, string> = {
   endemic: 'bg-red-400 text-white dark:bg-red-500',
   highrisk: 'bg-orange-400 text-orange-950 dark:bg-orange-500',
 }
+
+export const CHART_KIND_DESCRIPTION: Record<ChartCellKind, string> = {
+  primer:
+    'Vaksin rutin wajib menurut jadwal IDAI — imunisasi dasar usia 0–18 bulan (HB, BCG, DPT, Polio, PCV, dll.).',
+  booster:
+    'Dosis penguat setelah seri primer untuk memperpanjang perlindungan (mis. DPT & Polio usia 18 bulan).',
+  catchup:
+    'Jendela kejar jika dosis terlewat — masih bisa diberikan selama dalam rentang usia aman.',
+  endemic:
+    'Vaksin endemis sesuai wilayah risiko (mis. Japanese Encephalitis di daerah endemis).',
+  highrisk:
+    'Vaksin indikasi khusus atau risiko tinggi sesuai rekomendasi dokter.',
+}
+
+export const CHART_NOW_LABEL = 'Sekarang'
+
+export const CHART_NOW_DESCRIPTION =
+  'Garis vertikal menandai usia bayi saat ini pada timeline jadwal imunisasi.'

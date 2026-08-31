@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Plus, Trash2 } from 'lucide-react'
 import type {
   Immunization,
   VaccinePaymentMethod,
@@ -10,21 +11,33 @@ import type {
 } from '@/lib/api-client'
 import {
   DEFAULT_DSA_COST_IDR,
-  estimateStrategyCost,
+  estimateVisitCost,
   formatIdr,
   formatIdrInput,
-  getAllowedPayments,
+  getAllowedPaymentsForVaccines,
   getCatalogItem,
+  getCatalogOptionsForPlan,
   getCatalogPrice,
   getCatalogRecommendedLabel,
+  getVaccinePlanRangeWarning,
+  isImmunizationCompatibleWithPlan,
   parseIdrInput,
-  suggestCatalogForImmunization,
+  pickCatalogForPlan,
   buildStrategyVisit,
   VACCINE_CATALOG,
   PAYMENT_METHOD_LABEL,
-  getVaccinePlanRangeWarning,
+  type VaccineCatalogItem,
   type VaccineStrategyVisit,
 } from '@/lib/vaccine-strategy'
+import { SearchableSelect } from './searchable-select'
+
+type VaccineLine = {
+  key: string
+  immunizationId: string
+  catalogId: string
+  vaccineProduct: string
+  vaccinePriceDisplay: string
+}
 
 type VaccineStrategyAddSheetProps = {
   open: boolean
@@ -35,8 +48,35 @@ type VaccineStrategyAddSheetProps = {
   onClose: () => void
   onSave: (data: {
     visit: VaccineStrategyVisit
-    vaccinePriceIdr: number
+    catalogPrices: Record<string, number>
   }) => Promise<void>
+}
+
+function createLine(): VaccineLine {
+  return {
+    key: `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    immunizationId: '',
+    catalogId: '',
+    vaccineProduct: '',
+    vaccinePriceDisplay: '',
+  }
+}
+
+function catalogToOption(item: VaccineCatalogItem) {
+  return {
+    value: item.id,
+    label: item.brand ? `${item.name} (${item.brand})` : item.name,
+    keywords: `${item.name} ${item.brand ?? ''} ${item.id}`,
+  }
+}
+
+function immunizationToOption(item: Immunization) {
+  return {
+    value: item.id,
+    label: item.vaccine_name,
+    sublabel: [item.dose_label, item.is_done ? 'selesai' : null].filter(Boolean).join(' · '),
+    keywords: `${item.vaccine_name} ${item.dose_label ?? ''}`,
+  }
 }
 
 export function VaccineStrategyAddSheet({
@@ -48,77 +88,204 @@ export function VaccineStrategyAddSheet({
   onClose,
   onSave,
 }: VaccineStrategyAddSheetProps) {
-  const pending = useMemo(
-    () => immunizations.filter((i) => !i.is_done),
-    [immunizations]
-  )
-
-  const [immunizationId, setImmunizationId] = useState('')
-  const [catalogId, setCatalogId] = useState(VACCINE_CATALOG[0].id)
-  const [vaccineProduct, setVaccineProduct] = useState('')
+  const [lines, setLines] = useState<VaccineLine[]>([createLine()])
   const [paymentMethod, setPaymentMethod] = useState<VaccinePaymentMethod>('FULLERTON')
   const [dsaDisplay, setDsaDisplay] = useState(formatIdrInput(DEFAULT_DSA_COST_IDR))
-  const [vaccinePriceDisplay, setVaccinePriceDisplay] = useState('')
   const [targetDate, setTargetDate] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const catalog = getCatalogItem(catalogId) ?? VACCINE_CATALOG[0]
-  const allowedPayments = getAllowedPayments(catalog)
+  const sortedImmunizations = useMemo(
+    () =>
+      [...immunizations].sort(
+        (a, b) =>
+          (a.scheduled_age_weeks ?? a.scheduled_age_months * 4) -
+          (b.scheduled_age_weeks ?? b.scheduled_age_months * 4)
+      ),
+    [immunizations]
+  )
+
+  const getOtherCatalogIds = (lineKey: string, source: VaccineLine[]) =>
+    source.filter((l) => l.key !== lineKey && l.catalogId).map((l) => l.catalogId)
+
+  const getUsedImmunizationIds = (lineKey: string, source: VaccineLine[]) =>
+    source.filter((l) => l.key !== lineKey && l.immunizationId).map((l) => l.immunizationId)
+
+  const getScheduleOptionsForLine = (lineKey: string) =>
+    sortedImmunizations
+      .filter((item) => !getUsedImmunizationIds(lineKey, lines).includes(item.id))
+      .filter((item) =>
+        isImmunizationCompatibleWithPlan(
+          item.vaccine_name,
+          item.dose_label,
+          paymentMethod,
+          getOtherCatalogIds(lineKey, lines)
+        )
+      )
+      .map(immunizationToOption)
+
+  const canAddMoreVaccines = useMemo(() => {
+    const usedIds = lines.map((l) => l.immunizationId).filter(Boolean)
+    const catalogIds = lines.map((l) => l.catalogId).filter(Boolean)
+    return sortedImmunizations.some(
+      (item) =>
+        !usedIds.includes(item.id) &&
+        isImmunizationCompatibleWithPlan(
+          item.vaccine_name,
+          item.dose_label,
+          paymentMethod,
+          catalogIds
+        )
+    )
+  }, [sortedImmunizations, lines, paymentMethod])
+
+  const selectedCatalogIds = lines.map((l) => l.catalogId).filter(Boolean)
+  const allowedPayments =
+    selectedCatalogIds.length > 0
+      ? getAllowedPaymentsForVaccines(selectedCatalogIds)
+      : (['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH'] as VaccinePaymentMethod[])
+
   const dsa = parseIdrInput(dsaDisplay)
-  const vaccinePrice = parseIdrInput(vaccinePriceDisplay)
-  const estimate = estimateStrategyCost(catalog, paymentMethod, dsa, vaccinePrice)
-  const recommendedLabel = getCatalogRecommendedLabel(catalog)
-  const selectedImmunization = pending.find((i) => i.id === immunizationId)
-  const rangeWarning = useMemo(() => {
-    if (!selectedImmunization || !targetDate) return null
-    return getVaccinePlanRangeWarning(selectedImmunization, birthDate, targetDate)
-  }, [selectedImmunization, birthDate, targetDate])
+  const estimate = estimateVisitCost(
+    lines
+      .filter((l) => l.catalogId)
+      .map((l) => ({
+        catalogId: l.catalogId,
+        vaccinePriceIdr: parseIdrInput(l.vaccinePriceDisplay),
+      })),
+    paymentMethod,
+    dsa,
+    strategy.catalogPrices
+  )
+
+  const rangeWarnings = useMemo(() => {
+    if (!targetDate) return []
+    return lines
+      .map((line) => {
+        if (!line.immunizationId) return null
+        const item = immunizations.find((i) => i.id === line.immunizationId)
+        if (!item) return null
+        return getVaccinePlanRangeWarning(item, birthDate, targetDate)
+      })
+      .filter((w): w is NonNullable<typeof w> => !!w)
+  }, [lines, immunizations, birthDate, targetDate])
+
+  const canSave = lines.every((line) => line.immunizationId && line.catalogId)
 
   useEffect(() => {
     if (!open) return
-    setImmunizationId('')
-    setCatalogId(VACCINE_CATALOG[0].id)
-    setVaccineProduct('')
+    setLines([createLine()])
     setPaymentMethod('FULLERTON')
     setDsaDisplay(formatIdrInput(DEFAULT_DSA_COST_IDR))
     setTargetDate('')
-    const firstPrice = getCatalogPrice(VACCINE_CATALOG[0].id, strategy.catalogPrices)
-    setVaccinePriceDisplay(formatIdrInput(firstPrice))
-  }, [open, strategy.catalogPrices])
-
-  useEffect(() => {
-    const price = getCatalogPrice(catalogId, strategy.catalogPrices)
-    setVaccinePriceDisplay(formatIdrInput(price))
-  }, [catalogId, strategy.catalogPrices])
+  }, [open])
 
   useEffect(() => {
     if (!allowedPayments.includes(paymentMethod)) {
       setPaymentMethod(allowedPayments[0] ?? 'CASH')
     }
-  }, [catalogId, allowedPayments, paymentMethod])
+  }, [allowedPayments, paymentMethod])
 
-  const applyImmunization = (id: string) => {
-    setImmunizationId(id)
-    const item = pending.find((i) => i.id === id)
-    if (!item) return
+  useEffect(() => {
+    setLines((prev) => {
+      let changed = false
+      const next = prev.map((line) => {
+        if (!line.immunizationId) return line
+        const item = immunizations.find((i) => i.id === line.immunizationId)
+        if (!item) return line
 
-    const match = suggestCatalogForImmunization(item.vaccine_name)
-    if (match) {
-      setCatalogId(match.id)
-      setVaccineProduct(match.brand ?? '')
-      const allowed = getAllowedPayments(match)
-      setPaymentMethod(
-        match.preferredPayment && allowed.includes(match.preferredPayment)
-          ? match.preferredPayment
-          : allowed[0] ?? 'CASH'
-      )
-    }
+        const otherCatalogIds = getOtherCatalogIds(line.key, prev)
+        const compatible = pickCatalogForPlan(
+          item.vaccine_name,
+          item.dose_label,
+          paymentMethod,
+          otherCatalogIds
+        )
+
+        if (!compatible) {
+          changed = true
+          return {
+            ...line,
+            immunizationId: '',
+            catalogId: '',
+            vaccineProduct: '',
+            vaccinePriceDisplay: '',
+          }
+        }
+
+        if (line.catalogId !== compatible.id) {
+          changed = true
+          return {
+            ...line,
+            catalogId: compatible.id,
+            vaccineProduct: compatible.brand ?? compatible.name,
+            vaccinePriceDisplay: formatIdrInput(
+              getCatalogPrice(compatible.id, strategy.catalogPrices)
+            ),
+          }
+        }
+
+        return line
+      })
+      return changed ? next : prev
+    })
+  }, [paymentMethod, immunizations, strategy.catalogPrices])
+
+  const updateLine = (key: string, patch: Partial<VaccineLine>) => {
+    setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
   }
 
-  const applyCatalog = (id: string) => {
-    setCatalogId(id)
+  const getLineCatalogOptions = (line: VaccineLine) => {
+    const item = immunizations.find((i) => i.id === line.immunizationId)
+    if (!item) return []
+    return getCatalogOptionsForPlan(
+      item.vaccine_name,
+      item.dose_label,
+      paymentMethod,
+      getOtherCatalogIds(line.key, lines)
+    ).map(catalogToOption)
+  }
+
+  const applyImmunization = (key: string, id: string) => {
+    if (!id) {
+      updateLine(key, {
+        immunizationId: '',
+        catalogId: '',
+        vaccineProduct: '',
+        vaccinePriceDisplay: '',
+      })
+      return
+    }
+
+    const item = immunizations.find((i) => i.id === id)
+    if (!item) {
+      updateLine(key, { immunizationId: id })
+      return
+    }
+
+    const match = pickCatalogForPlan(
+      item.vaccine_name,
+      item.dose_label,
+      paymentMethod,
+      getOtherCatalogIds(key, lines)
+    )
+    if (!match) return
+
+    updateLine(key, {
+      immunizationId: id,
+      catalogId: match.id,
+      vaccineProduct: match.brand ?? match.name,
+      vaccinePriceDisplay: formatIdrInput(getCatalogPrice(match.id, strategy.catalogPrices)),
+    })
+  }
+
+  const applyCatalog = (key: string, id: string) => {
     const item = getCatalogItem(id)
-    if (item?.brand) setVaccineProduct(item.brand)
+    if (!item) return
+    updateLine(key, {
+      catalogId: id,
+      vaccineProduct: item.brand ?? item.name,
+      vaccinePriceDisplay: formatIdrInput(getCatalogPrice(id, strategy.catalogPrices)),
+    })
   }
 
   const handleIdrChange = (raw: string, setter: (v: string) => void) => {
@@ -144,7 +311,7 @@ export function VaccineStrategyAddSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            className="fixed inset-x-0 bottom-0 z-[71] max-h-[90vh] overflow-y-auto rounded-t-3xl border border-border bg-card p-4 shadow-2xl"
+            className="fixed inset-x-0 bottom-0 z-[71] max-h-[92vh] overflow-y-auto rounded-t-3xl border border-border bg-card p-4 shadow-2xl"
             style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
@@ -152,69 +319,8 @@ export function VaccineStrategyAddSheet({
               Tambah rencana
             </h2>
 
-            <div className="space-y-2.5">
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Vaksin</span>
-                <select
-                  value={immunizationId}
-                  onChange={(e) => applyImmunization(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Pilih dari jadwal…</option>
-                  {pending.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.vaccine_name}
-                      {item.dose_label ? ` · ${item.dose_label}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Jenis</span>
-                <select
-                  value={catalogId}
-                  onChange={(e) => applyCatalog(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {VACCINE_CATALOG.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.brand ? `${item.name} (${item.brand})` : item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Produk</span>
-                <input
-                  value={vaccineProduct}
-                  onChange={(e) => setVaccineProduct(e.target.value)}
-                  placeholder={catalog.brand ?? catalog.name}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Harga vaksin</span>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                    Rp
-                  </span>
-                  <input
-                    inputMode="numeric"
-                    value={vaccinePriceDisplay}
-                    onChange={(e) => handleIdrChange(e.target.value, setVaccinePriceDisplay)}
-                    disabled={paymentMethod === 'INHEALTH' || paymentMethod === 'PUSKESMAS'}
-                    className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm tabular-nums disabled:opacity-40"
-                  />
-                </div>
-                <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
-                  Rek: {recommendedLabel}
-                </p>
-              </label>
-
-              <label className="block">
+            <div className="space-y-3">
+              <label className="block min-w-0">
                 <span className="mb-1 block text-xs text-muted-foreground">Pembayaran</span>
                 <div className="grid grid-cols-2 gap-1.5">
                   {(['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH'] as const).map((m) => {
@@ -236,47 +342,168 @@ export function VaccineStrategyAddSheet({
                     )
                   })}
                 </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Vaksin berikutnya hanya yang cocok dengan pembayaran ini.
+                </p>
               </label>
 
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block">
-                  <span className="mb-1 block text-xs text-muted-foreground">DSA</span>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                      Rp
-                    </span>
-                    <input
-                      inputMode="numeric"
-                      value={dsaDisplay}
-                      onChange={(e) => handleIdrChange(e.target.value, setDsaDisplay)}
-                      disabled={paymentMethod === 'INHEALTH' || paymentMethod === 'PUSKESMAS'}
-                      className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm tabular-nums disabled:opacity-40"
-                    />
-                  </div>
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs text-muted-foreground">Tanggal</span>
-                  <input
-                    type="date"
-                    value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
-                    className={`w-full rounded-lg border bg-background px-3 py-2 text-sm ${
-                      rangeWarning
-                        ? 'border-amber-500 ring-1 ring-amber-500/30'
-                        : 'border-input'
-                    }`}
-                  />
-                </label>
-              </div>
+              {lines.map((line, index) => {
+                const catalog = line.catalogId ? getCatalogItem(line.catalogId) : undefined
+                const lineCatalogOptions = getLineCatalogOptions(line)
+                const scheduleOptions = getScheduleOptionsForLine(line.key)
+                const recommendedLabel = catalog ? getCatalogRecommendedLabel(catalog) : '—'
 
-              {rangeWarning && (
-                <p className="text-center text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                  ⚠ {rangeWarning.shortMessage}
-                </p>
+                return (
+                  <div
+                    key={line.key}
+                    className="space-y-2.5 rounded-xl border border-border bg-secondary/20 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        Vaksin {index + 1}
+                      </p>
+                      {lines.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
+                          className="rounded-lg p-1 text-muted-foreground hover:bg-secondary"
+                          aria-label="Hapus vaksin"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-xs text-muted-foreground">Vaksin</span>
+                      <SearchableSelect
+                        options={scheduleOptions}
+                        value={line.immunizationId}
+                        onChange={(id) => applyImmunization(line.key, id)}
+                        placeholder={
+                          scheduleOptions.length > 0
+                            ? 'Pilih dari jadwal…'
+                            : 'Tidak ada vaksin cocok'
+                        }
+                        searchPlaceholder="Cari vaksin…"
+                        allowClear
+                        disabled={scheduleOptions.length === 0 && !line.immunizationId}
+                      />
+                    </label>
+
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-xs text-muted-foreground">Jenis</span>
+                      <SearchableSelect
+                        options={lineCatalogOptions}
+                        value={line.catalogId}
+                        onChange={(id) => applyCatalog(line.key, id)}
+                        placeholder={
+                          line.immunizationId ? 'Pilih jenis…' : 'Pilih vaksin dulu'
+                        }
+                        searchPlaceholder="Cari jenis vaksin…"
+                        disabled={!line.immunizationId || lineCatalogOptions.length === 0}
+                      />
+                    </label>
+
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-xs text-muted-foreground">Produk</span>
+                      <input
+                        readOnly
+                        value={line.vaccineProduct}
+                        placeholder={line.immunizationId ? 'Otomatis dari jenis' : '—'}
+                        className="w-full cursor-default rounded-lg border border-input bg-secondary/40 px-3 py-2 text-sm text-foreground"
+                      />
+                    </label>
+
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-xs text-muted-foreground">
+                        Harga vaksin
+                      </span>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                          Rp
+                        </span>
+                        <input
+                          inputMode="numeric"
+                          value={line.vaccinePriceDisplay}
+                          onChange={(e) =>
+                            handleIdrChange(e.target.value, (v) =>
+                              updateLine(line.key, { vaccinePriceDisplay: v })
+                            )
+                          }
+                          disabled={
+                            !line.catalogId ||
+                            paymentMethod === 'INHEALTH' ||
+                            paymentMethod === 'PUSKESMAS'
+                          }
+                          className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm tabular-nums disabled:opacity-40"
+                        />
+                      </div>
+                      <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
+                        Rek: {recommendedLabel}
+                      </p>
+                    </label>
+                  </div>
+                )
+              })}
+
+              <button
+                type="button"
+                disabled={!canAddMoreVaccines}
+                onClick={() => setLines((prev) => [...prev, createLine()])}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-2.5 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4" />
+                Tambah vaksin lain
+              </button>
+
+              <label className="block min-w-0">
+                <span className="mb-1 block text-xs text-muted-foreground">DSA</span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    Rp
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    value={dsaDisplay}
+                    onChange={(e) => handleIdrChange(e.target.value, setDsaDisplay)}
+                    disabled={paymentMethod === 'INHEALTH' || paymentMethod === 'PUSKESMAS'}
+                    className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm tabular-nums disabled:opacity-40"
+                  />
+                </div>
+              </label>
+
+              <label className="block min-w-0">
+                <span className="mb-1 block text-xs text-muted-foreground">Tanggal</span>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className={`box-border w-full min-w-0 max-w-full appearance-none rounded-lg border bg-background px-3 py-2 text-sm ${
+                    rangeWarnings.length > 0
+                      ? 'border-amber-500 ring-1 ring-amber-500/30'
+                      : 'border-input'
+                  }`}
+                />
+              </label>
+
+              {rangeWarnings.length > 0 && (
+                <div className="space-y-1">
+                  {rangeWarnings.map((warning, i) => (
+                    <p
+                      key={i}
+                      className="text-center text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-400"
+                    >
+                      ⚠ {warning.shortMessage}
+                    </p>
+                  ))}
+                </div>
               )}
 
               <div className="rounded-xl border border-border bg-secondary/30 px-3 py-2.5 text-center">
-                <p className="text-[10px] text-muted-foreground">Estimasi</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Estimasi ({lines.length} vaksin)
+                </p>
                 <p className="text-[11px] font-bold tabular-nums text-foreground">
                   {formatIdr(estimate.plafonImpactIdr > 0 ? estimate.plafonImpactIdr : 0)}
                 </p>
@@ -293,23 +520,38 @@ export function VaccineStrategyAddSheet({
               </button>
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || !canSave}
                 onClick={async () => {
                   setSaving(true)
                   try {
-                    const selected = pending.find((i) => i.id === immunizationId)
+                    const catalogPrices: Record<string, number> = {}
+                    const vaccines = lines.map((line) => {
+                      const catalog = getCatalogItem(line.catalogId) ?? VACCINE_CATALOG[0]
+                      const selected = immunizations.find((i) => i.id === line.immunizationId)
+                      const vaccinePriceIdr = parseIdrInput(line.vaccinePriceDisplay)
+                      catalogPrices[line.catalogId] = vaccinePriceIdr
+                      return {
+                        immunizationId: line.immunizationId || null,
+                        vaccineCatalogId: line.catalogId,
+                        vaccineName: selected?.vaccine_name ?? catalog.name,
+                        vaccineProduct: line.vaccineProduct.trim() || catalog.brand || null,
+                        vaccinePriceIdr,
+                      }
+                    })
+
                     const visit = buildStrategyVisit({
-                      immunizationId: immunizationId || null,
-                      vaccineCatalogId: catalogId,
-                      vaccineName: selected?.vaccine_name ?? catalog.name,
-                      vaccineProduct: vaccineProduct.trim() || catalog.brand || null,
+                      vaccines,
                       paymentMethod,
                       dsaCostIdr: dsa,
-                      vaccinePriceIdr: vaccinePrice,
+                      catalogPrices: {
+                        ...(strategy.catalogPrices ?? {}),
+                        ...catalogPrices,
+                      },
                       targetDate: targetDate || null,
                       order: nextOrder,
                     })
-                    await onSave({ visit, vaccinePriceIdr: vaccinePrice })
+
+                    await onSave({ visit, catalogPrices })
                     onClose()
                   } finally {
                     setSaving(false)
