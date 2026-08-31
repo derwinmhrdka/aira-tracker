@@ -38,6 +38,9 @@ if [ -n "${DATABASE_URL:-}" ] && ! echo "$DATABASE_URL" | grep -q "@db:5432/${PG
   echo "         Docker uses: postgresql://${PG_USER}:****@db:5432/${PG_DB}" >&2
 fi
 
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 echo "==> Building and starting containers (db, app)..."
 echo "    HTTPS is handled by host nginx — see deploy/nginx-aira.conf.example"
 
@@ -55,7 +58,7 @@ echo "==> Container status:"
 $COMPOSE ps
 
 echo "==> Applying database schema..."
-$COMPOSE exec -T -u root app prisma db push --skip-generate --accept-data-loss
+$COMPOSE exec -T -u root app node node_modules/prisma/build/index.js db push --skip-generate --accept-data-loss
 
 echo "==> Seeding database (safe to re-run — skips if data exists)..."
 $COMPOSE exec -T -u root app node node_modules/tsx/dist/cli.mjs prisma/seed.ts || true
