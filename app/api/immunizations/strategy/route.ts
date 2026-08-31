@@ -46,6 +46,10 @@ export async function PATCH(request: NextRequest) {
         body.fullerton_used_before_tracking_idr !== undefined
           ? Math.max(0, Number(body.fullerton_used_before_tracking_idr) || 0)
           : current.fullertonUsedBeforeTrackingIdr,
+      catalogPrices:
+        body.catalog_prices !== undefined && typeof body.catalog_prices === 'object'
+          ? { ...(current.catalogPrices ?? {}), ...(body.catalog_prices as Record<string, number>) }
+          : current.catalogPrices,
       insuranceRules: Array.isArray(body.insurance_rules)
         ? body.insurance_rules
         : current.insuranceRules,

@@ -1,7 +1,7 @@
 import type { Immunization, VaccinePaymentMethod } from '@/lib/api-client'
 import { ageInWeeks } from '@/lib/baby-utils'
-import { getDoseWeekRange, IDAI_CHART_COLUMNS } from '@/lib/immunization-chart'
-import { formatVaccineRange } from '@/lib/immunization-idai'
+import { getImmunizationWeekRange } from '@/lib/immunization-utils'
+import { formatVaccineRange, formatWeeks } from '@/lib/immunization-idai'
 
 export const VACCINE_STRATEGY_SETTING_KEY = 'vaccine_strategy'
 
@@ -174,6 +174,8 @@ export type VaccineStrategySettings = {
   rotavirusType?: string
   visitGapWeeks?: number
   fullertonUsedBeforeTrackingIdr?: number
+  /** Harga custom per jenis vaksin (catalog id → Rp) */
+  catalogPrices?: Record<string, number>
   insuranceRules: InsuranceRule[]
   visits: VaccineStrategyVisit[]
 }
@@ -190,6 +192,25 @@ export const DEFAULT_VACCINE_STRATEGY: VaccineStrategySettings = {
 
 export function getCatalogItem(id: string): VaccineCatalogItem | undefined {
   return VACCINE_CATALOG.find((c) => c.id === id)
+}
+
+export function getCatalogPrice(
+  catalogId: string,
+  catalogPrices?: Record<string, number>
+): number {
+  const item = getCatalogItem(catalogId)
+  if (!item) return 0
+  const saved = catalogPrices?.[catalogId]
+  if (saved != null && saved >= 0) return saved
+  return catalogMidPrice(item)
+}
+
+export function getCatalogRecommendedLabel(catalog: VaccineCatalogItem): string {
+  if (catalog.priceMinIdr === 0 && catalog.priceMaxIdr === 0) return 'Rp0'
+  if (catalog.priceMinIdr === catalog.priceMaxIdr) {
+    return formatIdr(catalog.priceMinIdr)
+  }
+  return `${formatIdr(catalog.priceMinIdr)} – ${formatIdr(catalog.priceMaxIdr)}`
 }
 
 export function catalogMidPrice(item: VaccineCatalogItem): number {
@@ -233,9 +254,10 @@ export type CostEstimate = {
 export function estimateStrategyCost(
   catalog: VaccineCatalogItem,
   payment: VaccinePaymentMethod,
-  dsaCostIdr: number
+  dsaCostIdr: number,
+  vaccinePriceIdr?: number
 ): CostEstimate {
-  const vaccineCostIdr = catalogMidPrice(catalog)
+  const vaccineCostIdr = vaccinePriceIdr ?? catalogMidPrice(catalog)
 
   switch (payment) {
     case 'INHEALTH':
@@ -319,6 +341,8 @@ export function parseStrategySettings(raw: unknown): VaccineStrategySettings {
     fullertonUsedBeforeTrackingIdr:
       o.fullertonUsedBeforeTrackingIdr ??
       DEFAULT_VACCINE_STRATEGY.fullertonUsedBeforeTrackingIdr,
+    catalogPrices:
+      o.catalogPrices && typeof o.catalogPrices === 'object' ? o.catalogPrices : {},
     insuranceRules:
       Array.isArray(o.insuranceRules) && o.insuranceRules.length > 0
         ? o.insuranceRules
@@ -484,6 +508,18 @@ export function formatIdr(amount: number): string {
   }).format(amount)
 }
 
+/** Angka dengan pemisah ribuan (tanpa Rp) — untuk input/display */
+export function formatIdrInput(amount: number): string {
+  if (!Number.isFinite(amount) || amount <= 0) return ''
+  return new Intl.NumberFormat('id-ID').format(amount)
+}
+
+export function parseIdrInput(value: string): number {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return 0
+  return Math.max(0, parseInt(digits, 10))
+}
+
 export function formatPriceRange(item: VaccineCatalogItem): string {
   if (item.priceMinIdr === 0 && item.priceMaxIdr === 0) return 'Rp0'
   if (item.priceMinIdr === item.priceMaxIdr) return formatIdr(item.priceMinIdr)
@@ -512,11 +548,18 @@ export function buildStrategyVisit(input: {
   vaccineProduct?: string | null
   paymentMethod: VaccinePaymentMethod
   dsaCostIdr: number
+  vaccinePriceIdr?: number
   targetDate?: string | null
   order: number
 }): VaccineStrategyVisit {
   const catalog = getCatalogItem(input.vaccineCatalogId) ?? VACCINE_CATALOG[0]
-  const est = estimateStrategyCost(catalog, input.paymentMethod, input.dsaCostIdr)
+  const vaccinePrice = input.vaccinePriceIdr ?? catalogMidPrice(catalog)
+  const est = estimateStrategyCost(
+    catalog,
+    input.paymentMethod,
+    input.dsaCostIdr,
+    vaccinePrice
+  )
 
   return {
     id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -537,28 +580,7 @@ export function getVaccineInclusiveWeekRange(item: Immunization): {
   minWeeks: number
   maxWeeks: number
 } {
-  const scheduled =
-    item.scheduled_age_weeks ??
-    (item.scheduled_age_months > 0 ? item.scheduled_age_months * 4 : 0)
-
-  if (item.min_weeks != null && item.max_weeks != null) {
-    return { minWeeks: item.min_weeks, maxWeeks: item.max_weeks }
-  }
-
-  if (item.min_weeks != null || item.max_weeks != null) {
-    return {
-      minWeeks: item.min_weeks ?? scheduled,
-      maxWeeks: item.max_weeks ?? scheduled,
-    }
-  }
-
-  const col = IDAI_CHART_COLUMNS.find(
-    (c) => scheduled >= c.minWeeks && scheduled <= c.maxWeeks
-  )
-  if (col) return { minWeeks: col.minWeeks, maxWeeks: col.maxWeeks }
-
-  const range = getDoseWeekRange(item)
-  return { minWeeks: range.start, maxWeeks: Math.max(range.start, range.end - 1) }
+  return getImmunizationWeekRange(item)
 }
 
 export type VaccinePlanRangeWarning = {
@@ -580,15 +602,15 @@ export function getVaccinePlanRangeWarning(
   const { minWeeks, maxWeeks } = getVaccineInclusiveWeekRange(item)
   const rangeLabel =
     formatVaccineRange(minWeeks, maxWeeks, item.scheduled_age_weeks) ??
-    `${minWeeks}–${maxWeeks} mg`
+    `${formatWeeks(minWeeks)}–${formatWeeks(maxWeeks)}`
 
   if (ageWeeks < minWeeks) {
     return {
       kind: 'early',
       ageWeeks,
       rangeLabel,
-      message: `Usia ${ageWeeks} mg di luar rentang (${rangeLabel}) — terlalu awal.`,
-      shortMessage: `${ageWeeks} ∉ ${rangeLabel}`,
+      message: `${formatWeeks(ageWeeks)} di luar rentang ${rangeLabel}`,
+      shortMessage: `${formatWeeks(ageWeeks)} ∉ ${rangeLabel}`,
     }
   }
 
@@ -597,8 +619,8 @@ export function getVaccinePlanRangeWarning(
       kind: 'late',
       ageWeeks,
       rangeLabel,
-      message: `Usia ${ageWeeks} mg di luar rentang (${rangeLabel}) — terlambat.`,
-      shortMessage: `${ageWeeks} ∉ ${rangeLabel}`,
+      message: `${formatWeeks(ageWeeks)} di luar rentang ${rangeLabel}`,
+      shortMessage: `${formatWeeks(ageWeeks)} ∉ ${rangeLabel}`,
     }
   }
 

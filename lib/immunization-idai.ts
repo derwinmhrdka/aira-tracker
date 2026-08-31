@@ -35,9 +35,9 @@ export const IDAI_CATCHUP_RULES: IdaiCatchUpRule[] = [
     vaccine: 'Rotavirus',
     title: 'Rotavirus — batas usia ketat',
     rules: [
-      'Dosis 1 max usia 14 minggu.',
-      'Monovalen: 2 dosis, selesai <24 minggu.',
-      'Pentavalen: 3 dosis, selesai <32 minggu.',
+      'Dosis 1: Minggu 6–14 (tidak boleh jika usia ≥15 minggu).',
+      'Monovalen: 2 dosis, selesai sebelum Minggu 24.',
+      'Pentavalen: 3 dosis, dosis terakhir sebelum Minggu 32.',
     ],
   },
   {
@@ -175,22 +175,26 @@ export const DOSE_KIND_STYLE: Record<DoseKind, string> = {
   catchup: 'bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-300',
 }
 
+export function formatWeeks(weeks: number): string {
+  return `W${weeks}`
+}
+
 export function formatVaccineRange(
   minWeeks?: number | null,
   maxWeeks?: number | null,
   scheduledWeeks?: number | null
 ): string | null {
   if (minWeeks != null && maxWeeks != null) {
-    return `${minWeeks}–${maxWeeks} mg`
+    return `${formatWeeks(minWeeks)}–${formatWeeks(maxWeeks)}`
   }
   if (maxWeeks != null && scheduledWeeks != null && maxWeeks !== scheduledWeeks) {
-    return `≤${maxWeeks} mg`
+    return `≤${formatWeeks(maxWeeks)}`
   }
   if (minWeeks != null && scheduledWeeks != null && minWeeks !== scheduledWeeks) {
-    return `≥${minWeeks} mg`
+    return `≥${formatWeeks(minWeeks)}`
   }
   if (scheduledWeeks != null && scheduledWeeks > 0) {
-    return `${scheduledWeeks} mg`
+    return formatWeeks(scheduledWeeks)
   }
   return null
 }

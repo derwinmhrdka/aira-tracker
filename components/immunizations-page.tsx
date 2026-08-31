@@ -11,9 +11,13 @@ import {
 } from '@/lib/api-client'
 import { ageInWeeks } from '@/lib/baby-utils'
 import {
+  STATUS_LABEL,
+  STATUS_STYLE,
+  getImmunizationWeekRange,
   type VaccineStatus,
 } from '@/lib/immunization-utils'
 import {
+  DOSE_KIND_LABEL,
   DOSE_KIND_STYLE,
   formatVaccineRange,
   getDoseKind,
@@ -96,9 +100,10 @@ function VaccineCard({
 }) {
   const status = (item.status ?? (item.is_done ? 'done' : 'upcoming')) as VaccineStatus
   const doseKind = getDoseKind(item.dose_label)
+  const { minWeeks, maxWeeks } = getImmunizationWeekRange(item)
   const windowLabel = formatVaccineRange(
-    item.min_weeks,
-    item.max_weeks,
+    minWeeks,
+    maxWeeks,
     item.scheduled_age_weeks
   )
 
@@ -138,24 +143,33 @@ function VaccineCard({
               {item.vaccine_name}
             </p>
             {item.dose_label && (
-              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                {item.dose_label.replace(/Dosis|Tunggal|Booster/gi, '').trim() || item.dose_label}
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                {item.dose_label}
               </span>
             )}
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground">
-            {windowLabel && <span>{windowLabel}</span>}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLE[status]}`}
+            >
+              {STATUS_LABEL[status]}
+            </span>
+            {windowLabel && (
+              <span className="text-[10px] tabular-nums text-muted-foreground">
+                {windowLabel}
+              </span>
+            )}
             {item.payment_method && (
               <span
-                className={`rounded px-1 py-0.5 font-bold ${PAYMENT_METHOD_STYLE[item.payment_method]}`}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PAYMENT_METHOD_STYLE[item.payment_method]}`}
               >
-                {PAYMENT_METHOD_LABEL[item.payment_method].slice(0, 2)}
+                {PAYMENT_METHOD_LABEL[item.payment_method]}
               </span>
             )}
             {doseKind !== 'routine' && (
-              <span className={`rounded px-1 py-0.5 font-bold ${DOSE_KIND_STYLE[doseKind]}`}>
-                {doseKind === 'booster' ? 'B' : doseKind === 'catchup' ? 'K' : '·'}
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${DOSE_KIND_STYLE[doseKind]}`}>
+                {DOSE_KIND_LABEL[doseKind]}
               </span>
             )}
           </div>
@@ -258,7 +272,7 @@ function VaccineCard({
               onClick={() => onConfirm(item.id)}
               className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
             >
-              ✓
+              Simpan
             </button>
             {item.is_done && (
               <button
@@ -266,7 +280,7 @@ function VaccineCard({
                 onClick={() => onUncheck(item)}
                 className="rounded-lg border border-destructive/30 px-3 py-2 text-xs text-destructive"
               >
-                ×
+                Batal
               </button>
             )}
           </div>
@@ -392,10 +406,17 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     setStrategy(next)
   }
 
-  const addStrategyVisit = async (visit: VaccineStrategyVisit) => {
+  const addStrategyVisit = async (data: {
+    visit: VaccineStrategyVisit
+    vaccinePriceIdr: number
+  }) => {
     if (!strategy) return
-    const visits = [...strategy.visits, visit].map((v, i) => ({ ...v, order: i + 1 }))
-    await saveStrategySettings({ visits })
+    const visits = [...strategy.visits, data.visit].map((v, i) => ({ ...v, order: i + 1 }))
+    const catalogPrices = {
+      ...(strategy.catalogPrices ?? {}),
+      [data.visit.vaccineCatalogId]: data.vaccinePriceIdr,
+    }
+    await saveStrategySettings({ visits, catalog_prices: catalogPrices })
   }
 
   const deleteStrategyVisit = async (id: string) => {
@@ -427,13 +448,13 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
         ))}
       </div>
 
-      <div className="mb-4 flex gap-2 text-xs font-bold tabular-nums">
-        <span className="rounded-full bg-secondary px-2.5 py-1 text-foreground">
-          {doneCount}/{items.length}
+      <div className="mb-4 flex gap-2 text-[11px]">
+        <span className="rounded-full bg-secondary px-2.5 py-1 font-semibold tabular-nums text-foreground">
+          {doneCount}/{items.length} selesai
         </span>
         {overdueCount > 0 && (
-          <span className="rounded-full bg-red-500 px-2.5 py-1 text-white">
-            {overdueCount}!
+          <span className="rounded-full bg-red-100 px-2.5 py-1 font-semibold text-red-800 dark:bg-red-950/40 dark:text-red-300">
+            {overdueCount} terlambat
           </span>
         )}
       </div>
@@ -442,9 +463,9 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
         <button
           type="button"
           onClick={() => setShowAdd((v) => !v)}
-          className="mb-4 w-full rounded-xl border border-dashed border-border py-2.5 text-lg text-muted-foreground"
+          className="mb-4 w-full rounded-xl border border-dashed border-border py-2.5 text-sm font-semibold text-foreground"
         >
-          {showAdd ? '×' : '+'}
+          {showAdd ? 'Batal' : '+ Tambah vaksin'}
         </button>
       )}
 
@@ -454,14 +475,14 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Nama"
+            placeholder="Nama vaksin"
             className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
           />
           <input
             type="number"
             value={newAge}
             onChange={(e) => setNewAge(e.target.value)}
-            placeholder="Bulan"
+            placeholder="Usia (bulan)"
             className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
           />
           <button
@@ -470,7 +491,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
             disabled={!newName.trim() || saving}
             className="w-full rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
           >
-            {saving ? '…' : '✓'}
+            {saving ? '...' : 'Simpan'}
           </button>
         </div>
       )}
@@ -578,6 +599,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
           />
           <VaccineStrategyAddSheet
             open={showStrategyAdd}
+            strategy={strategy}
             immunizations={items}
             birthDate={babyBirthDate}
             nextOrder={strategy.visits.length + 1}

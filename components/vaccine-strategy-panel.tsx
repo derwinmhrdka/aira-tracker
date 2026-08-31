@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { Plus, Settings, Trash2 } from 'lucide-react'
-import type { Immunization, VaccineStrategySettings } from '@/lib/api-client'
+import type { Immunization, VaccinePaymentMethod, VaccineStrategySettings } from '@/lib/api-client'
 import {
   computePlafonSummaries,
   formatIdr,
@@ -22,11 +22,18 @@ type VaccineStrategyPanelProps = {
   onEditSettings?: () => void
 }
 
-const PAYMENT_SHORT: Record<string, string> = {
-  INHEALTH: 'IH',
-  FULLERTON: 'FT',
-  PUSKESMAS: 'PKM',
-  CASH: '₿',
+const PLAFON_CARD_STYLE: Record<VaccinePaymentMethod, string> = {
+  INHEALTH: 'border-sky-200/60 bg-sky-50/50 dark:border-sky-900/40 dark:bg-sky-950/20',
+  FULLERTON: 'border-violet-200/60 bg-violet-50/50 dark:border-violet-900/40 dark:bg-violet-950/20',
+  PUSKESMAS:
+    'border-emerald-200/60 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20',
+  CASH: 'border-border bg-card',
+}
+
+function plafonAmount(p: ReturnType<typeof computePlafonSummaries>[number]): string {
+  if (p.method === 'FULLERTON') return formatIdr(p.remainingIdr ?? 0)
+  if (p.method === 'CASH') return formatIdr(p.usedIdr + p.plannedIdr)
+  return formatIdr(0)
 }
 
 export function VaccineStrategyPanel({
@@ -42,50 +49,44 @@ export function VaccineStrategyPanel({
     [immunizations, strategy]
   )
 
-  const fullerton = plafon.find((p) => p.method === 'FULLERTON')
-  const cash = plafon.find((p) => p.method === 'CASH')
-
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-4 gap-1.5">
-        <div className="rounded-lg border border-sky-200/60 bg-sky-50/50 px-2 py-2 text-center dark:border-sky-900/40 dark:bg-sky-950/20">
-          <p className="text-[9px] font-bold text-sky-700 dark:text-sky-400">IH</p>
-          <p className="text-sm font-bold tabular-nums">0</p>
-        </div>
-        {fullerton && (
-          <div className="rounded-lg border border-violet-200/60 bg-violet-50/50 px-2 py-2 text-center dark:border-violet-900/40 dark:bg-violet-950/20">
-            <p className="text-[9px] font-bold text-violet-700 dark:text-violet-400">FT</p>
-            <p className="text-sm font-bold tabular-nums">
-              {((fullerton.remainingIdr ?? 0) / 1_000_000).toFixed(1)}jt
+      <div className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch]">
+        {plafon.map((p) => (
+          <div
+            key={p.method}
+            className={`w-[calc(50%-0.25rem)] shrink-0 snap-start rounded-xl border p-3 ${PLAFON_CARD_STYLE[p.method]}`}
+          >
+            <p className="text-[10px] font-semibold text-muted-foreground">{p.label}</p>
+            <p className="mt-1 text-[11px] font-bold leading-tight tabular-nums text-foreground">
+              {plafonAmount(p)}
             </p>
+            {p.limitIdr != null && (
+              <p className="mt-0.5 text-[9px] leading-tight tabular-nums text-muted-foreground">
+                / {formatIdr(p.limitIdr)}
+              </p>
+            )}
+            {p.method === 'FULLERTON' && p.plannedIdr > 0 && (
+              <p className="mt-0.5 text-[9px] tabular-nums text-muted-foreground">
+                rencana {formatIdr(p.plannedIdr)}
+              </p>
+            )}
           </div>
-        )}
-        <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/50 px-2 py-2 text-center dark:border-emerald-900/40 dark:bg-emerald-950/20">
-          <p className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400">PKM</p>
-          <p className="text-sm font-bold tabular-nums">0</p>
-        </div>
-        {cash && (
-          <div className="rounded-lg border border-border bg-card px-2 py-2 text-center">
-            <p className="text-[9px] font-bold text-muted-foreground">₿</p>
-            <p className="text-sm font-bold tabular-nums">
-              {((cash.usedIdr + cash.plannedIdr) / 1_000_000).toFixed(1)}jt
-            </p>
-          </div>
-        )}
+        ))}
       </div>
 
       <div className="space-y-1.5">
         {strategy.visits.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-8 text-center text-2xl text-muted-foreground/40">
-            —
-          </div>
+          <p className="rounded-xl border border-dashed border-border py-6 text-center text-xs text-muted-foreground">
+            Belum ada rencana
+          </p>
         ) : (
           strategy.visits.map((visit) => {
             const rangeWarning = getVisitPlanRangeWarning(visit, immunizations, birthDate)
             return (
               <div
                 key={visit.id}
-                className={`flex items-center gap-2 rounded-xl border bg-card px-3 py-2 ${
+                className={`flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 ${
                   rangeWarning ? 'border-amber-400/70' : 'border-border'
                 }`}
               >
@@ -95,24 +96,23 @@ export function VaccineStrategyPanel({
                       {visitDisplayLabel(visit)}
                     </p>
                     <span
-                      className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${PAYMENT_METHOD_STYLE[visit.paymentMethod]}`}
-                      title={PAYMENT_METHOD_LABEL[visit.paymentMethod]}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${PAYMENT_METHOD_STYLE[visit.paymentMethod]}`}
                     >
-                      {PAYMENT_SHORT[visit.paymentMethod]}
+                      {PAYMENT_METHOD_LABEL[visit.paymentMethod]}
                     </span>
                   </div>
-                  <p className="text-[10px] tabular-nums text-muted-foreground">
+                  <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
                     {formatVisitDate(visit)}
-                    <span className="mx-1">·</span>
-                    {visit.estimatedCostIdr > 0
-                      ? formatIdr(visit.estimatedCostIdr)
-                      : '0'}
-                    {rangeWarning && (
-                      <span className="ml-1 text-amber-600 dark:text-amber-400">
-                        ⚠ {rangeWarning.shortMessage}
-                      </span>
-                    )}
+                    {' · '}
+                    <span className="text-[9px]">
+                      {formatIdr(visit.estimatedCostIdr > 0 ? visit.estimatedCostIdr : 0)}
+                    </span>
                   </p>
+                  {rangeWarning && (
+                    <p className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-400">
+                      ⚠ {rangeWarning.shortMessage}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -120,7 +120,7 @@ export function VaccineStrategyPanel({
                   className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary"
                   aria-label="Hapus"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             )
@@ -132,19 +132,18 @@ export function VaccineStrategyPanel({
         <button
           type="button"
           onClick={onAdd}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-3 text-primary-foreground"
-          aria-label="Tambah"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-4 w-4" />
+          Tambah rencana
         </button>
         {onEditSettings && (
           <button
             type="button"
             onClick={onEditSettings}
-            className="rounded-xl border border-border px-4 py-3 text-muted-foreground"
-            aria-label="Pengaturan"
+            className="flex items-center gap-1 rounded-xl border border-border px-3 py-3 text-xs font-medium text-muted-foreground"
           >
-            <Settings className="h-5 w-5" />
+            <Settings className="h-4 w-4" />
           </button>
         )}
       </div>

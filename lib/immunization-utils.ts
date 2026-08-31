@@ -1,5 +1,7 @@
 import { ageInMonths, ageInWeeks } from '@/lib/baby-utils'
 import { formatVaccineRange } from '@/lib/immunization-idai'
+import { lookupImmunizationWeekWindow } from '@/lib/immunization-schedule-windows'
+import type { Immunization } from '@/lib/api-client'
 
 export type VaccineStatus = 'done' | 'overdue' | 'due' | 'upcoming'
 
@@ -85,6 +87,38 @@ export function formatVaccineScheduleLabel(
   }
   if (scheduledAgeMonths >= 2) return `${scheduledAgeMonths} bulan`
   return `${scheduledAgeWeeks} minggu`
+}
+
+export function getImmunizationWeekRange(
+  item: Pick<
+    Immunization,
+    | 'vaccine_name'
+    | 'dose_label'
+    | 'scheduled_age_weeks'
+    | 'scheduled_age_months'
+    | 'min_weeks'
+    | 'max_weeks'
+  >
+): { minWeeks: number; maxWeeks: number } {
+  const scheduled =
+    item.scheduled_age_weeks ??
+    (item.scheduled_age_months > 0 ? item.scheduled_age_months * 4 : 0)
+
+  if (item.min_weeks != null && item.max_weeks != null) {
+    return { minWeeks: item.min_weeks, maxWeeks: item.max_weeks }
+  }
+
+  if (item.min_weeks != null || item.max_weeks != null) {
+    return {
+      minWeeks: item.min_weeks ?? scheduled,
+      maxWeeks: item.max_weeks ?? scheduled,
+    }
+  }
+
+  const fromSchedule = lookupImmunizationWeekWindow(item)
+  if (fromSchedule) return fromSchedule
+
+  return { minWeeks: scheduled, maxWeeks: scheduled }
 }
 
 function sortKey(v: VaccineInput): number {

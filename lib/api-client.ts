@@ -868,6 +868,7 @@ export type VaccineStrategySettings = {
   rotavirusType?: string
   visitGapWeeks?: number
   fullertonUsedBeforeTrackingIdr?: number
+  catalogPrices?: Record<string, number>
   insuranceRules: InsuranceRule[]
   visits: VaccineStrategyVisit[]
 }
@@ -878,6 +879,7 @@ export type VaccineStrategySettingsPayload = {
   rotavirus_type?: string
   visit_gap_weeks?: number
   fullerton_used_before_tracking_idr?: number
+  catalog_prices?: Record<string, number>
   insurance_rules?: InsuranceRule[]
   visits?: VaccineStrategyVisit[]
 }

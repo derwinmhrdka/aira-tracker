@@ -7,6 +7,7 @@ import {
   buildImmunizationChart,
   CHART_BAR_GAP,
   CHART_BAR_HEIGHT,
+  CHART_KIND_LABEL,
   CHART_KIND_STYLE,
   CHART_MONTH_COL_WIDTH,
   CHART_ROW_PAD,
@@ -19,7 +20,7 @@ import {
   type ChartDoseBar,
 } from '@/lib/immunization-chart'
 import { formatVaccineRange } from '@/lib/immunization-idai'
-import type { VaccineStatus } from '@/lib/immunization-utils'
+import { getImmunizationWeekRange, type VaccineStatus } from '@/lib/immunization-utils'
 
 type ImmunizationScheduleChartProps = {
   items: Immunization[]
@@ -106,9 +107,10 @@ function CellDetailSheet({
           {cells.map(({ item, kind, doseDisplay }) => {
             const status = (item.status ??
               (item.is_done ? 'done' : 'upcoming')) as VaccineStatus
+            const { minWeeks, maxWeeks } = getImmunizationWeekRange(item)
             const windowLabel = formatVaccineRange(
-              item.min_weeks,
-              item.max_weeks,
+              minWeeks,
+              maxWeeks,
               item.scheduled_age_weeks
             )
 
@@ -159,9 +161,9 @@ function CellDetailSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-3 w-full rounded-xl bg-secondary py-2.5 text-sm font-semibold"
+          className="mt-3 w-full rounded-xl bg-secondary py-2.5 text-sm font-semibold text-foreground"
         >
-          ×
+          Tutup
         </button>
       </motion.div>
     </>
@@ -216,28 +218,24 @@ export function ImmunizationScheduleChart({
     'highrisk',
   ]
 
-  const kindAbbrev: Record<ChartCellKind, string> = {
-    primer: 'P',
-    catchup: 'K',
-    booster: 'B',
-    endemic: 'E',
-    highrisk: 'R',
-  }
-
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 px-1">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-secondary/30 px-3 py-2">
         {legendKinds.map((kind) => (
-          <span
-            key={kind}
-            title={kind}
-            className={`inline-flex h-5 w-5 items-center justify-center rounded text-[9px] font-bold ${CHART_KIND_STYLE[kind]}`}
-          >
-            {kindAbbrev[kind]}
-          </span>
+          <div key={kind} className="flex items-center gap-1">
+            <span
+              className={`inline-flex h-3.5 w-3.5 rounded ${CHART_KIND_STYLE[kind]}`}
+            />
+            <span className="text-[10px] text-muted-foreground">
+              {CHART_KIND_LABEL[kind]}
+            </span>
+          </div>
         ))}
         {babyColumnId && (
-          <span className="ml-auto inline-block h-4 w-0.5 bg-primary" title="Sekarang" />
+          <div className="flex items-center gap-1">
+            <span className="inline-block h-3.5 w-0.5 bg-primary" />
+            <span className="text-[10px] text-primary">Sekarang</span>
+          </div>
         )}
       </div>
 
@@ -245,7 +243,11 @@ export function ImmunizationScheduleChart({
         <div className="min-w-max">
           <div className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur-sm">
             <div className="flex">
-              <div className="sticky left-0 z-30 w-[5.5rem] shrink-0 border-r border-border bg-card px-2 py-2" />
+              <div className="sticky left-0 z-30 w-[5.5rem] shrink-0 border-r border-border bg-card px-2 py-2">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Vaksin
+                </p>
+              </div>
               <div>
                 <div className="flex">
                   {monthColumns.map((col) => (

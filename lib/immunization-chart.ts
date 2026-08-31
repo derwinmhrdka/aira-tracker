@@ -1,4 +1,5 @@
 import type { Immunization } from '@/lib/api-client'
+import { getImmunizationWeekRange } from '@/lib/immunization-utils'
 
 export type ChartCellKind = 'primer' | 'booster' | 'catchup' | 'endemic' | 'highrisk'
 
@@ -192,38 +193,18 @@ function intervalsOverlap(
 }
 
 export function getDoseWeekRange(item: Immunization): { start: number; end: number } {
-  const scheduled =
-    item.scheduled_age_weeks ??
-    (item.scheduled_age_months > 0 ? item.scheduled_age_months * 4 : 0)
+  const { minWeeks, maxWeeks } = getImmunizationWeekRange(item)
 
-  if (item.min_weeks != null && item.max_weeks != null) {
-    const min = item.min_weeks
-    const max = item.max_weeks
-    if (min === max) {
-      if (min === 0) return { start: 0, end: 1 }
-      const col = IDAI_CHART_COLUMNS.find(
-        (c) => min >= c.minWeeks && min <= c.maxWeeks
-      )
-      if (col) return { start: col.minWeeks, end: col.maxWeeks + 1 }
-      return { start: min, end: min + 1 }
-    }
-    return { start: Math.max(0, min), end: Math.max(min + 1, max) }
+  if (minWeeks === maxWeeks) {
+    if (minWeeks === 0) return { start: 0, end: 1 }
+    const col = IDAI_CHART_COLUMNS.find(
+      (c) => minWeeks >= c.minWeeks && minWeeks <= c.maxWeeks
+    )
+    if (col) return { start: col.minWeeks, end: col.maxWeeks + 1 }
+    return { start: minWeeks, end: minWeeks + 1 }
   }
 
-  if (item.min_weeks != null || item.max_weeks != null) {
-    const min = item.min_weeks ?? scheduled
-    const max = item.max_weeks ?? scheduled
-    return { start: Math.max(0, min), end: Math.max(min + 1, max) }
-  }
-
-  const col = IDAI_CHART_COLUMNS.find(
-    (c) => scheduled >= c.minWeeks && scheduled <= c.maxWeeks
-  )
-  if (col) {
-    return { start: col.minWeeks, end: col.maxWeeks + 1 }
-  }
-
-  return { start: scheduled, end: scheduled + 4 }
+  return { start: Math.max(0, minWeeks), end: maxWeeks + 1 }
 }
 
 function assignBarLanes(
@@ -283,10 +264,26 @@ export function weeksToGridPx(
   weeks: number,
   columns: ChartAgeColumn[] = IDAI_CHART_COLUMNS
 ): number {
-  const { start, end } = getChartTimelineBounds(columns)
-  const totalWidth = getChartGridWidthPx(columns)
-  const clamped = Math.min(end, Math.max(start, weeks))
-  return ((clamped - start) / (end - start)) * totalWidth
+  if (columns.length === 0) return 0
+
+  const first = columns[0].minWeeks
+  const last = columns[columns.length - 1].maxWeeks
+  const clamped = Math.min(last + 1, Math.max(first, weeks))
+
+  let x = 0
+  for (const col of columns) {
+    const colWidth = col.group === 'month' ? CHART_MONTH_COL_WIDTH : CHART_YEAR_COL_WIDTH
+    const span = col.maxWeeks - col.minWeeks + 1
+
+    if (clamped <= col.maxWeeks + 1) {
+      const offset = Math.max(0, clamped - col.minWeeks)
+      return x + Math.min(1, offset / span) * colWidth
+    }
+
+    x += colWidth
+  }
+
+  return x
 }
 
 export function getChartColumnForBabyWeeks(babyWeeks: number): string | null {
