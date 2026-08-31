@@ -728,10 +728,16 @@ export type PlafonSummary = {
   unlimited: boolean
 }
 
-function sumPlanned(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
+function sumPlafonImpact(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
   return visits
     .filter((v) => v.paymentMethod === method)
     .reduce((sum, v) => sum + getVisitPlafonImpact(v), 0)
+}
+
+function sumPlannedDisplay(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
+  return visits
+    .filter((v) => v.paymentMethod === method)
+    .reduce((sum, v) => sum + getVisitDisplayTotal(v), 0)
 }
 
 export function computePlafonSummaries(
@@ -783,9 +789,10 @@ export function computePlafonSummaries(
           ? settings.fullertonUsedBeforeTrackingIdr ?? 0
           : 0
 
-      const plannedIdr = sumPlanned(planned, 'FULLERTON')
+      const plannedPlafonIdr = sumPlafonImpact(planned, 'FULLERTON')
+      const plannedIdr = sumPlannedDisplay(planned, 'FULLERTON')
       const usedIdr = usedFromLogs + opening
-      const remainingIdr = Math.max(0, rule.annualLimitIdr - usedIdr - plannedIdr)
+      const remainingIdr = Math.max(0, rule.annualLimitIdr - usedIdr - plannedPlafonIdr)
 
       summaries.push({
         method: 'FULLERTON',
@@ -804,7 +811,7 @@ export function computePlafonSummaries(
       const usedIdr = immunizations
         .filter((i) => i.is_done && i.payment_method === 'CASH' && i.cost_idr)
         .reduce((sum, i) => sum + (i.cost_idr ?? 0), 0)
-      const plannedIdr = sumPlanned(planned, 'CASH')
+      const plannedIdr = sumPlannedDisplay(planned, 'CASH')
 
       summaries.push({
         method: 'CASH',

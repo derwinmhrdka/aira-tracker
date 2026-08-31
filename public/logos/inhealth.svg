@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 28" fill="none" role="img" aria-label="Inhealth">
+  <rect x="2" y="4" width="6" height="20" rx="1" fill="#0072BC"/>
+  <rect x="2" y="11" width="20" height="6" rx="1" fill="#0072BC"/>
+  <text x="28" y="20" fill="#0072BC" font-family="system-ui, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">inhealth</text>
+</svg>

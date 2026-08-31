@@ -66,7 +66,7 @@ export const CHART_ROW_ORDER = [
   'Hepatitis B',
   'Polio',
   'BCG',
-  'DTP',
+  'DPT',
   'Hib',
   'PCV',
   'Rotavirus',
@@ -94,28 +94,42 @@ const WEEK_COLUMN_ANCHOR: Record<number, string> = {
   260: 'y5',
 }
 
-export function normalizeVaccineChartRow(name: string): string {
+/** Baris chart untuk satu vaksin — kombinasi bisa masuk beberapa baris. */
+export function getVaccineChartRows(name: string): string[] {
   const n = name.toLowerCase()
 
-  if (/hepatitis\s*a\b/.test(n)) return 'Hepatitis A'
-  if (/hepatitis\s*b|hb0|\bhb\b/.test(n)) return 'Hepatitis B'
-  if (/bcg/.test(n)) return 'BCG'
-  if (/japanese|encephalitis|\bje\b/.test(n)) return 'Japanese Encephalitis'
-  if (/campak|mmr|\bmr\b/.test(n)) return 'MR / MMR'
-  if (/varisela|varicella/.test(n)) return 'Varisela'
-  if (/tifoid|typhoid/.test(n)) return 'Tifoid'
-  if (/dengue/.test(n)) return 'Dengue'
-  if (/hpv/.test(n)) return 'HPV'
-  if (/influenza|\bflu\b/.test(n)) return 'Influenza'
-  if (/rotavirus|\brv\b/.test(n)) return 'Rotavirus'
-  if (/pcv|pneumococ/.test(n)) return 'PCV'
-  if (/polio|ipv|opv/.test(n)) return 'Polio'
-  if (/^hib\b/.test(n) || (/\bhib\b/.test(n) && !/dpt|dtp|pentavalen|hexavalen/.test(n))) {
-    return 'Hib'
-  }
-  if (/dpt|dtp|pentavalen|hexavalen/.test(n)) return 'DTP'
+  if (/hepatitis\s*a\b/.test(n)) return ['Hepatitis A']
 
-  return name.split('(')[0].trim()
+  // DPT-HB-Hib / Pentavalen / Hexavalen → DPT + Hepatitis B + Hib
+  if (
+    /pentavalen|hexavalen/.test(n) ||
+    (/dpt|dtp/.test(n) && /\bhb\b/.test(n)) ||
+    (/dpt|dtp/.test(n) && /\bhib\b/.test(n) && /hepatitis\s*b/.test(n))
+  ) {
+    return ['DPT', 'Hepatitis B', 'Hib']
+  }
+
+  if (/dpt|dtp/.test(n)) return ['DPT']
+  if (/^hib\b/.test(n) || /\bhib\b/.test(n)) return ['Hib']
+  if (/hepatitis\s*b|hb0|\bhb\b/.test(n)) return ['Hepatitis B']
+  if (/bcg/.test(n)) return ['BCG']
+  if (/japanese|encephalitis|\bje\b/.test(n)) return ['Japanese Encephalitis']
+  if (/campak|mmr|\bmr\b/.test(n)) return ['MR / MMR']
+  if (/varisela|varicella/.test(n)) return ['Varisela']
+  if (/tifoid|typhoid/.test(n)) return ['Tifoid']
+  if (/dengue/.test(n)) return ['Dengue']
+  if (/hpv/.test(n)) return ['HPV']
+  if (/influenza|\bflu\b/.test(n)) return ['Influenza']
+  if (/rotavirus|\brv\b/.test(n)) return ['Rotavirus']
+  if (/pcv|pneumococ/.test(n)) return ['PCV']
+  if (/polio|ipv|opv/.test(n)) return ['Polio']
+
+  return [name.split('(')[0].trim()]
+}
+
+/** @deprecated gunakan getVaccineChartRows — kombinasi bisa multi-baris */
+export function normalizeVaccineChartRow(name: string): string {
+  return getVaccineChartRows(name)[0]
 }
 
 export function weeksToChartColumnId(weeks: number): string {
@@ -307,13 +321,14 @@ export function buildImmunizationChart(items: Immunization[]): {
   >()
 
   for (const item of items) {
-    const rowLabel = normalizeVaccineChartRow(item.vaccine_name)
-    const rowId = rowLabel.toLowerCase().replace(/\s+/g, '-')
+    for (const rowLabel of getVaccineChartRows(item.vaccine_name)) {
+      const rowId = rowLabel.toLowerCase().replace(/\s+/g, '-')
 
-    if (!rowMap.has(rowId)) {
-      rowMap.set(rowId, { label: rowLabel, items: [] })
+      if (!rowMap.has(rowId)) {
+        rowMap.set(rowId, { label: rowLabel, items: [] })
+      }
+      rowMap.get(rowId)!.items.push(item)
     }
-    rowMap.get(rowId)!.items.push(item)
   }
 
   const orderedRows: ChartRow[] = []

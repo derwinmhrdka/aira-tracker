@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Plus, Pencil, Settings, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Settings, Trash2, TrendingDown } from 'lucide-react'
 import type { Immunization, VaccinePaymentMethod, VaccineStrategySettings } from '@/lib/api-client'
+import { PaymentMethodLogo } from './payment-method-logo'
 import {
   computePlafonSummaries,
   formatIdr,
@@ -64,9 +65,15 @@ export function VaccineStrategyPanel({
         {plafon.map((p) => (
           <div
             key={p.method}
-            className={`w-[calc(50%-0.25rem)] shrink-0 snap-start rounded-xl border p-3 ${PLAFON_CARD_STYLE[p.method]}`}
+            className={`relative w-[calc(50%-0.25rem)] shrink-0 snap-start overflow-hidden rounded-xl border p-3 ${PLAFON_CARD_STYLE[p.method]}`}
           >
-            <p className="text-[10px] font-semibold text-muted-foreground">{p.label}</p>
+            <div className="flex min-h-[10px] items-center">
+              {p.method === 'INHEALTH' || p.method === 'FULLERTON' ? (
+                <PaymentMethodLogo method={p.method} />
+              ) : (
+                <p className="text-[10px] font-semibold leading-none text-muted-foreground">{p.label}</p>
+              )}
+            </div>
             <p className="mt-1 text-[11px] font-bold leading-tight tabular-nums text-foreground">
               {plafonAmount(p)}
             </p>
@@ -75,9 +82,10 @@ export function VaccineStrategyPanel({
                 / {formatIdr(p.limitIdr)}
               </p>
             )}
-            {p.method === 'FULLERTON' && p.plannedIdr > 0 && (
-              <p className="mt-0.5 text-[9px] tabular-nums text-muted-foreground">
-                rencana {formatIdr(p.plannedIdr)}
+            {(p.method === 'FULLERTON' || p.method === 'CASH') && p.plannedIdr > 0 && (
+              <p className="mt-0.5 flex items-center gap-0.5 text-[9px] tabular-nums text-muted-foreground">
+                <TrendingDown className="h-3 w-3 shrink-0" aria-label="Rencana biaya" />
+                {formatIdr(p.plannedIdr)}
               </p>
             )}
           </div>
