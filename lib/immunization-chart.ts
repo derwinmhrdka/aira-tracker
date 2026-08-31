@@ -164,6 +164,7 @@ export function getChartCellKind(item: Immunization): ChartCellKind {
 
 export function extractDoseDisplay(doseLabel?: string | null): string {
   if (!doseLabel) return '•'
+  if (/^hb0$/i.test(doseLabel.trim())) return '0'
   if (/tunggal/i.test(doseLabel)) return '1'
   if (/booster/i.test(doseLabel)) {
     const n = doseLabel.match(/(\d+)/)
@@ -195,10 +196,23 @@ export function getDoseWeekRange(item: Immunization): { start: number; end: numb
     item.scheduled_age_weeks ??
     (item.scheduled_age_months > 0 ? item.scheduled_age_months * 4 : 0)
 
-  const min = item.min_weeks ?? scheduled
-  const max = item.max_weeks ?? scheduled
+  if (item.min_weeks != null && item.max_weeks != null) {
+    const min = item.min_weeks
+    const max = item.max_weeks
+    if (min === max) {
+      if (min === 0) return { start: 0, end: 1 }
+      const col = IDAI_CHART_COLUMNS.find(
+        (c) => min >= c.minWeeks && min <= c.maxWeeks
+      )
+      if (col) return { start: col.minWeeks, end: col.maxWeeks + 1 }
+      return { start: min, end: min + 1 }
+    }
+    return { start: Math.max(0, min), end: Math.max(min + 1, max) }
+  }
 
-  if (min !== max) {
+  if (item.min_weeks != null || item.max_weeks != null) {
+    const min = item.min_weeks ?? scheduled
+    const max = item.max_weeks ?? scheduled
     return { start: Math.max(0, min), end: Math.max(min + 1, max) }
   }
 

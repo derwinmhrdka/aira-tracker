@@ -1,4 +1,7 @@
 import type { Immunization, VaccinePaymentMethod } from '@/lib/api-client'
+import { ageInWeeks } from '@/lib/baby-utils'
+import { getDoseWeekRange, IDAI_CHART_COLUMNS } from '@/lib/immunization-chart'
+import { formatVaccineRange } from '@/lib/immunization-idai'
 
 export const VACCINE_STRATEGY_SETTING_KEY = 'vaccine_strategy'
 
@@ -16,12 +19,18 @@ export const PAYMENT_METHOD_STYLE: Record<VaccinePaymentMethod, string> = {
   CASH: 'bg-secondary text-muted-foreground',
 }
 
+export const DEFAULT_DSA_COST_IDR = 450_000
+
 export type VaccineCatalogItem = {
   id: string
   name: string
   brand?: string
   priceMinIdr: number
   priceMaxIdr: number
+  /** Imunisasi dasar — boleh Inhealth & Puskesmas */
+  isBasic: boolean
+  /** Tersedia di Puskesmas */
+  atPuskesmas: boolean
   preferredPayment?: VaccinePaymentMethod
 }
 
@@ -32,27 +41,18 @@ export const VACCINE_CATALOG: VaccineCatalogItem[] = [
     brand: 'Hexaxim',
     priceMinIdr: 0,
     priceMaxIdr: 0,
+    isBasic: true,
+    atPuskesmas: false,
     preferredPayment: 'INHEALTH',
-  },
-  {
-    id: 'pcv13',
-    name: 'PCV13',
-    priceMinIdr: 900_000,
-    priceMaxIdr: 1_100_000,
-    preferredPayment: 'FULLERTON',
-  },
-  {
-    id: 'rotarix',
-    name: 'Rotarix (RV1)',
-    priceMinIdr: 450_000,
-    priceMaxIdr: 550_000,
-    preferredPayment: 'FULLERTON',
   },
   {
     id: 'polio-opv',
     name: 'Polio Tetes',
+    brand: 'bOPV',
     priceMinIdr: 0,
-    priceMaxIdr: 50_000,
+    priceMaxIdr: 0,
+    isBasic: true,
+    atPuskesmas: true,
     preferredPayment: 'INHEALTH',
   },
   {
@@ -60,27 +60,56 @@ export const VACCINE_CATALOG: VaccineCatalogItem[] = [
     name: 'Polio IPV',
     priceMinIdr: 0,
     priceMaxIdr: 150_000,
+    isBasic: true,
+    atPuskesmas: false,
     preferredPayment: 'INHEALTH',
+  },
+  {
+    id: 'bcg',
+    name: 'BCG',
+    priceMinIdr: 0,
+    priceMaxIdr: 0,
+    isBasic: true,
+    atPuskesmas: true,
+    preferredPayment: 'PUSKESMAS',
+  },
+  {
+    id: 'mr',
+    name: 'MR / MMR',
+    priceMinIdr: 0,
+    priceMaxIdr: 0,
+    isBasic: true,
+    atPuskesmas: true,
+    preferredPayment: 'PUSKESMAS',
+  },
+  {
+    id: 'pcv13',
+    name: 'PCV13',
+    brand: 'Prevenar',
+    priceMinIdr: 900_000,
+    priceMaxIdr: 1_100_000,
+    isBasic: false,
+    atPuskesmas: false,
+    preferredPayment: 'FULLERTON',
+  },
+  {
+    id: 'rotarix',
+    name: 'Rotavirus',
+    brand: 'Rotarix',
+    priceMinIdr: 450_000,
+    priceMaxIdr: 550_000,
+    isBasic: false,
+    atPuskesmas: false,
+    preferredPayment: 'FULLERTON',
   },
   {
     id: 'influenza',
     name: 'Influenza',
     priceMinIdr: 350_000,
     priceMaxIdr: 450_000,
+    isBasic: false,
+    atPuskesmas: false,
     preferredPayment: 'FULLERTON',
-  },
-  {
-    id: 'dsa',
-    name: 'Jasa Dokter Sp.A',
-    priceMinIdr: 400_000,
-    priceMaxIdr: 500_000,
-  },
-  {
-    id: 'bcg',
-    name: 'BCG',
-    priceMinIdr: 0,
-    priceMaxIdr: 100_000,
-    preferredPayment: 'PUSKESMAS',
   },
 ]
 
@@ -97,11 +126,7 @@ export const DEFAULT_INSURANCE_RULES: InsuranceRule[] = [
   {
     id: 'INHEALTH',
     label: 'Inhealth',
-    notes: [
-      'Cover 100% imunisasi dasar + Hexaxim non-demam.',
-      'Cover 100% jasa dokter Sp.A tanpa plafon.',
-      'Khusus kunjungan DPT combo — jangan digabung asuransi lain.',
-    ],
+    notes: ['Dasar + DSA 100%.'],
   },
   {
     id: 'FULLERTON',
@@ -109,35 +134,38 @@ export const DEFAULT_INSURANCE_RULES: InsuranceRule[] = [
     annualLimitIdr: 5_000_000,
     resetMonth: 1,
     resetDay: 1,
-    notes: [
-      'Cover semua vaksin (PCV, Rotavirus, Influenza, dll).',
-      'Plafon Rp5.000.000/tahun, reset 1 Januari.',
-      'Khusus kunjungan PCV/Rotavirus/Influenza — pisah hari dari Inhealth.',
-    ],
+    notes: ['Plafon Rp5 jt/tahun.'],
   },
   {
     id: 'PUSKESMAS',
     label: 'Puskesmas',
-    notes: ['Program imunisasi dasar gratis/bersubsidi.'],
+    notes: ['Dasar gratis.'],
   },
   {
     id: 'CASH',
     label: 'Cash',
-    notes: ['Bayar pribadi di luar asuransi.'],
+    notes: ['Bayar sendiri.'],
   },
 ]
 
 export type VaccineStrategyVisit = {
   id: string
   order: number
-  title: string
-  targetDate?: string | null
-  targetDateEnd?: string | null
-  ageLabel?: string
-  actions: string
+  immunizationId?: string | null
+  vaccineCatalogId: string
+  vaccineName: string
+  vaccineProduct?: string | null
   paymentMethod: VaccinePaymentMethod
-  estimatedCostIdr?: number | null
+  dsaCostIdr: number
+  vaccineCostIdr: number
+  estimatedCostIdr: number
+  targetDate?: string | null
+  /** @deprecated legacy display */
+  title?: string
+  actions?: string
   notes?: string | null
+  ageLabel?: string
+  targetDateEnd?: string | null
 }
 
 export type VaccineStrategySettings = {
@@ -145,7 +173,6 @@ export type VaccineStrategySettings = {
   doctorName?: string
   rotavirusType?: string
   visitGapWeeks?: number
-  /** Biaya sudah terpakai sebelum tracking di app (per tahun kalender). */
   fullertonUsedBeforeTrackingIdr?: number
   insuranceRules: InsuranceRule[]
   visits: VaccineStrategyVisit[]
@@ -154,74 +181,136 @@ export type VaccineStrategySettings = {
 export const DEFAULT_VACCINE_STRATEGY: VaccineStrategySettings = {
   clinicName: 'RS Columbia Asia BSD',
   doctorName: 'dr. Rita, Sp.A',
-  rotavirusType: 'Rotarix (RV1, 2 dosis)',
+  rotavirusType: 'Rotarix (RV1)',
   visitGapWeeks: 3,
-  fullertonUsedBeforeTrackingIdr: 575_000,
+  fullertonUsedBeforeTrackingIdr: 0,
   insuranceRules: DEFAULT_INSURANCE_RULES,
-  visits: [
-    {
-      id: 'v1',
-      order: 1,
-      title: 'Kunjungan 1',
-      targetDate: '2026-09-19',
-      ageLabel: '2 bln 25 hr',
-      actions: 'PCV13 dosis 1 + Rotarix dosis 1',
-      paymentMethod: 'FULLERTON',
-      estimatedCostIdr: 1_950_000,
-      notes: 'Sisa plafon ~Rp2.475.000',
-    },
-    {
-      id: 'v2',
-      order: 2,
-      title: 'Kunjungan 2',
-      targetDate: '2026-10-10',
-      targetDateEnd: '2026-10-17',
-      ageLabel: '3,5 bln',
-      actions: 'DPT-HepB-Hib 2 (Hexaxim) + Polio Tetes',
-      paymentMethod: 'INHEALTH',
-      estimatedCostIdr: 0,
-      notes: 'Plafon Fullerton utuh',
-    },
-    {
-      id: 'v3',
-      order: 3,
-      title: 'Kunjungan 3',
-      targetDate: '2026-11-07',
-      targetDateEnd: '2026-11-14',
-      ageLabel: '4,5 bln',
-      actions: 'PCV13 dosis 2 + Rotarix dosis 2 (lunas)',
-      paymentMethod: 'FULLERTON',
-      estimatedCostIdr: 1_950_000,
-      notes: 'Sisa plafon ~Rp525.000',
-    },
-    {
-      id: 'v4',
-      order: 4,
-      title: 'Kunjungan 4',
-      targetDate: '2026-12-05',
-      targetDateEnd: '2026-12-12',
-      ageLabel: '5,5 bln',
-      actions: 'DPT-HepB-Hib 3 (Hexaxim) + Polio IPV',
-      paymentMethod: 'INHEALTH',
-      estimatedCostIdr: 0,
-    },
-    {
-      id: 'v5',
-      order: 5,
-      title: 'Kunjungan 5',
-      targetDate: '2027-01-15',
-      ageLabel: '6,5 bln',
-      actions: 'Influenza dosis 1',
-      paymentMethod: 'FULLERTON',
-      estimatedCostIdr: 850_000,
-      notes: 'Plafon baru Rp5.000.000',
-    },
-  ],
+  visits: [],
+}
+
+export function getCatalogItem(id: string): VaccineCatalogItem | undefined {
+  return VACCINE_CATALOG.find((c) => c.id === id)
+}
+
+export function catalogMidPrice(item: VaccineCatalogItem): number {
+  return Math.round((item.priceMinIdr + item.priceMaxIdr) / 2)
+}
+
+export function getAllowedPayments(catalog: VaccineCatalogItem): VaccinePaymentMethod[] {
+  const methods: VaccinePaymentMethod[] = ['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH']
+  return methods.filter((m) => {
+    if (m === 'INHEALTH' && !catalog.isBasic) return false
+    if (m === 'PUSKESMAS' && !catalog.atPuskesmas) return false
+    return true
+  })
+}
+
+export function suggestCatalogForImmunization(name: string): VaccineCatalogItem | null {
+  const n = name.toLowerCase()
+  const rules: [RegExp, string][] = [
+    [/dpt|hexavalen|pentavalen|hib/, 'hexaxim'],
+    [/pcv|pneumococ/, 'pcv13'],
+    [/rotavirus|rotarix|rotateq/, 'rotarix'],
+    [/polio.*tetes|\bopv\b/, 'polio-opv'],
+    [/ipv|polio suntik/, 'ipv'],
+    [/influenza|\bflu\b/, 'influenza'],
+    [/bcg/, 'bcg'],
+    [/campak|mmr|\bmr\b/, 'mr'],
+  ]
+  for (const [re, id] of rules) {
+    if (re.test(n)) return getCatalogItem(id) ?? null
+  }
+  return null
+}
+
+export type CostEstimate = {
+  vaccineCostIdr: number
+  dsaCostIdr: number
+  totalOutOfPocketIdr: number
+  plafonImpactIdr: number
+}
+
+export function estimateStrategyCost(
+  catalog: VaccineCatalogItem,
+  payment: VaccinePaymentMethod,
+  dsaCostIdr: number
+): CostEstimate {
+  const vaccineCostIdr = catalogMidPrice(catalog)
+
+  switch (payment) {
+    case 'INHEALTH':
+    case 'PUSKESMAS':
+      return {
+        vaccineCostIdr: 0,
+        dsaCostIdr: 0,
+        totalOutOfPocketIdr: 0,
+        plafonImpactIdr: 0,
+      }
+    case 'FULLERTON':
+      return {
+        vaccineCostIdr,
+        dsaCostIdr: 0,
+        totalOutOfPocketIdr: dsaCostIdr,
+        plafonImpactIdr: vaccineCostIdr,
+      }
+    case 'CASH':
+      return {
+        vaccineCostIdr,
+        dsaCostIdr,
+        totalOutOfPocketIdr: vaccineCostIdr + dsaCostIdr,
+        plafonImpactIdr: vaccineCostIdr + dsaCostIdr,
+      }
+  }
+}
+
+function migrateLegacyVisit(raw: Record<string, unknown>, order: number): VaccineStrategyVisit {
+  if (raw.vaccineCatalogId && raw.vaccineName) {
+    return {
+      id: String(raw.id ?? `v-${order}`),
+      order: Number(raw.order ?? order),
+      immunizationId: (raw.immunizationId as string) ?? null,
+      vaccineCatalogId: String(raw.vaccineCatalogId),
+      vaccineName: String(raw.vaccineName),
+      vaccineProduct: (raw.vaccineProduct as string) ?? null,
+      paymentMethod: raw.paymentMethod as VaccinePaymentMethod,
+      dsaCostIdr: Number(raw.dsaCostIdr ?? 0),
+      vaccineCostIdr: Number(raw.vaccineCostIdr ?? raw.estimatedCostIdr ?? 0),
+      estimatedCostIdr: Number(raw.estimatedCostIdr ?? 0),
+      targetDate: (raw.targetDate as string) ?? null,
+    }
+  }
+
+  const actions = String(raw.actions ?? '')
+  const catalog = suggestCatalogForImmunization(actions) ?? VACCINE_CATALOG[0]
+  const payment = (raw.paymentMethod as VaccinePaymentMethod) ?? 'FULLERTON'
+  const est = estimateStrategyCost(catalog, payment, 0)
+
+  return {
+    id: String(raw.id ?? `v-${order}`),
+    order: Number(raw.order ?? order),
+    vaccineCatalogId: catalog.id,
+    vaccineName: catalog.name,
+    vaccineProduct: catalog.brand ?? null,
+    paymentMethod: payment,
+    dsaCostIdr: 0,
+    vaccineCostIdr: est.vaccineCostIdr,
+    estimatedCostIdr: Number(raw.estimatedCostIdr ?? est.plafonImpactIdr),
+    targetDate: (raw.targetDate as string) ?? null,
+    title: raw.title as string | undefined,
+    actions,
+    notes: raw.notes as string | null | undefined,
+    ageLabel: raw.ageLabel as string | undefined,
+    targetDateEnd: raw.targetDateEnd as string | null | undefined,
+  }
 }
 
 export function parseStrategySettings(raw: unknown): VaccineStrategySettings {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_VACCINE_STRATEGY }
-  const o = raw as Partial<VaccineStrategySettings>
+  const o = raw as Partial<VaccineStrategySettings> & { visits?: unknown[] }
+  const visits = Array.isArray(o.visits)
+    ? o.visits.map((v, i) => migrateLegacyVisit(v as Record<string, unknown>, i + 1))
+    : []
+
   return {
     clinicName: o.clinicName ?? DEFAULT_VACCINE_STRATEGY.clinicName,
     doctorName: o.doctorName ?? DEFAULT_VACCINE_STRATEGY.doctorName,
@@ -234,10 +323,7 @@ export function parseStrategySettings(raw: unknown): VaccineStrategySettings {
       Array.isArray(o.insuranceRules) && o.insuranceRules.length > 0
         ? o.insuranceRules
         : DEFAULT_INSURANCE_RULES,
-    visits:
-      Array.isArray(o.visits) && o.visits.length > 0
-        ? [...o.visits].sort((a, b) => a.order - b.order)
-        : DEFAULT_VACCINE_STRATEGY.visits,
+    visits: [...visits].sort((a, b) => a.order - b.order),
   }
 }
 
@@ -276,9 +362,16 @@ export type PlafonSummary = {
   label: string
   limitIdr: number | null
   usedIdr: number
+  plannedIdr: number
   remainingIdr: number | null
   periodLabel: string
   unlimited: boolean
+}
+
+function sumPlanned(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
+  return visits
+    .filter((v) => v.paymentMethod === method)
+    .reduce((sum, v) => sum + (v.estimatedCostIdr ?? 0), 0)
 }
 
 export function computePlafonSummaries(
@@ -287,6 +380,7 @@ export function computePlafonSummaries(
   refDate = new Date()
 ): PlafonSummary[] {
   const summaries: PlafonSummary[] = []
+  const planned = settings.visits
 
   for (const rule of settings.insuranceRules) {
     if (rule.id === 'INHEALTH') {
@@ -295,6 +389,7 @@ export function computePlafonSummaries(
         label: rule.label,
         limitIdr: null,
         usedIdr: 0,
+        plannedIdr: 0,
         remainingIdr: null,
         periodLabel: 'Tanpa plafon',
         unlimited: true,
@@ -328,33 +423,51 @@ export function computePlafonSummaries(
           ? settings.fullertonUsedBeforeTrackingIdr ?? 0
           : 0
 
+      const plannedIdr = sumPlanned(planned, 'FULLERTON')
       const usedIdr = usedFromLogs + opening
-      const remainingIdr = Math.max(0, rule.annualLimitIdr - usedIdr)
+      const remainingIdr = Math.max(0, rule.annualLimitIdr - usedIdr - plannedIdr)
 
       summaries.push({
         method: 'FULLERTON',
         label: rule.label,
         limitIdr: rule.annualLimitIdr,
         usedIdr,
+        plannedIdr,
         remainingIdr,
-        periodLabel: `${period.start.getFullYear()}–${period.end.getFullYear()}`,
+        periodLabel: `${period.start.getFullYear()}`,
         unlimited: false,
       })
       continue
     }
 
-    if (rule.id === 'PUSKESMAS' || rule.id === 'CASH') {
+    if (rule.id === 'CASH') {
       const usedIdr = immunizations
-        .filter((i) => i.is_done && i.payment_method === rule.id && i.cost_idr)
+        .filter((i) => i.is_done && i.payment_method === 'CASH' && i.cost_idr)
         .reduce((sum, i) => sum + (i.cost_idr ?? 0), 0)
+      const plannedIdr = sumPlanned(planned, 'CASH')
 
       summaries.push({
-        method: rule.id,
+        method: 'CASH',
         label: rule.label,
         limitIdr: null,
         usedIdr,
+        plannedIdr,
         remainingIdr: null,
-        periodLabel: 'Total tercatat',
+        periodLabel: 'Total',
+        unlimited: true,
+      })
+      continue
+    }
+
+    if (rule.id === 'PUSKESMAS') {
+      summaries.push({
+        method: 'PUSKESMAS',
+        label: rule.label,
+        limitIdr: null,
+        usedIdr: 0,
+        plannedIdr: 0,
+        remainingIdr: null,
+        periodLabel: 'Gratis',
         unlimited: true,
       })
     }
@@ -372,22 +485,133 @@ export function formatIdr(amount: number): string {
 }
 
 export function formatPriceRange(item: VaccineCatalogItem): string {
-  if (item.priceMinIdr === 0 && item.priceMaxIdr === 0) return 'Rp0 (asuransi)'
+  if (item.priceMinIdr === 0 && item.priceMaxIdr === 0) return 'Rp0'
   if (item.priceMinIdr === item.priceMaxIdr) return formatIdr(item.priceMinIdr)
   return `${formatIdr(item.priceMinIdr)}–${formatIdr(item.priceMaxIdr)}`
 }
 
-export function formatVisitDateRange(visit: VaccineStrategyVisit): string {
+export function formatVisitDate(visit: VaccineStrategyVisit): string {
   if (!visit.targetDate) return '—'
-  const start = new Date(visit.targetDate).toLocaleDateString('id-ID', {
+  return new Date(visit.targetDate).toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   })
-  if (!visit.targetDateEnd || visit.targetDateEnd === visit.targetDate) return start
-  const end = new Date(visit.targetDateEnd).toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-  })
-  return `${start} – ${end}`
+}
+
+export function visitDisplayLabel(visit: VaccineStrategyVisit): string {
+  const product = visit.vaccineProduct?.trim()
+  if (product) return `${visit.vaccineName} · ${product}`
+  return visit.vaccineName
+}
+
+export function buildStrategyVisit(input: {
+  immunizationId?: string | null
+  vaccineCatalogId: string
+  vaccineName: string
+  vaccineProduct?: string | null
+  paymentMethod: VaccinePaymentMethod
+  dsaCostIdr: number
+  targetDate?: string | null
+  order: number
+}): VaccineStrategyVisit {
+  const catalog = getCatalogItem(input.vaccineCatalogId) ?? VACCINE_CATALOG[0]
+  const est = estimateStrategyCost(catalog, input.paymentMethod, input.dsaCostIdr)
+
+  return {
+    id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    order: input.order,
+    immunizationId: input.immunizationId ?? null,
+    vaccineCatalogId: input.vaccineCatalogId,
+    vaccineName: input.vaccineName,
+    vaccineProduct: input.vaccineProduct ?? catalog.brand ?? null,
+    paymentMethod: input.paymentMethod,
+    dsaCostIdr: est.dsaCostIdr,
+    vaccineCostIdr: est.vaccineCostIdr,
+    estimatedCostIdr: est.plafonImpactIdr,
+    targetDate: input.targetDate ?? null,
+  }
+}
+
+export function getVaccineInclusiveWeekRange(item: Immunization): {
+  minWeeks: number
+  maxWeeks: number
+} {
+  const scheduled =
+    item.scheduled_age_weeks ??
+    (item.scheduled_age_months > 0 ? item.scheduled_age_months * 4 : 0)
+
+  if (item.min_weeks != null && item.max_weeks != null) {
+    return { minWeeks: item.min_weeks, maxWeeks: item.max_weeks }
+  }
+
+  if (item.min_weeks != null || item.max_weeks != null) {
+    return {
+      minWeeks: item.min_weeks ?? scheduled,
+      maxWeeks: item.max_weeks ?? scheduled,
+    }
+  }
+
+  const col = IDAI_CHART_COLUMNS.find(
+    (c) => scheduled >= c.minWeeks && scheduled <= c.maxWeeks
+  )
+  if (col) return { minWeeks: col.minWeeks, maxWeeks: col.maxWeeks }
+
+  const range = getDoseWeekRange(item)
+  return { minWeeks: range.start, maxWeeks: Math.max(range.start, range.end - 1) }
+}
+
+export type VaccinePlanRangeWarning = {
+  kind: 'early' | 'late'
+  ageWeeks: number
+  rangeLabel: string
+  message: string
+  shortMessage: string
+}
+
+export function getVaccinePlanRangeWarning(
+  item: Immunization,
+  birthDate: string | null | undefined,
+  targetDate: string | null | undefined
+): VaccinePlanRangeWarning | null {
+  if (!birthDate || !targetDate) return null
+
+  const ageWeeks = ageInWeeks(birthDate, targetDate)
+  const { minWeeks, maxWeeks } = getVaccineInclusiveWeekRange(item)
+  const rangeLabel =
+    formatVaccineRange(minWeeks, maxWeeks, item.scheduled_age_weeks) ??
+    `${minWeeks}–${maxWeeks} mg`
+
+  if (ageWeeks < minWeeks) {
+    return {
+      kind: 'early',
+      ageWeeks,
+      rangeLabel,
+      message: `Usia ${ageWeeks} mg di luar rentang (${rangeLabel}) — terlalu awal.`,
+      shortMessage: `${ageWeeks} ∉ ${rangeLabel}`,
+    }
+  }
+
+  if (ageWeeks > maxWeeks) {
+    return {
+      kind: 'late',
+      ageWeeks,
+      rangeLabel,
+      message: `Usia ${ageWeeks} mg di luar rentang (${rangeLabel}) — terlambat.`,
+      shortMessage: `${ageWeeks} ∉ ${rangeLabel}`,
+    }
+  }
+
+  return null
+}
+
+export function getVisitPlanRangeWarning(
+  visit: VaccineStrategyVisit,
+  immunizations: Immunization[],
+  birthDate: string | null | undefined
+): VaccinePlanRangeWarning | null {
+  if (!visit.immunizationId || !visit.targetDate) return null
+  const item = immunizations.find((i) => i.id === visit.immunizationId)
+  if (!item) return null
+  return getVaccinePlanRangeWarning(item, birthDate, visit.targetDate)
 }

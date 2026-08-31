@@ -3,6 +3,27 @@
 //
 // Digunakan oleh prisma/seed.ts. Jangan simpan di public/.
 
+/** Kolom usia chart (minggu) — sinkron dengan lib/immunization-chart.ts */
+const MG = {
+  lahir: { min: 0, max: 3 },
+  bln1: { min: 4, max: 7 },
+  bln2: { min: 8, max: 11 },
+  bln3: { min: 12, max: 14 },
+  bln4: { min: 15, max: 21 },
+  bln5: { min: 22, max: 25 },
+  bln6: { min: 26, max: 35 },
+  bln7: { min: 30, max: 35 },
+  bln9: { min: 36, max: 51 },
+  bln12: { min: 52, max: 64 },
+  bln15: { min: 65, max: 77 },
+  bln18: { min: 78, max: 83 },
+  bln24: { min: 104, max: 155 },
+} as const
+
+function atMonth(col: keyof typeof MG) {
+  return { minWeeks: MG[col].min, maxWeeks: MG[col].max }
+}
+
 export type ImmunizationSeed = {
   vaccineName: string
   scheduledAgeWeeks: number
@@ -50,85 +71,85 @@ export function legacyImmunizationTargetKey(input: {
     'HB0 (24 jam)': immunizationSeedKey({
       vaccineName: 'Hepatitis B0 (monovalen)',
       scheduledAgeWeeks: 0,
-      doseLabel: 'Dosis 0',
+      doseLabel: 'HB0',
       isNationalProgram: true,
     }),
     BCG: immunizationSeedKey({
       vaccineName: 'BCG',
       scheduledAgeWeeks: 0,
-      doseLabel: 'Dosis Tunggal',
+      doseLabel: 'BCG 1',
       isNationalProgram: true,
     }),
     'DPT-HB-Hib 1': immunizationSeedKey({
       vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
       scheduledAgeWeeks: 8,
-      doseLabel: 'Dosis 1',
+      doseLabel: 'DPT 1',
       isNationalProgram: true,
     }),
     'Polio 1': immunizationSeedKey({
       vaccineName: 'Polio 1 (OPV)',
       scheduledAgeWeeks: 8,
-      doseLabel: 'Dosis 1',
+      doseLabel: 'Polio 1',
       isNationalProgram: true,
     }),
     'RV 1': immunizationSeedKey({
       vaccineName: 'Rotavirus (Monovalen atau Pentavalen)',
       scheduledAgeWeeks: 8,
-      doseLabel: 'Dosis 1',
+      doseLabel: 'Rotavirus 1',
       isNationalProgram: true,
     }),
     'DPT-HB-Hib 2': immunizationSeedKey({
       vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
       scheduledAgeWeeks: 12,
-      doseLabel: 'Dosis 2',
+      doseLabel: 'DPT 2',
       isNationalProgram: true,
     }),
     'Polio 2': immunizationSeedKey({
       vaccineName: 'Polio 2 (OPV)',
       scheduledAgeWeeks: 12,
-      doseLabel: 'Dosis 2',
+      doseLabel: 'Polio 2',
       isNationalProgram: true,
     }),
     'RV 2': immunizationSeedKey({
       vaccineName: 'Rotavirus (Monovalen)',
-      scheduledAgeWeeks: 12,
-      doseLabel: 'Dosis 2 (dosis terakhir monovalen)',
+      scheduledAgeWeeks: 16,
+      doseLabel: 'Rotavirus 2 (Rotarix)',
       isNationalProgram: true,
     }),
     'DPT-HB-Hib 3': immunizationSeedKey({
       vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
       scheduledAgeWeeks: 16,
-      doseLabel: 'Dosis 3 (skema DTPw) / Dosis 2 (skema DTPa)',
+      doseLabel: 'DPT 3',
       isNationalProgram: true,
     }),
     'Polio 3': immunizationSeedKey({
       vaccineName: 'Polio 3 (OPV)',
       scheduledAgeWeeks: 16,
-      doseLabel: 'Dosis 3',
+      doseLabel: 'Polio 3',
       isNationalProgram: true,
     }),
     IPV: immunizationSeedKey({
       vaccineName: 'IPV (Polio suntik)',
       scheduledAgeWeeks: 16,
-      doseLabel: 'Dosis 1',
+      doseLabel: 'IPV 1',
       isNationalProgram: true,
     }),
     'RV 3': immunizationSeedKey({
       vaccineName: 'Rotavirus (Pentavalen)',
-      scheduledAgeWeeks: 16,
-      doseLabel: 'Dosis 3 dari 3',
+      scheduledAgeWeeks: 26,
+      doseLabel: 'Rotavirus 3 (Rotateq)',
       isNationalProgram: true,
     }),
     'Campak-Rubella': immunizationSeedKey({
       vaccineName: 'Campak/MR',
       scheduledAgeWeeks: 36,
-      doseLabel: 'Dosis 1',
+      doseLabel: 'MR 1',
       isNationalProgram: true,
     }),
     'Japanese Encephalitis': immunizationSeedKey({
       vaccineName: 'Japanese Encephalitis',
       scheduledAgeWeeks: 36,
-      doseLabel: 'Dosis 1',
+      doseLabel: 'JE 1',
       isNationalProgram: false,
     }),
   }
@@ -143,7 +164,7 @@ export function legacyImmunizationTargetKey(input: {
     return immunizationSeedKey({
       vaccineName: 'Hepatitis B0 (monovalen)',
       scheduledAgeWeeks: 0,
-      doseLabel: 'Dosis 0',
+      doseLabel: 'HB0',
       isNationalProgram: true,
     })
   }
@@ -155,7 +176,7 @@ export function legacyImmunizationTargetKey(input: {
     return immunizationSeedKey({
       vaccineName: 'Polio 0 (OPV)',
       scheduledAgeWeeks: 0,
-      doseLabel: 'Dosis 0',
+      doseLabel: 'Polio 0',
       isNationalProgram: true,
     })
   }
@@ -164,270 +185,313 @@ export function legacyImmunizationTargetKey(input: {
 }
 
 export const immunizationSeedData: ImmunizationSeed[] = [
-  // ===================== BARU LAHIR (0 minggu) =====================
+  // ===================== BARU LAHIR =====================
   {
-    vaccineName: "Hepatitis B0 (monovalen)",
+    vaccineName: 'Hepatitis B0 (monovalen)',
     scheduledAgeWeeks: 0,
+    minWeeks: 0,
     maxWeeks: 0,
-    doseLabel: "Dosis 0",
+    doseLabel: 'HB0',
     isNationalProgram: true,
     notes:
-      "Diberikan maks. 24 jam setelah lahir, untuk bayi berat lahir ≥2000g. Jika <2000g dan ibu HBsAg negatif, tunda sampai usia 1 bulan. Jika ibu HBsAg positif, WAJIB diberikan HB0 + HBIg (imunoglobulin) dalam 24 jam pertama di sisi tubuh yang berbeda.",
+      '0–24 jam setelah lahir. Kejar maksimal sebelum usia 7 hari. Bayi <2000g & ibu HBsAg negatif: tunda sampai 1 bulan. Ibu HBsAg positif: HB0 + HBIg dalam 24 jam.',
   },
   {
-    vaccineName: "Polio 0 (OPV)",
+    vaccineName: 'Polio 0 (OPV)',
     scheduledAgeWeeks: 0,
-    doseLabel: "Dosis 0",
+    minWeeks: MG.lahir.min,
+    maxWeeks: MG.bln1.max,
+    doseLabel: 'Polio 0',
     isNationalProgram: true,
     notes:
-      "Jika lahir di rumah, berikan OPV-0 segera. Jika lahir di fasilitas kesehatan, OPV-0 diberikan saat bayi akan dipulangkan.",
+      'Saat lahir (sebelum pulang RS). Bisa diberikan bersamaan saat BCG (usia 0–1 bulan).',
   },
   {
-    vaccineName: "BCG",
+    vaccineName: 'BCG',
     scheduledAgeWeeks: 0,
-    maxWeeks: 4,
-    doseLabel: "Dosis Tunggal",
+    minWeeks: MG.lahir.min,
+    maxWeeks: MG.bln1.max,
+    doseLabel: 'BCG 1',
     isNationalProgram: true,
     notes:
-      "Optimal diberikan usia 0-4 minggu (idealnya sebelum usia 2 bulan). Jika diberikan di usia ≥3 bulan, WAJIB didahului uji tuberkulin dulu (hasil harus negatif).",
+      'Usia 0–1 bulan. Kejar maksimal sebelum usia 3 bulan. Jika >2 bulan, wajib uji tuberkulin dulu (hasil negatif).',
   },
 
-  // ===================== 2 BULAN (~8-9 minggu) =====================
+  // ===================== 2 BULAN =====================
   {
-    vaccineName: "DPT-HB-Hib (Pentavalen/Hexavalen)",
+    vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
     scheduledAgeWeeks: 8,
-    doseLabel: "Dosis 1",
+    ...atMonth('bln2'),
+    doseLabel: 'DPT 1',
     isNationalProgram: true,
     notes:
-      "Jika kombinasi HB dengan DTPw: jadwal di usia 2, 3, 4 bulan. Jika kombinasi HB dengan DTPa (aselular, biasanya di hexavalent swasta): jadwal di usia 2, 4, 6 bulan. Cek dulu jenis vaksin yang dipakai fasyankes/dokter untuk menentukan jadwal dosis 2 & 3.",
+      'Usia 2 bulan. Kejar segera saat teringat (jeda min. 4 minggu ke DPT 2). Skema DTPa (hexavalen): dosis berikutnya di bulan ke-4 & 6.',
   },
   {
-    vaccineName: "Polio 1 (OPV)",
+    vaccineName: 'Polio 1 (OPV)',
     scheduledAgeWeeks: 8,
-    doseLabel: "Dosis 1",
+    ...atMonth('bln2'),
+    doseLabel: 'Polio 1',
     isNationalProgram: true,
+    notes: 'Usia 2 bulan. Kejar segera bersamaan DPT 1.',
   },
   {
-    vaccineName: "PCV",
+    vaccineName: 'PCV',
     scheduledAgeWeeks: 8,
-    doseLabel: "Dosis 1",
+    ...atMonth('bln2'),
+    doseLabel: 'PCV 1',
     isNationalProgram: true,
+    notes: 'Usia 2 bulan. Bisa dikejar sampai usia 5 tahun.',
   },
   {
-    vaccineName: "Rotavirus (Monovalen atau Pentavalen)",
+    vaccineName: 'Rotavirus (Monovalen atau Pentavalen)',
     scheduledAgeWeeks: 8,
-    minWeeks: 6,
+    minWeeks: MG.bln2.min,
     maxWeeks: 14,
-    doseLabel: "Dosis 1",
+    doseLabel: 'Rotavirus 1',
     isNationalProgram: true,
     notes:
-      "PENTING: dosis pertama TIDAK BOLEH diberikan pada usia ≥15 minggu, berapa pun jenis vaksinnya (monovalen/pentavalen). Kalau bayi sudah lewat 14 minggu dan belum mulai, seri rotavirus tidak bisa dimulai/dikejar lagi menurut jadwal IDAI.",
+      'Usia 2 bulan. Wajib dosis 1 sebelum usia 12–15 minggu (tidak bisa diberikan jika usia >15 minggu).',
   },
 
-  // ===================== 3 BULAN (~12-13 minggu) =====================
+  // ===================== 3 BULAN =====================
   {
-    vaccineName: "DPT-HB-Hib (Pentavalen/Hexavalen)",
+    vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
     scheduledAgeWeeks: 12,
-    doseLabel: "Dosis 2",
+    ...atMonth('bln3'),
+    doseLabel: 'DPT 2',
     isNationalProgram: true,
-    notes: "Hanya berlaku untuk skema kombinasi DTPw (jadwal 2,3,4 bulan). Skema DTPa: dosis 2 di bulan ke-4.",
+    notes: 'Usia 3 bulan (jeda min. 4 minggu dari DPT 1). Dikejar secepatnya, tidak perlu ulang dari awal.',
   },
   {
-    vaccineName: "Polio 2 (OPV)",
+    vaccineName: 'Polio 2 (OPV)',
     scheduledAgeWeeks: 12,
-    doseLabel: "Dosis 2",
+    ...atMonth('bln3'),
+    doseLabel: 'Polio 2',
     isNationalProgram: true,
+    notes: 'Usia 3 bulan. Dikejar secepatnya bersamaan DPT 2.',
+  },
+
+  // ===================== 4 BULAN =====================
+  {
+    vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
+    scheduledAgeWeeks: 16,
+    ...atMonth('bln4'),
+    doseLabel: 'DPT 3',
+    isNationalProgram: true,
+    notes: 'Usia 4 bulan (jeda min. 4 minggu dari DPT 2). Dikejar secepatnya, tidak perlu ulang dari awal.',
   },
   {
-    vaccineName: "Rotavirus (Monovalen)",
-    scheduledAgeWeeks: 12,
-    minWeeks: 10,
+    vaccineName: 'Polio 3 (OPV)',
+    scheduledAgeWeeks: 16,
+    ...atMonth('bln4'),
+    doseLabel: 'Polio 3',
+    isNationalProgram: true,
+    notes: 'Usia 4 bulan. Paling sedikit 1 dosis IPV diberikan bersamaan (lihat IPV 1).',
+  },
+  {
+    vaccineName: 'IPV (Polio suntik)',
+    scheduledAgeWeeks: 16,
+    ...atMonth('bln4'),
+    doseLabel: 'IPV 1',
+    isNationalProgram: true,
+    notes: 'Usia 4 bulan. Segera berikan jika terlewat (rekomendasi min. 2× IPV sebelum 1 tahun).',
+  },
+  {
+    vaccineName: 'PCV',
+    scheduledAgeWeeks: 16,
+    minWeeks: 12,
+    maxWeeks: MG.bln4.max,
+    doseLabel: 'PCV 2',
+    isNationalProgram: true,
+    notes: 'Usia 4 bulan (jeda min. 4–8 minggu dari PCV 1). Bisa dikejar sampai usia 5 tahun.',
+  },
+  {
+    vaccineName: 'Rotavirus (Monovalen)',
+    scheduledAgeWeeks: 16,
+    minWeeks: 12,
     maxWeeks: 24,
-    doseLabel: "Dosis 2 (dosis terakhir monovalen)",
+    doseLabel: 'Rotavirus 2 (Rotarix)',
     isNationalProgram: true,
     notes:
-      "Untuk vaksin monovalen: hanya 2 dosis total, interval minimal 4 minggu dari dosis 1, dan seluruh seri harus selesai sebelum usia 24 minggu.",
+      'Usia 4 bulan (jeda min. 4 minggu dari Rota 1). Rotarix (2 dosis): maksimal sebelum 24 minggu (6 bulan).',
   },
   {
-    vaccineName: "Rotavirus (Pentavalen)",
-    scheduledAgeWeeks: 12,
-    minWeeks: 10,
+    vaccineName: 'Rotavirus (Pentavalen)',
+    scheduledAgeWeeks: 16,
+    minWeeks: 12,
     maxWeeks: 32,
-    doseLabel: "Dosis 2 dari 3",
+    doseLabel: 'Rotavirus 2 (Rotateq)',
     isNationalProgram: true,
     notes:
-      "Untuk vaksin pentavalen: 3 dosis total, interval 4-10 minggu antar dosis, seluruh seri selesai sebelum usia 32 minggu.",
+      'Usia 4 bulan (jeda min. 4 minggu dari Rota 1). Rotateq: dosis 2 dikejar sebelum usia 24 minggu.',
   },
 
-  // ===================== 4 BULAN (~16-17 minggu) =====================
+  // ===================== 6 BULAN =====================
   {
-    vaccineName: "DPT-HB-Hib (Pentavalen/Hexavalen)",
-    scheduledAgeWeeks: 16,
-    doseLabel: "Dosis 3 (skema DTPw) / Dosis 2 (skema DTPa)",
-    isNationalProgram: true,
-  },
-  {
-    vaccineName: "Polio 3 (OPV)",
-    scheduledAgeWeeks: 16,
-    doseLabel: "Dosis 3",
-    isNationalProgram: true,
-    notes: "Paling sedikit 1 dosis IPV harus diberikan bersamaan dengan Polio-3 ini (lihat entry IPV di bawah).",
-  },
-  {
-    vaccineName: "IPV (Polio suntik)",
-    scheduledAgeWeeks: 16,
-    doseLabel: "Dosis 1",
-    isNationalProgram: true,
-    notes: "Diberikan 2 kali total: usia 4 bulan dan 9 bulan (update jadwal IDAI 2024).",
-  },
-  {
-    vaccineName: "PCV",
-    scheduledAgeWeeks: 16,
-    doseLabel: "Dosis 2",
-    isNationalProgram: true,
-  },
-  {
-    vaccineName: "Rotavirus (Pentavalen)",
-    scheduledAgeWeeks: 16,
-    minWeeks: 14,
+    vaccineName: 'Rotavirus (Pentavalen)',
+    scheduledAgeWeeks: 26,
+    minWeeks: MG.bln5.min,
     maxWeeks: 32,
-    doseLabel: "Dosis 3 dari 3",
+    doseLabel: 'Rotavirus 3 (Rotateq)',
     isNationalProgram: true,
-  },
-
-  // ===================== 6 BULAN (~24-26 minggu) =====================
-  {
-    vaccineName: "DPT-HB-Hib (Pentavalen/Hexavalen)",
-    scheduledAgeWeeks: 26,
-    doseLabel: "Dosis 3 (khusus skema DTPa: 2, 4, 6 bulan)",
-    isNationalProgram: true,
+    notes: 'Usia 6 bulan. Maksimal dosis terakhir di usia 32 minggu (8 bulan).',
   },
   {
-    vaccineName: "PCV",
+    vaccineName: 'DPT-HB-Hib (Pentavalen/Hexavalen)',
     scheduledAgeWeeks: 26,
-    doseLabel: "Dosis 3",
+    ...atMonth('bln6'),
+    doseLabel: 'DPT 3 (skema DTPa saja)',
     isNationalProgram: true,
+    notes: 'Khusus skema DTPa/hexavalen (jadwal 2, 4, 6 bulan). Tidak perlu jika pakai DTPw (2, 3, 4 bulan).',
   },
   {
-    vaccineName: "Influenza",
+    vaccineName: 'Influenza',
     scheduledAgeWeeks: 26,
-    doseLabel: "Dosis 1",
+    ...atMonth('bln6'),
+    doseLabel: 'Flu 1',
     isNationalProgram: false,
     notes:
-      "Pemberian pertama pada usia <9 tahun: 2 dosis dengan interval minimal 4 minggu, lalu diulang 1x setahun seterusnya. Dosis 0.25mL untuk usia 6-36 bulan, 0.5mL untuk usia ≥36 bulan.",
-  },
-
-  // ===================== 9 BULAN (~36-39 minggu) =====================
-  {
-    vaccineName: "Campak/MR",
-    scheduledAgeWeeks: 36,
-    doseLabel: "Dosis 1",
-    isNationalProgram: true,
-    notes:
-      "Kalau sampai usia 12 bulan belum dapat vaksin ini, bisa langsung diberikan MMR/MR sebagai gantinya.",
+      'Usia 6 bulan (dosis awal). Bisa diberikan kapan saja di atas usia 6 bulan. Di bawah 9 tahun: 2 dosis interval 4 minggu, lalu 1×/tahun.',
   },
   {
-    vaccineName: "IPV (Polio suntik)",
-    scheduledAgeWeeks: 36,
-    doseLabel: "Dosis 2",
-    isNationalProgram: true,
-  },
-  {
-    vaccineName: "Japanese Encephalitis",
-    scheduledAgeWeeks: 36,
-    doseLabel: "Dosis 1",
+    vaccineName: 'Influenza',
+    scheduledAgeWeeks: 30,
+    ...atMonth('bln7'),
+    doseLabel: 'Flu 2',
     isNationalProgram: false,
-    notes:
-      "Direkomendasikan terutama di daerah endemis atau sebelum bepergian ke daerah endemis. Booster 1-2 tahun kemudian untuk perlindungan jangka panjang.",
+    notes: 'Usia 7 bulan (jeda 4 minggu dari Flu 1). Diberikan 4 minggu setelah dosis 1, lalu diulang 1×/tahun.',
   },
 
-  // ===================== 12 BULAN (~52 minggu) =====================
+  // ===================== 9 BULAN =====================
   {
-    vaccineName: "Hepatitis A",
+    vaccineName: 'IPV (Polio suntik)',
+    scheduledAgeWeeks: 36,
+    ...atMonth('bln9'),
+    doseLabel: 'IPV 2',
+    isNationalProgram: true,
+    notes: 'Usia 9 bulan (atau bersamaan DPT 3). Dikejar sebelum anak berusia 1 tahun.',
+  },
+  {
+    vaccineName: 'Campak/MR',
+    scheduledAgeWeeks: 36,
+    ...atMonth('bln9'),
+    doseLabel: 'MR 1',
+    isNationalProgram: true,
+    notes:
+      'Usia 9 bulan. Jika belum di usia 9 bulan, segera berikan MR/MMR di usia berapa pun.',
+  },
+  {
+    vaccineName: 'Japanese Encephalitis',
+    scheduledAgeWeeks: 36,
+    minWeeks: MG.bln9.min,
+    maxWeeks: MG.bln12.max,
+    doseLabel: 'JE 1',
+    isNationalProgram: false,
+    notes: 'Usia 9–12 bulan (endemis). Dikejar kapan saja. Booster 1–2 tahun kemudian.',
+  },
+
+  // ===================== 12–15 BULAN =====================
+  {
+    vaccineName: 'PCV',
     scheduledAgeWeeks: 52,
-    doseLabel: "Dosis 1",
-    isNationalProgram: false,
-    notes: "2 dosis total, interval 6-12 bulan antar dosis.",
+    minWeeks: MG.bln12.min,
+    maxWeeks: MG.bln15.max,
+    doseLabel: 'Booster PCV 3',
+    isNationalProgram: true,
+    notes: 'Usia 12–15 bulan. Dikejar sampai usia 5 tahun.',
   },
   {
-    vaccineName: "Varisela",
+    vaccineName: 'Varisela',
     scheduledAgeWeeks: 52,
-    doseLabel: "Dosis 1",
+    minWeeks: MG.bln12.min,
+    maxWeeks: MG.bln18.max,
+    doseLabel: 'Varisela 1',
     isNationalProgram: false,
     notes:
-      "Diberikan setelah usia 12 bulan, idealnya sebelum masuk SD. 2 dosis, interval 6 minggu-3 bulan. Kalau diberikan setelah usia 13 tahun, interval minimal jadi 4-6 minggu.",
+      'Usia 12–18 bulan. Dikejar sebelum masuk usia sekolah (dosis 2 jeda 6–12 minggu / usia 6 tahun).',
+  },
+  {
+    vaccineName: 'Hepatitis A',
+    scheduledAgeWeeks: 52,
+    minWeeks: MG.bln12.min,
+    maxWeeks: MG.bln24.max,
+    doseLabel: 'Hepatitis A 1',
+    isNationalProgram: false,
+    notes: 'Usia 12–24 bulan. Dosis 2 jeda 6–12 bulan kemudian.',
+  },
+  {
+    vaccineName: 'Hib',
+    scheduledAgeWeeks: 65,
+    ...atMonth('bln15'),
+    doseLabel: 'Booster',
+    isNationalProgram: true,
+    notes: 'Booster Hib usia 12–15 bulan (jika skema primer memerlukan).',
   },
 
-  // ===================== 15 BULAN (~65 minggu) =====================
+  // ===================== 18 BULAN =====================
   {
-    vaccineName: "MMR/MR",
-    scheduledAgeWeeks: 65,
-    doseLabel: "Dosis 2 (booster campak)",
+    vaccineName: 'DPT-HB-Hib',
+    scheduledAgeWeeks: 78,
+    ...atMonth('bln18'),
+    doseLabel: 'Booster DPT 1',
+    isNationalProgram: true,
+    notes: 'Usia 18 bulan. Dikejar secepatnya sebelum anak berusia 5 tahun.',
+  },
+  {
+    vaccineName: 'Polio (OPV/IPV)',
+    scheduledAgeWeeks: 78,
+    ...atMonth('bln18'),
+    doseLabel: 'Booster Polio 3',
+    isNationalProgram: true,
+    notes: 'Usia 18 bulan. Diberikan bersamaan booster DPT.',
+  },
+  {
+    vaccineName: 'MMR/MR',
+    scheduledAgeWeeks: 78,
+    ...atMonth('bln18'),
+    doseLabel: 'Booster MR 2',
     isNationalProgram: false,
     notes:
-      "Kalau sudah dapat Campak/MR di usia 9 bulan, MMR/MR diberikan di usia 15 bulan (interval minimal 6 bulan dari dosis sebelumnya). Vaksin campak dosis ke-2 di usia 18 bulan TIDAK perlu diberikan lagi kalau sudah dapat MMR ini.",
-  },
-  {
-    vaccineName: "Hib",
-    scheduledAgeWeeks: 65,
-    doseLabel: "Booster",
-    isNationalProgram: true,
-  },
-  {
-    vaccineName: "PCV",
-    scheduledAgeWeeks: 65,
-    doseLabel: "Booster",
-    isNationalProgram: true,
-    notes: "Booster diberikan di usia 12-15 bulan, minimal 2 bulan setelah dosis terakhir.",
+      'Usia 18 bulan (atau diganti MMR). Dikejar jika usia 9 bulan sudah lewat 6 bulan.',
   },
 
-  // ===================== 18 BULAN (~78 minggu) =====================
+  // ===================== 2 TAHUN =====================
   {
-    vaccineName: "DPT-HB-Hib",
-    scheduledAgeWeeks: 78,
-    doseLabel: "Booster 1",
-    isNationalProgram: true,
-  },
-  {
-    vaccineName: "Polio (OPV/IPV)",
-    scheduledAgeWeeks: 78,
-    doseLabel: "Booster",
-    isNationalProgram: true,
-  },
-
-  // ===================== 2 TAHUN (~104 minggu) =====================
-  {
-    vaccineName: "Tifoid",
+    vaccineName: 'Tifoid',
     scheduledAgeWeeks: 104,
-    doseLabel: "Dosis 1",
+    ...atMonth('bln24'),
+    doseLabel: 'Dosis 1',
     isNationalProgram: false,
-    notes: "Diulang setiap 3 tahun.",
+    notes: 'Diulang setiap 3 tahun.',
   },
   {
-    vaccineName: "Varisela",
+    vaccineName: 'Varisela',
     scheduledAgeWeeks: 104,
-    doseLabel: "Dosis 2",
+    ...atMonth('bln24'),
+    doseLabel: 'Varisela 2',
     isNationalProgram: false,
+    notes: 'Dosis 2 varisela (jeda 6–12 minggu dari dosis 1).',
   },
 
-  // ===================== 5-7 TAHUN (~260-364 minggu) =====================
+  // ===================== 5–7 TAHUN =====================
   {
-    vaccineName: "DPT",
+    vaccineName: 'DPT',
     scheduledAgeWeeks: 260,
-    doseLabel: "Booster 2",
+    doseLabel: 'Booster 2',
     isNationalProgram: true,
-    notes: "Diberikan di usia 5-7 tahun, biasanya lewat program BIAS di SD kelas 1.",
+    notes: 'Usia 5–7 tahun, biasanya lewat program BIAS SD kelas 1.',
   },
   {
-    vaccineName: "Polio",
+    vaccineName: 'Polio',
     scheduledAgeWeeks: 260,
-    doseLabel: "Booster",
+    doseLabel: 'Booster',
     isNationalProgram: true,
   },
   {
-    vaccineName: "MR",
+    vaccineName: 'MR',
     scheduledAgeWeeks: 260,
-    doseLabel: "Booster",
+    doseLabel: 'Booster',
     isNationalProgram: true,
   },
 ];

@@ -11,15 +11,11 @@ import {
 } from '@/lib/api-client'
 import { ageInWeeks } from '@/lib/baby-utils'
 import {
-  STATUS_LABEL,
-  STATUS_STYLE,
   type VaccineStatus,
 } from '@/lib/immunization-utils'
 import {
-  DOSE_KIND_LABEL,
   DOSE_KIND_STYLE,
   formatVaccineRange,
-  getCatchUpRuleLines,
   getDoseKind,
   groupImmunizationsTimeline,
 } from '@/lib/immunization-idai'
@@ -31,6 +27,8 @@ import {
 import { ImmunizationScheduleChart } from './immunization-schedule-chart'
 import { VaccineStrategyPanel } from './vaccine-strategy-panel'
 import { VaccineStrategySettingsSheet } from './vaccine-strategy-settings-sheet'
+import { VaccineStrategyAddSheet } from './vaccine-strategy-add-sheet'
+import type { VaccineStrategyVisit } from '@/lib/vaccine-strategy'
 
 interface ImmunizationsPageProps {
   onBack: () => void
@@ -98,12 +96,14 @@ function VaccineCard({
 }) {
   const status = (item.status ?? (item.is_done ? 'done' : 'upcoming')) as VaccineStatus
   const doseKind = getDoseKind(item.dose_label)
-  const catchUpLines = getCatchUpRuleLines(item.vaccine_name)
   const windowLabel = formatVaccineRange(
     item.min_weeks,
     item.max_weeks,
     item.scheduled_age_weeks
   )
+
+  const statusIcon =
+    item.is_done ? '✓' : status === 'overdue' ? '!' : status === 'due' ? '●' : '○'
 
   return (
     <motion.div
@@ -116,90 +116,61 @@ function VaccineCard({
             : 'border-border bg-card'
       }`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2.5">
         <button
           type="button"
           onClick={() => onToggle(item)}
-          className="mt-0.5 text-xl leading-none"
+          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            item.is_done
+              ? 'bg-green-500 text-white'
+              : status === 'overdue'
+                ? 'bg-red-500 text-white'
+                : status === 'due'
+                  ? 'bg-amber-400 text-amber-950'
+                  : 'bg-secondary text-muted-foreground'
+          }`}
         >
-          {item.is_done ? '✅' : status === 'overdue' ? '⚠️' : '⬜'}
+          {statusIcon}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="font-heading text-sm font-semibold text-foreground">
-            {item.vaccine_name}
-            {item.dose_label ? (
-              <span className="font-normal text-muted-foreground">
-                {' '}
-                · {item.dose_label}
-              </span>
-            ) : null}
-          </p>
-
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLE[status]}`}
-            >
-              {STATUS_LABEL[status]}
-            </span>
-            {doseKind !== 'routine' && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${DOSE_KIND_STYLE[doseKind]}`}
-              >
-                {DOSE_KIND_LABEL[doseKind]}
-              </span>
-            )}
-            {item.payment_method && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PAYMENT_METHOD_STYLE[item.payment_method]}`}
-              >
-                {PAYMENT_METHOD_LABEL[item.payment_method]}
+          <div className="flex items-baseline gap-2">
+            <p className="truncate font-heading text-sm font-semibold text-foreground">
+              {item.vaccine_name}
+            </p>
+            {item.dose_label && (
+              <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                {item.dose_label.replace(/Dosis|Tunggal|Booster/gi, '').trim() || item.dose_label}
               </span>
             )}
           </div>
 
-          {windowLabel && (
-            <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
-              {windowLabel}
-            </p>
-          )}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground">
+            {windowLabel && <span>{windowLabel}</span>}
+            {item.payment_method && (
+              <span
+                className={`rounded px-1 py-0.5 font-bold ${PAYMENT_METHOD_STYLE[item.payment_method]}`}
+              >
+                {PAYMENT_METHOD_LABEL[item.payment_method].slice(0, 2)}
+              </span>
+            )}
+            {doseKind !== 'routine' && (
+              <span className={`rounded px-1 py-0.5 font-bold ${DOSE_KIND_STYLE[doseKind]}`}>
+                {doseKind === 'booster' ? 'B' : doseKind === 'catchup' ? 'K' : '·'}
+              </span>
+            )}
+          </div>
 
           {item.date_given && (
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
               {new Date(item.date_given).toLocaleDateString('id-ID', {
                 day: 'numeric',
                 month: 'short',
-                year: 'numeric',
               })}
-              {item.vaccine_product ? ` · ${item.vaccine_product}` : ''}
               {item.cost_idr != null && item.cost_idr > 0
                 ? ` · ${formatIdr(item.cost_idr)}`
-                : item.payment_method === 'INHEALTH'
-                  ? ' · Rp0'
-                  : ''}
+                : ''}
             </p>
           )}
-
-          {item.location && (
-            <p className="mt-0.5 text-[10px] text-muted-foreground">{item.location}</p>
-          )}
-
-          {item.notes && (
-            <p className="mt-1 text-[11px] italic text-muted-foreground">{item.notes}</p>
-          )}
-
-          {catchUpLines.length > 0 &&
-            (status === 'overdue' || doseKind !== 'routine') && (
-              <ul className="mt-1.5 space-y-0.5">
-                {catchUpLines.slice(0, 2).map((line) => (
-                  <li
-                    key={line}
-                    className="text-[10px] leading-snug text-muted-foreground"
-                  >
-                    · {line}
-                  </li>
-                ))}
-              </ul>
-            )}
         </div>
 
         <div className="flex shrink-0 flex-col gap-1">
@@ -256,7 +227,7 @@ function VaccineCard({
               step={1000}
               value={form.costIdr}
               onChange={(e) => onFormChange({ costIdr: e.target.value })}
-              placeholder="Biaya (Rp)"
+              placeholder="Biaya"
               className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
             />
           </div>
@@ -264,14 +235,14 @@ function VaccineCard({
             type="text"
             value={form.vaccineProduct}
             onChange={(e) => onFormChange({ vaccineProduct: e.target.value })}
-            placeholder="Produk (Hexaxim, Rotarix, …)"
+            placeholder="Produk"
             className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
           />
           <input
             type="text"
             value={form.location}
             onChange={(e) => onFormChange({ location: e.target.value })}
-            placeholder="Lokasi (RS / klinik)"
+            placeholder="Lokasi"
             className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
           />
           <input
@@ -287,15 +258,15 @@ function VaccineCard({
               onClick={() => onConfirm(item.id)}
               className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
             >
-              Simpan
+              ✓
             </button>
             {item.is_done && (
               <button
                 type="button"
                 onClick={() => onUncheck(item)}
-                className="rounded-lg border border-destructive/30 px-3 py-2 text-xs font-semibold text-destructive"
+                className="rounded-lg border border-destructive/30 px-3 py-2 text-xs text-destructive"
               >
-                Uncheck
+                ×
               </button>
             )}
           </div>
@@ -311,10 +282,12 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'chart' | 'list' | 'strategy'>('chart')
   const [babyAgeWeeks, setBabyAgeWeeks] = useState<number | null>(null)
+  const [babyBirthDate, setBabyBirthDate] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<VaccineEditForm>(emptyEditForm())
   const [showAdd, setShowAdd] = useState(false)
   const [showStrategySettings, setShowStrategySettings] = useState(false)
+  const [showStrategyAdd, setShowStrategyAdd] = useState(false)
   const [newName, setNewName] = useState('')
   const [newAge, setNewAge] = useState('0')
   const [newNotes, setNewNotes] = useState('')
@@ -330,7 +303,10 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     api
       .getBabyProfile()
       .then((baby) => {
-        if (baby?.birth_date) setBabyAgeWeeks(ageInWeeks(baby.birth_date))
+        if (baby?.birth_date) {
+          setBabyBirthDate(baby.birth_date)
+          setBabyAgeWeeks(ageInWeeks(baby.birth_date))
+        }
       })
       .catch(() => {})
   }, [])
@@ -416,6 +392,20 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     setStrategy(next)
   }
 
+  const addStrategyVisit = async (visit: VaccineStrategyVisit) => {
+    if (!strategy) return
+    const visits = [...strategy.visits, visit].map((v, i) => ({ ...v, order: i + 1 }))
+    await saveStrategySettings({ visits })
+  }
+
+  const deleteStrategyVisit = async (id: string) => {
+    if (!strategy) return
+    const visits = strategy.visits
+      .filter((v) => v.id !== id)
+      .map((v, i) => ({ ...v, order: i + 1 }))
+    await saveStrategySettings({ visits })
+  }
+
   return (
     <div className="px-4 pt-6 pb-8">
       <PageHeader title="Imunisasi" onBack={onBack} />
@@ -437,13 +427,13 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
         ))}
       </div>
 
-      <div className="mb-4 flex gap-2 text-[11px]">
-        <span className="rounded-full bg-secondary px-2.5 py-1 font-semibold text-foreground">
-          {doneCount}/{items.length} selesai
+      <div className="mb-4 flex gap-2 text-xs font-bold tabular-nums">
+        <span className="rounded-full bg-secondary px-2.5 py-1 text-foreground">
+          {doneCount}/{items.length}
         </span>
         {overdueCount > 0 && (
-          <span className="rounded-full bg-red-100 px-2.5 py-1 font-semibold text-red-800 dark:bg-red-950/40 dark:text-red-300">
-            {overdueCount} terlambat
+          <span className="rounded-full bg-red-500 px-2.5 py-1 text-white">
+            {overdueCount}!
           </span>
         )}
       </div>
@@ -452,9 +442,9 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
         <button
           type="button"
           onClick={() => setShowAdd((v) => !v)}
-          className="mb-4 w-full rounded-xl border border-dashed border-border py-3 text-sm font-semibold text-foreground"
+          className="mb-4 w-full rounded-xl border border-dashed border-border py-2.5 text-lg text-muted-foreground"
         >
-          {showAdd ? 'Batal' : '+ Tambah Vaksin Custom'}
+          {showAdd ? '×' : '+'}
         </button>
       )}
 
@@ -464,21 +454,14 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Nama vaksin"
+            placeholder="Nama"
             className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
           />
           <input
             type="number"
             value={newAge}
             onChange={(e) => setNewAge(e.target.value)}
-            placeholder="Usia jadwal (bulan)"
-            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
-          />
-          <input
-            type="text"
-            value={newNotes}
-            onChange={(e) => setNewNotes(e.target.value)}
-            placeholder="Catatan (opsional)"
+            placeholder="Bulan"
             className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
           />
           <button
@@ -487,7 +470,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
             disabled={!newName.trim() || saving}
             className="w-full rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
           >
-            {saving ? '...' : 'Simpan'}
+            {saving ? '…' : '✓'}
           </button>
         </div>
       )}
@@ -513,6 +496,9 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
         <VaccineStrategyPanel
           strategy={strategy}
           immunizations={items}
+          birthDate={babyBirthDate}
+          onAdd={() => setShowStrategyAdd(true)}
+          onDeleteVisit={deleteStrategyVisit}
           onEditSettings={() => setShowStrategySettings(true)}
         />
       ) : (
@@ -583,12 +569,22 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
       )}
 
       {strategy && (
-        <VaccineStrategySettingsSheet
-          open={showStrategySettings}
-          strategy={strategy}
-          onClose={() => setShowStrategySettings(false)}
-          onSave={saveStrategySettings}
-        />
+        <>
+          <VaccineStrategySettingsSheet
+            open={showStrategySettings}
+            strategy={strategy}
+            onClose={() => setShowStrategySettings(false)}
+            onSave={saveStrategySettings}
+          />
+          <VaccineStrategyAddSheet
+            open={showStrategyAdd}
+            immunizations={items}
+            birthDate={babyBirthDate}
+            nextOrder={strategy.visits.length + 1}
+            onClose={() => setShowStrategyAdd(false)}
+            onSave={addStrategyVisit}
+          />
+        </>
       )}
     </div>
   )

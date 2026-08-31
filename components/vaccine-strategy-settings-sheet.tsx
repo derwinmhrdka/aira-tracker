@@ -60,72 +60,57 @@ export function VaccineStrategySettingsSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            className="fixed inset-x-0 bottom-0 z-[71] max-h-[85vh] overflow-y-auto rounded-t-3xl border border-border bg-card p-5 shadow-2xl"
-            style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+            className="fixed inset-x-0 bottom-0 z-[71] max-h-[85vh] overflow-y-auto rounded-t-3xl border border-border bg-card p-4 shadow-2xl"
+            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
           >
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
-            <h2 className="mb-4 font-heading text-lg font-bold text-foreground">
-              Pengaturan strategi
-            </h2>
-            <div className="space-y-3">
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Klinik / RS</span>
-                <input
-                  value={clinicName}
-                  onChange={(e) => setClinicName(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Dokter</span>
-                <input
-                  value={doctorName}
-                  onChange={(e) => setDoctorName(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Rotavirus</span>
-                <input
-                  value={rotavirusType}
-                  onChange={(e) => setRotavirusType(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">
-                  Jeda kunjungan (minggu)
-                </span>
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
+            <div className="space-y-2">
+              <input
+                value={clinicName}
+                onChange={(e) => setClinicName(e.target.value)}
+                placeholder="Klinik"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+              />
+              <input
+                value={doctorName}
+                onChange={(e) => setDoctorName(e.target.value)}
+                placeholder="Dokter"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+              />
+              <input
+                value={rotavirusType}
+                onChange={(e) => setRotavirusType(e.target.value)}
+                placeholder="Rotavirus"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+              />
+              <div className="grid grid-cols-2 gap-2">
                 <input
                   type="number"
                   min={1}
                   max={8}
                   value={visitGapWeeks}
                   onChange={(e) => setVisitGapWeeks(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="Jeda (mg)"
+                  className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
                 />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">
-                  Fullerton terpakai sebelum app (Rp)
-                </span>
                 <input
                   type="number"
                   min={0}
                   step={1000}
                   value={fullertonUsed}
                   onChange={(e) => setFullertonUsed(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="FT terpakai"
+                  className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
                 />
-              </label>
+              </div>
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-xl bg-secondary py-3 text-sm font-semibold text-foreground"
+                className="flex-1 rounded-xl bg-secondary py-3 text-sm font-semibold"
               >
-                Batal
+                ×
               </button>
               <button
                 type="button"
@@ -148,7 +133,7 @@ export function VaccineStrategySettingsSheet({
                 }}
                 className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {saving ? '...' : 'Simpan'}
+                {saving ? '…' : '✓'}
               </button>
             </div>
           </motion.div>

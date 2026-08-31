@@ -836,14 +836,21 @@ export interface BackupData {
 export type VaccineStrategyVisit = {
   id: string
   order: number
-  title: string
-  targetDate?: string | null
-  targetDateEnd?: string | null
-  ageLabel?: string
-  actions: string
+  immunizationId?: string | null
+  vaccineCatalogId: string
+  vaccineName: string
+  vaccineProduct?: string | null
   paymentMethod: VaccinePaymentMethod
-  estimatedCostIdr?: number | null
+  dsaCostIdr: number
+  vaccineCostIdr: number
+  estimatedCostIdr: number
+  targetDate?: string | null
+  /** @deprecated legacy */
+  title?: string
+  actions?: string
   notes?: string | null
+  ageLabel?: string
+  targetDateEnd?: string | null
 }
 
 export type InsuranceRule = {

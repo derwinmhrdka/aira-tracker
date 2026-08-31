@@ -4,15 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Immunization } from '@/lib/api-client'
 import {
-  STATUS_LABEL,
-  STATUS_STYLE,
-  type VaccineStatus,
-} from '@/lib/immunization-utils'
-import {
   buildImmunizationChart,
   CHART_BAR_GAP,
   CHART_BAR_HEIGHT,
-  CHART_KIND_LABEL,
   CHART_KIND_STYLE,
   CHART_MONTH_COL_WIDTH,
   CHART_ROW_PAD,
@@ -25,6 +19,7 @@ import {
   type ChartDoseBar,
 } from '@/lib/immunization-chart'
 import { formatVaccineRange } from '@/lib/immunization-idai'
+import type { VaccineStatus } from '@/lib/immunization-utils'
 
 type ImmunizationScheduleChartProps = {
   items: Immunization[]
@@ -107,11 +102,6 @@ function CellDetailSheet({
         style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
-        <p className="mb-3 font-heading text-sm font-bold text-foreground">
-          {cells.length === 1
-            ? cells[0].item.vaccine_name
-            : `${cells.length} vaksin`}
-        </p>
         <div className="space-y-2">
           {cells.map(({ item, kind, doseDisplay }) => {
             const status = (item.status ??
@@ -130,44 +120,38 @@ function CellDetailSheet({
                   onSelectItem(item)
                   onClose()
                 }}
-                className="flex w-full items-start gap-3 rounded-xl border border-border bg-secondary/30 p-3 text-left active:bg-secondary/60"
+                className="flex w-full items-center gap-3 rounded-xl border border-border bg-secondary/30 p-3 text-left active:bg-secondary/60"
               >
-                <span className="text-lg leading-none">
-                  {item.is_done ? '✅' : status === 'overdue' ? '⚠️' : '💉'}
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                    item.is_done
+                      ? 'bg-green-500 text-white'
+                      : status === 'overdue'
+                        ? 'bg-red-500 text-white'
+                        : status === 'due'
+                          ? 'bg-amber-400 text-amber-950'
+                          : 'bg-secondary text-muted-foreground'
+                  }`}
+                >
+                  {item.is_done ? '✓' : doseDisplay}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="truncate text-sm font-semibold text-foreground">
                     {item.vaccine_name}
-                    {item.dose_label ? (
-                      <span className="font-normal text-muted-foreground">
-                        {' '}
-                        · {item.dose_label}
-                      </span>
-                    ) : null}
                   </p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {kind !== 'primer' && (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${CHART_KIND_STYLE[kind]}`}
-                      >
-                        {CHART_KIND_LABEL[kind]}
-                      </span>
-                    )}
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLE[status]}`}
-                    >
-                      {STATUS_LABEL[status]}
-                    </span>
-                  </div>
                   {windowLabel && (
-                    <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
+                    <p className="text-[10px] tabular-nums text-muted-foreground">
                       {windowLabel}
                     </p>
                   )}
                 </div>
-                <span className="shrink-0 rounded-lg bg-background px-2 py-1 text-xs font-bold tabular-nums ring-1 ring-border">
-                  {item.is_done ? '✓' : doseDisplay}
-                </span>
+                {kind !== 'primer' && (
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${CHART_KIND_STYLE[kind]}`}
+                  >
+                    {kind === 'booster' ? 'B' : kind === 'catchup' ? 'K' : kind === 'endemic' ? 'E' : 'R'}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -175,9 +159,9 @@ function CellDetailSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-4 w-full rounded-xl bg-secondary py-3 text-sm font-semibold text-foreground"
+          className="mt-3 w-full rounded-xl bg-secondary py-2.5 text-sm font-semibold"
         >
-          Tutup
+          ×
         </button>
       </motion.div>
     </>
@@ -232,26 +216,28 @@ export function ImmunizationScheduleChart({
     'highrisk',
   ]
 
+  const kindAbbrev: Record<ChartCellKind, string> = {
+    primer: 'P',
+    catchup: 'K',
+    booster: 'B',
+    endemic: 'E',
+    highrisk: 'R',
+  }
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-x-3 gap-y-1.5 rounded-xl border border-border bg-secondary/30 px-3 py-2">
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 px-1">
         {legendKinds.map((kind) => (
-          <div key={kind} className="flex items-center gap-1.5">
-            <span
-              className={`inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-bold ${CHART_KIND_STYLE[kind]}`}
-            >
-              •
-            </span>
-            <span className="text-[10px] font-medium text-muted-foreground">
-              {CHART_KIND_LABEL[kind]}
-            </span>
-          </div>
+          <span
+            key={kind}
+            title={kind}
+            className={`inline-flex h-5 w-5 items-center justify-center rounded text-[9px] font-bold ${CHART_KIND_STYLE[kind]}`}
+          >
+            {kindAbbrev[kind]}
+          </span>
         ))}
         {babyColumnId && (
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-4 w-0.5 bg-primary" />
-            <span className="text-[10px] font-medium text-primary">Sekarang</span>
-          </div>
+          <span className="ml-auto inline-block h-4 w-0.5 bg-primary" title="Sekarang" />
         )}
       </div>
 
@@ -259,30 +245,8 @@ export function ImmunizationScheduleChart({
         <div className="min-w-max">
           <div className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur-sm">
             <div className="flex">
-              <div className="sticky left-0 z-30 w-[5.5rem] shrink-0 border-r border-border bg-card px-2 py-2">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Vaksin
-                </p>
-              </div>
+              <div className="sticky left-0 z-30 w-[5.5rem] shrink-0 border-r border-border bg-card px-2 py-2" />
               <div>
-                <div className="flex border-b border-border/60">
-                  <div
-                    className="flex shrink-0 items-end px-1 py-1"
-                    style={{ width: monthColumns.length * CHART_MONTH_COL_WIDTH }}
-                  >
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Bulan
-                    </span>
-                  </div>
-                  <div
-                    className="flex shrink-0 items-end border-l border-border/60 px-1 py-1"
-                    style={{ width: yearColumns.length * CHART_YEAR_COL_WIDTH }}
-                  >
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Tahun
-                    </span>
-                  </div>
-                </div>
                 <div className="flex">
                   {monthColumns.map((col) => (
                     <div

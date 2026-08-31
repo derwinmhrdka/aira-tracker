@@ -58,15 +58,21 @@ async function main() {
       isCustom: false,
     }
 
-    const existing = await prisma.immunization.findUnique({ where: { seedKey } })
+    const existing =
+      (await prisma.immunization.findUnique({ where: { seedKey } })) ??
+      (await prisma.immunization.findFirst({
+        where: {
+          vaccineName: item.vaccineName,
+          scheduledAgeWeeks: item.scheduledAgeWeeks,
+          isCustom: false,
+        },
+      }))
     if (existing) {
-      if (!existing.isDone) {
-        await prisma.immunization.update({
-          where: { id: existing.id },
-          data: scheduleData,
-        })
-        immUpdated++
-      }
+      await prisma.immunization.update({
+        where: { id: existing.id },
+        data: scheduleData,
+      })
+      immUpdated++
     } else {
       await prisma.immunization.create({ data: scheduleData })
       immCreated++
