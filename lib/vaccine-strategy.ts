@@ -32,6 +32,36 @@ export type VaccineCatalogItem = {
   /** Tersedia di Puskesmas */
   atPuskesmas: boolean
   preferredPayment?: VaccinePaymentMethod
+  /** Jenis buatan pengguna (bisa diedit di pengaturan) */
+  isCustom?: boolean
+  /** Kata kunci vaksin jadwal, dipisah koma — khusus custom */
+  matchKeywords?: string
+}
+
+export const MANUAL_CATALOG_ID = '__manual__'
+
+export const MANUAL_CATALOG_ITEM: VaccineCatalogItem = {
+  id: MANUAL_CATALOG_ID,
+  name: 'Lainnya',
+  priceMinIdr: 0,
+  priceMaxIdr: 0,
+  isBasic: false,
+  atPuskesmas: false,
+}
+
+export const BUILTIN_CATALOG_VACCINES: Record<string, string> = {
+  hepb0: 'HB0',
+  'polio-0': 'Polio 0',
+  bcg: 'BCG',
+  pentavalen: 'DPT-HB-Hib',
+  hexaxim: 'DPT-HB-Hib (Hexavalen)',
+  'polio-opv': 'Polio OPV',
+  ipv: 'IPV',
+  pcv13: 'PCV',
+  rotarix: 'Rotavirus (Rotarix)',
+  rotateq: 'Rotavirus (Rotateq)',
+  mr: 'MR / MMR',
+  influenza: 'Influenza',
 }
 
 export const VACCINE_CATALOG: VaccineCatalogItem[] = [
@@ -227,9 +257,16 @@ export type VaccineStrategySettings = {
   fullertonUsedBeforeTrackingIdr?: number
   /** Harga custom per jenis vaksin (catalog id → Rp) */
   catalogPrices?: Record<string, number>
+  /** Jenis vaksin tambahan dari pengaturan */
+  customCatalog?: VaccineCatalogItem[]
   insuranceRules: InsuranceRule[]
   visits: VaccineStrategyVisit[]
 }
+
+export type StrategyCatalogContext = Pick<
+  VaccineStrategySettings,
+  'customCatalog' | 'catalogPrices'
+>
 
 export const DEFAULT_VACCINE_STRATEGY: VaccineStrategySettings = {
   clinicName: 'RS Columbia Asia BSD',
@@ -241,15 +278,56 @@ export const DEFAULT_VACCINE_STRATEGY: VaccineStrategySettings = {
   visits: [],
 }
 
-export function getCatalogItem(id: string): VaccineCatalogItem | undefined {
+export function getBuiltinCatalogItem(id: string): VaccineCatalogItem | undefined {
   return VACCINE_CATALOG.find((c) => c.id === id)
+}
+
+export function getMergedCatalog(
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
+): VaccineCatalogItem[] {
+  return [...VACCINE_CATALOG, ...(settings?.customCatalog ?? [])]
+}
+
+export function getCatalogItem(
+  id: string,
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
+): VaccineCatalogItem | undefined {
+  if (id === MANUAL_CATALOG_ID) return MANUAL_CATALOG_ITEM
+  return (
+    getBuiltinCatalogItem(id) ?? settings?.customCatalog?.find((c) => c.id === id)
+  )
+}
+
+export function isManualCatalogId(id: string): boolean {
+  return id === MANUAL_CATALOG_ID
+}
+
+export function matchesCatalogKeywords(text: string, keywords: string): boolean {
+  const hay = text.toLowerCase()
+  return keywords
+    .split(',')
+    .map((k) => k.trim().toLowerCase())
+    .filter(Boolean)
+    .some((kw) => hay.includes(kw))
+}
+
+export function getCatalogVaccineLabel(item: VaccineCatalogItem): string {
+  if (item.isCustom && item.matchKeywords?.trim()) {
+    return item.matchKeywords
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean)
+      .join(', ')
+  }
+  return BUILTIN_CATALOG_VACCINES[item.id] ?? item.name
 }
 
 export function getCatalogPrice(
   catalogId: string,
-  catalogPrices?: Record<string, number>
+  catalogPrices?: Record<string, number>,
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
 ): number {
-  const item = getCatalogItem(catalogId)
+  const item = getCatalogItem(catalogId, settings)
   if (!item) return 0
   const saved = catalogPrices?.[catalogId]
   if (saved != null && saved >= 0) return saved
@@ -269,6 +347,9 @@ export function catalogMidPrice(item: VaccineCatalogItem): number {
 }
 
 export function getAllowedPayments(catalog: VaccineCatalogItem): VaccinePaymentMethod[] {
+  if (catalog.id === MANUAL_CATALOG_ID) {
+    return ['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH']
+  }
   const methods: VaccinePaymentMethod[] = ['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH']
   return methods.filter((m) => {
     if (m === 'INHEALTH' && !catalog.isBasic) return false
@@ -286,12 +367,21 @@ export function getCatalogIdsForImmunization(
   if (/hepatitis\s*b|\bhb0\b|hep\.?\s*b\s*0/.test(text)) return ['hepb0']
   if (/polio\s*0|opv\s*0/.test(text)) return ['polio-0']
   if (/\bbcg\b/.test(text)) return ['bcg']
+
+  // Rotavirus sebelum DPT — nama "Monovalen/Pentavalen" ikut kata pentavalen
+  if (/rotavirus|rotarix|rotateq/.test(text)) {
+    if (/rotateq/.test(text) && !/rotarix/.test(text)) return ['rotateq']
+    if (/monovalen/.test(text) && !/pentavalen/.test(text)) return ['rotarix']
+    if (/pentavalen/.test(text) && !/monovalen/.test(text) && !/atau/.test(text)) {
+      return ['rotateq']
+    }
+    return ['rotarix', 'rotateq']
+  }
+
   if (/dpt|hexavalen|pentavalen|hib/.test(text)) return ['pentavalen', 'hexaxim']
   if (/ipv|polio suntik/.test(text)) return ['ipv']
   if (/polio/.test(text)) return ['polio-opv']
   if (/pcv|pneumococ/.test(text)) return ['pcv13']
-  if (/rotateq|pentavalen.*rota|rota.*pentavalen/.test(text)) return ['rotateq']
-  if (/rotavirus|rotarix/.test(text)) return ['rotarix', 'rotateq']
   if (/campak|mmr|\bmr\b/.test(text)) return ['mr']
   if (/influenza|\bflu\b/.test(text)) return ['influenza']
 
@@ -300,33 +390,47 @@ export function getCatalogIdsForImmunization(
 
 export function getCatalogOptionsForImmunization(
   vaccineName: string,
-  doseLabel?: string | null
+  doseLabel?: string | null,
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
 ): VaccineCatalogItem[] {
-  return getCatalogIdsForImmunization(vaccineName, doseLabel)
-    .map((id) => getCatalogItem(id))
+  const builtIn = getCatalogIdsForImmunization(vaccineName, doseLabel)
+    .map((id) => getBuiltinCatalogItem(id))
     .filter((item): item is VaccineCatalogItem => !!item)
+
+  const text = `${vaccineName} ${doseLabel ?? ''}`
+  const custom = (settings?.customCatalog ?? []).filter(
+    (item) => item.matchKeywords && matchesCatalogKeywords(text, item.matchKeywords)
+  )
+
+  const seen = new Set<string>()
+  return [...builtIn, ...custom].filter((item) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
 }
 
 export function suggestCatalogForImmunization(
   vaccineName: string,
-  doseLabel?: string | null
+  doseLabel?: string | null,
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
 ): VaccineCatalogItem | null {
   const text = `${vaccineName} ${doseLabel ?? ''}`.toLowerCase()
-  const allowed = getCatalogOptionsForImmunization(vaccineName, doseLabel)
+  const allowed = getCatalogOptionsForImmunization(vaccineName, doseLabel, settings)
   if (allowed.length === 0) return null
   if (allowed.length === 1) return allowed[0]
 
   if (/hexavalen|hexaxim/.test(text)) {
-    return getCatalogItem('hexaxim') ?? allowed[0]
+    return getBuiltinCatalogItem('hexaxim') ?? allowed[0]
   }
-  if (/rotateq|pentavalen/.test(text) && /rota/.test(text)) {
-    return getCatalogItem('rotateq') ?? allowed[0]
+  if (/rotateq/.test(text) && /rota/.test(text)) {
+    return getBuiltinCatalogItem('rotateq') ?? allowed[0]
   }
-  if (/rotarix|monovalen/.test(text)) {
-    return getCatalogItem('rotarix') ?? allowed[0]
+  if (/rotarix|monovalen/.test(text) && /rota/.test(text)) {
+    return getBuiltinCatalogItem('rotarix') ?? allowed[0]
   }
-  if (/dpt|hib|pentavalen/.test(text)) {
-    return getCatalogItem('pentavalen') ?? allowed[0]
+  if (/dpt|hib|pentavalen|hexavalen/.test(text) && !/rota/.test(text)) {
+    return getBuiltinCatalogItem('pentavalen') ?? allowed[0]
   }
 
   return allowed[0]
@@ -382,14 +486,15 @@ export function estimateVisitCost(
   vaccines: { catalogId: string; vaccinePriceIdr: number }[],
   payment: VaccinePaymentMethod,
   dsaCostIdr: number,
-  catalogPrices?: Record<string, number>
+  catalogPrices?: Record<string, number>,
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
 ): CostEstimate {
   let vaccineTotal = 0
   for (const row of vaccines) {
     const price =
       row.vaccinePriceIdr > 0
         ? row.vaccinePriceIdr
-        : getCatalogPrice(row.catalogId, catalogPrices)
+        : getCatalogPrice(row.catalogId, catalogPrices, settings)
     vaccineTotal += price
   }
 
@@ -515,6 +620,20 @@ export function parseStrategySettings(raw: unknown): VaccineStrategySettings {
       DEFAULT_VACCINE_STRATEGY.fullertonUsedBeforeTrackingIdr,
     catalogPrices:
       o.catalogPrices && typeof o.catalogPrices === 'object' ? o.catalogPrices : {},
+    customCatalog: Array.isArray(o.customCatalog)
+      ? o.customCatalog.map((item) => ({
+          id: String((item as VaccineCatalogItem).id),
+          name: String((item as VaccineCatalogItem).name),
+          brand: (item as VaccineCatalogItem).brand,
+          priceMinIdr: Number((item as VaccineCatalogItem).priceMinIdr ?? 0),
+          priceMaxIdr: Number((item as VaccineCatalogItem).priceMaxIdr ?? 0),
+          isBasic: Boolean((item as VaccineCatalogItem).isBasic),
+          atPuskesmas: Boolean((item as VaccineCatalogItem).atPuskesmas),
+          preferredPayment: (item as VaccineCatalogItem).preferredPayment,
+          isCustom: true,
+          matchKeywords: (item as VaccineCatalogItem).matchKeywords,
+        }))
+      : [],
     insuranceRules:
       Array.isArray(o.insuranceRules) && o.insuranceRules.length > 0
         ? o.insuranceRules
@@ -748,6 +867,7 @@ export function visitVaccineDetail(visit: VaccineStrategyVisit): string {
 }
 
 export type BuildStrategyVisitVaccineInput = {
+  id?: string
   immunizationId?: string | null
   vaccineCatalogId: string
   vaccineName: string
@@ -756,19 +876,27 @@ export type BuildStrategyVisitVaccineInput = {
 }
 
 export function buildStrategyVisit(input: {
+  id?: string
   vaccines: BuildStrategyVisitVaccineInput[]
   paymentMethod: VaccinePaymentMethod
   dsaCostIdr: number
   catalogPrices?: Record<string, number>
+  customCatalog?: VaccineCatalogItem[]
   targetDate?: string | null
   order: number
 }): VaccineStrategyVisit {
+  const catalogCtx = {
+    customCatalog: input.customCatalog,
+    catalogPrices: input.catalogPrices,
+  }
   const vaccineRows = input.vaccines.map((row, index) => {
-    const catalog = getCatalogItem(row.vaccineCatalogId) ?? VACCINE_CATALOG[0]
+    const catalog =
+      getCatalogItem(row.vaccineCatalogId, catalogCtx) ?? VACCINE_CATALOG[0]
     const vaccinePrice =
-      row.vaccinePriceIdr ?? getCatalogPrice(row.vaccineCatalogId, input.catalogPrices)
+      row.vaccinePriceIdr ??
+      getCatalogPrice(row.vaccineCatalogId, input.catalogPrices, catalogCtx)
     return {
-      id: `vv-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 5)}`,
+      id: row.id ?? `vv-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 5)}`,
       immunizationId: row.immunizationId ?? null,
       vaccineCatalogId: row.vaccineCatalogId,
       vaccineName: row.vaccineName,
@@ -784,13 +912,14 @@ export function buildStrategyVisit(input: {
     })),
     input.paymentMethod,
     input.dsaCostIdr,
-    input.catalogPrices
+    input.catalogPrices,
+    catalogCtx
   )
 
   const first = vaccineRows[0]
 
   return {
-    id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: input.id ?? `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     order: input.order,
     paymentMethod: input.paymentMethod,
     dsaCostIdr: est.dsaCostIdr,
@@ -893,52 +1022,158 @@ export function getCatalogOptionsForPlan(
   vaccineName: string,
   doseLabel: string | null | undefined,
   paymentMethod: VaccinePaymentMethod,
-  otherCatalogIds: string[]
+  otherCatalogIds: string[],
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
 ): VaccineCatalogItem[] {
-  return getCatalogOptionsForImmunization(vaccineName, doseLabel).filter((catalog) => {
-    if (!getAllowedPayments(catalog).includes(paymentMethod)) return false
-    return getAllowedPaymentsForVaccines([...otherCatalogIds, catalog.id]).includes(
-      paymentMethod
-    )
-  })
+  return getCatalogOptionsForImmunization(vaccineName, doseLabel, settings).filter(
+    (catalog) => {
+      if (!getAllowedPayments(catalog).includes(paymentMethod)) return false
+      return getAllowedPaymentsForVaccines(
+        [...otherCatalogIds, catalog.id],
+        settings
+      ).includes(paymentMethod)
+    }
+  )
+}
+
+export function supportsManualEntryForPlan(
+  paymentMethod: VaccinePaymentMethod,
+  otherCatalogIds: string[],
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
+): boolean {
+  return getAllowedPaymentsForVaccines(
+    [...otherCatalogIds, MANUAL_CATALOG_ID],
+    settings
+  ).includes(paymentMethod)
 }
 
 export function isImmunizationCompatibleWithPlan(
   vaccineName: string,
   doseLabel: string | null | undefined,
   paymentMethod: VaccinePaymentMethod,
-  otherCatalogIds: string[]
+  otherCatalogIds: string[],
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
 ): boolean {
-  return (
-    getCatalogOptionsForPlan(vaccineName, doseLabel, paymentMethod, otherCatalogIds).length > 0
-  )
+  if (
+    getCatalogOptionsForPlan(
+      vaccineName,
+      doseLabel,
+      paymentMethod,
+      otherCatalogIds,
+      settings
+    ).length > 0
+  ) {
+    return true
+  }
+  return supportsManualEntryForPlan(paymentMethod, otherCatalogIds, settings)
 }
 
 export function pickCatalogForPlan(
   vaccineName: string,
   doseLabel: string | null | undefined,
   paymentMethod: VaccinePaymentMethod,
-  otherCatalogIds: string[]
+  otherCatalogIds: string[],
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
 ): VaccineCatalogItem | null {
   const options = getCatalogOptionsForPlan(
     vaccineName,
     doseLabel,
     paymentMethod,
-    otherCatalogIds
+    otherCatalogIds,
+    settings
   )
   if (options.length === 0) return null
-  const suggested = suggestCatalogForImmunization(vaccineName, doseLabel)
+  const suggested = suggestCatalogForImmunization(vaccineName, doseLabel, settings)
   if (suggested && options.some((o) => o.id === suggested.id)) return suggested
   return options[0]
 }
 
+export function getReferencedImmunizationIds(
+  visits: VaccineStrategyVisit[]
+): Set<string> {
+  const ids = new Set<string>()
+  for (const visit of visits) {
+    for (const row of getVisitVaccines(visit)) {
+      if (row.immunizationId) ids.add(row.immunizationId)
+    }
+  }
+  return ids
+}
+
+/** Tambahkan kunjungan otomatis untuk vaksin selesai yang belum ada di rencana. */
+export function syncCompletedImmunizationVisits(
+  immunizations: Immunization[],
+  settings: VaccineStrategySettings
+): { visits: VaccineStrategyVisit[]; added: boolean } {
+  const referencedIds = getReferencedImmunizationIds(settings.visits)
+  const doneUnlinked = immunizations.filter(
+    (item) => item.is_done && !referencedIds.has(item.id)
+  )
+
+  if (doneUnlinked.length === 0) {
+    return { visits: settings.visits, added: false }
+  }
+
+  const byDate = new Map<string, Immunization[]>()
+  for (const item of doneUnlinked) {
+    const date = item.date_given ?? new Date().toISOString().split('T')[0]
+    const list = byDate.get(date) ?? []
+    list.push(item)
+    byDate.set(date, list)
+  }
+
+  const sortedDates = [...byDate.keys()].sort()
+  const visits = [...settings.visits]
+  let order = visits.length
+
+  for (const date of sortedDates) {
+    const items = byDate.get(date)!
+    order += 1
+    const vaccines = items.map((item) => {
+      const catalog = suggestCatalogForImmunization(
+        item.vaccine_name,
+        item.dose_label,
+        settings
+      )
+      const catalogId = catalog?.id ?? MANUAL_CATALOG_ID
+      return {
+        immunizationId: item.id,
+        vaccineCatalogId: catalogId,
+        vaccineName: item.vaccine_name,
+        vaccineProduct:
+          item.vaccine_product?.trim() ||
+          (catalog ? catalog.brand ?? null : item.vaccine_name),
+        vaccinePriceIdr: 0,
+      }
+    })
+
+    visits.push(
+      buildStrategyVisit({
+        vaccines,
+        paymentMethod: 'CASH',
+        dsaCostIdr: 0,
+        catalogPrices: settings.catalogPrices,
+        customCatalog: settings.customCatalog,
+        targetDate: date,
+        order,
+      })
+    )
+  }
+
+  return {
+    visits: visits.map((visit, index) => ({ ...visit, order: index + 1 })),
+    added: true,
+  }
+}
+
 export function getAllowedPaymentsForVaccines(
-  catalogIds: string[]
+  catalogIds: string[],
+  settings?: Pick<VaccineStrategySettings, 'customCatalog'>
 ): VaccinePaymentMethod[] {
   const ids = catalogIds.filter(Boolean)
   if (ids.length === 0) return ['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH']
   const methods = ids.map((id) => {
-    const catalog = getCatalogItem(id)
+    const catalog = getCatalogItem(id, settings)
     if (!catalog) return [] as VaccinePaymentMethod[]
     return getAllowedPayments(catalog)
   })

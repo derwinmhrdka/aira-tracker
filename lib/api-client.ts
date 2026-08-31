@@ -842,6 +842,19 @@ export type StrategyVisitVaccine = {
   vaccineCostIdr: number
 }
 
+export type VaccineCatalogItem = {
+  id: string
+  name: string
+  brand?: string
+  priceMinIdr: number
+  priceMaxIdr: number
+  isBasic: boolean
+  atPuskesmas: boolean
+  preferredPayment?: VaccinePaymentMethod
+  isCustom?: boolean
+  matchKeywords?: string
+}
+
 export type VaccineStrategyVisit = {
   id: string
   order: number
@@ -880,6 +893,7 @@ export type VaccineStrategySettings = {
   visitGapWeeks?: number
   fullertonUsedBeforeTrackingIdr?: number
   catalogPrices?: Record<string, number>
+  customCatalog?: VaccineCatalogItem[]
   insuranceRules: InsuranceRule[]
   visits: VaccineStrategyVisit[]
 }
@@ -891,6 +905,7 @@ export type VaccineStrategySettingsPayload = {
   visit_gap_weeks?: number
   fullerton_used_before_tracking_idr?: number
   catalog_prices?: Record<string, number>
+  custom_catalog?: VaccineCatalogItem[]
   insurance_rules?: InsuranceRule[]
   visits?: VaccineStrategyVisit[]
 }

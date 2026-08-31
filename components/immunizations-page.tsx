@@ -32,7 +32,10 @@ import { ImmunizationScheduleChart } from './immunization-schedule-chart'
 import { VaccineStrategyPanel } from './vaccine-strategy-panel'
 import { VaccineStrategySettingsSheet } from './vaccine-strategy-settings-sheet'
 import { VaccineStrategyAddSheet } from './vaccine-strategy-add-sheet'
-import type { VaccineStrategyVisit } from '@/lib/vaccine-strategy'
+import {
+  syncCompletedImmunizationVisits,
+  type VaccineStrategyVisit,
+} from '@/lib/vaccine-strategy'
 
 interface ImmunizationsPageProps {
   onBack: () => void
@@ -302,6 +305,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
   const [showAdd, setShowAdd] = useState(false)
   const [showStrategySettings, setShowStrategySettings] = useState(false)
   const [showStrategyAdd, setShowStrategyAdd] = useState(false)
+  const [editingVisit, setEditingVisit] = useState<VaccineStrategyVisit | null>(null)
   const [newName, setNewName] = useState('')
   const [newAge, setNewAge] = useState('0')
   const [newNotes, setNewNotes] = useState('')
@@ -324,6 +328,16 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!strategy || loading) return
+    const { visits, added } = syncCompletedImmunizationVisits(items, strategy)
+    if (!added) return
+    api
+      .updateVaccineStrategy({ visits })
+      .then(setStrategy)
+      .catch(() => {})
+  }, [strategy, items, loading])
 
   const timeline = useMemo(() => groupImmunizationsTimeline(items), [items])
   const overdueCount = items.filter((i) => i.status === 'overdue').length
@@ -406,17 +420,27 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
     setStrategy(next)
   }
 
-  const addStrategyVisit = async (data: {
+  const saveStrategyVisit = async (data: {
     visit: VaccineStrategyVisit
     catalogPrices: Record<string, number>
   }) => {
     if (!strategy) return
-    const visits = [...strategy.visits, data.visit].map((v, i) => ({ ...v, order: i + 1 }))
+    const visits = editingVisit
+      ? strategy.visits.map((visit) =>
+          visit.id === editingVisit.id
+            ? { ...data.visit, order: visit.order }
+            : visit
+        )
+      : [...strategy.visits, data.visit].map((visit, index) => ({
+          ...visit,
+          order: index + 1,
+        }))
     const catalogPrices = {
       ...(strategy.catalogPrices ?? {}),
       ...data.catalogPrices,
     }
     await saveStrategySettings({ visits, catalog_prices: catalogPrices })
+    setEditingVisit(null)
   }
 
   const deleteStrategyVisit = async (id: string) => {
@@ -518,7 +542,14 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
           strategy={strategy}
           immunizations={items}
           birthDate={babyBirthDate}
-          onAdd={() => setShowStrategyAdd(true)}
+          onAdd={() => {
+            setEditingVisit(null)
+            setShowStrategyAdd(true)
+          }}
+          onEditVisit={(visit) => {
+            setEditingVisit(visit)
+            setShowStrategyAdd(true)
+          }}
           onDeleteVisit={deleteStrategyVisit}
           onEditSettings={() => setShowStrategySettings(true)}
         />
@@ -603,8 +634,12 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
             immunizations={items}
             birthDate={babyBirthDate}
             nextOrder={strategy.visits.length + 1}
-            onClose={() => setShowStrategyAdd(false)}
-            onSave={addStrategyVisit}
+            editingVisit={editingVisit}
+            onClose={() => {
+              setShowStrategyAdd(false)
+              setEditingVisit(null)
+            }}
+            onSave={saveStrategyVisit}
           />
         </>
       )}

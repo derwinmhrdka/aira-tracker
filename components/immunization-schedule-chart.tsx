@@ -275,13 +275,13 @@ export function ImmunizationScheduleChart({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-secondary/30 px-3 py-2">
+      <div className="flex items-center gap-3 overflow-x-auto rounded-xl border border-border bg-secondary/30 px-3 py-2 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {legendKinds.map((kind) => (
           <button
             key={kind}
             type="button"
             onClick={() => setLegendInfo(kind)}
-            className="flex items-center gap-1 rounded-md px-1 py-0.5 active:bg-secondary/80"
+            className="flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 active:bg-secondary/80"
           >
             <span
               className={`inline-flex h-3.5 w-3.5 rounded ${CHART_KIND_STYLE[kind]}`}
@@ -291,11 +291,11 @@ export function ImmunizationScheduleChart({
         ))}
         {babyColumnId && (
           <>
-            <span className="text-[10px] text-muted-foreground/40">|</span>
+            <span className="shrink-0 text-[10px] text-muted-foreground/40">|</span>
             <button
               type="button"
               onClick={() => setLegendInfo('now')}
-              className="flex items-center gap-1 rounded-md px-1 py-0.5 active:bg-secondary/80"
+              className="flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 active:bg-secondary/80"
             >
               <span className="inline-block h-3.5 w-0.5 bg-primary" />
               <span className="text-[10px] text-primary">{CHART_NOW_LABEL}</span>

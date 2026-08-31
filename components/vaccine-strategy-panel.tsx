@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Plus, Settings, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Settings, Trash2 } from 'lucide-react'
 import type { Immunization, VaccinePaymentMethod, VaccineStrategySettings } from '@/lib/api-client'
 import {
   computePlafonSummaries,
@@ -19,6 +19,7 @@ type VaccineStrategyPanelProps = {
   immunizations: Immunization[]
   birthDate?: string | null
   onAdd: () => void
+  onEditVisit: (visit: VaccineStrategySettings['visits'][number]) => void
   onDeleteVisit: (id: string) => void
   onEditSettings?: () => void
 }
@@ -42,6 +43,7 @@ export function VaccineStrategyPanel({
   immunizations,
   birthDate,
   onAdd,
+  onEditVisit,
   onDeleteVisit,
   onEditSettings,
 }: VaccineStrategyPanelProps) {
@@ -88,7 +90,16 @@ export function VaccineStrategyPanel({
             return (
               <div
                 key={visit.id}
-                className={`flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 ${
+                role="button"
+                tabIndex={0}
+                onClick={() => onEditVisit(visit)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onEditVisit(visit)
+                  }
+                }}
+                className={`flex cursor-pointer items-center gap-2 rounded-xl border bg-card px-3 py-2.5 transition-colors hover:bg-secondary/30 ${
                   rangeWarning ? 'border-amber-400/70' : 'border-border'
                 }`}
               >
@@ -121,7 +132,21 @@ export function VaccineStrategyPanel({
                 </div>
                 <button
                   type="button"
-                  onClick={() => onDeleteVisit(visit.id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEditVisit(visit)
+                  }}
+                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary"
+                  aria-label="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDeleteVisit(visit.id)
+                  }}
                   className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary"
                   aria-label="Hapus"
                 >

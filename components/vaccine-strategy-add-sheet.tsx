@@ -21,9 +21,12 @@ import {
   getCatalogRecommendedLabel,
   getVaccinePlanRangeWarning,
   isImmunizationCompatibleWithPlan,
+  isManualCatalogId,
+  MANUAL_CATALOG_ID,
   parseIdrInput,
   pickCatalogForPlan,
   buildStrategyVisit,
+  getVisitVaccines,
   VACCINE_CATALOG,
   PAYMENT_METHOD_LABEL,
   type VaccineCatalogItem,
@@ -37,6 +40,7 @@ type VaccineLine = {
   catalogId: string
   vaccineProduct: string
   vaccinePriceDisplay: string
+  isManual: boolean
 }
 
 type VaccineStrategyAddSheetProps = {
@@ -45,11 +49,25 @@ type VaccineStrategyAddSheetProps = {
   immunizations: Immunization[]
   birthDate?: string | null
   nextOrder: number
+  editingVisit?: VaccineStrategyVisit | null
   onClose: () => void
   onSave: (data: {
     visit: VaccineStrategyVisit
     catalogPrices: Record<string, number>
   }) => Promise<void>
+}
+
+function visitToLines(visit: VaccineStrategyVisit): VaccineLine[] {
+  const vaccines = getVisitVaccines(visit)
+  if (vaccines.length === 0) return [createLine()]
+  return vaccines.map((row) => ({
+    key: row.id,
+    immunizationId: row.immunizationId ?? '',
+    catalogId: row.vaccineCatalogId,
+    vaccineProduct: row.vaccineProduct ?? '',
+    vaccinePriceDisplay: formatIdrInput(row.vaccineCostIdr),
+    isManual: isManualCatalogId(row.vaccineCatalogId),
+  }))
 }
 
 function createLine(): VaccineLine {
@@ -59,6 +77,7 @@ function createLine(): VaccineLine {
     catalogId: '',
     vaccineProduct: '',
     vaccinePriceDisplay: '',
+    isManual: false,
   }
 }
 
@@ -85,6 +104,7 @@ export function VaccineStrategyAddSheet({
   immunizations,
   birthDate,
   nextOrder,
+  editingVisit,
   onClose,
   onSave,
 }: VaccineStrategyAddSheetProps) {
@@ -93,6 +113,14 @@ export function VaccineStrategyAddSheet({
   const [dsaDisplay, setDsaDisplay] = useState(formatIdrInput(DEFAULT_DSA_COST_IDR))
   const [targetDate, setTargetDate] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const catalogCtx = useMemo(
+    () => ({
+      customCatalog: strategy.customCatalog,
+      catalogPrices: strategy.catalogPrices,
+    }),
+    [strategy.customCatalog, strategy.catalogPrices]
+  )
 
   const sortedImmunizations = useMemo(
     () =>
@@ -118,7 +146,8 @@ export function VaccineStrategyAddSheet({
           item.vaccine_name,
           item.dose_label,
           paymentMethod,
-          getOtherCatalogIds(lineKey, lines)
+          getOtherCatalogIds(lineKey, lines),
+          catalogCtx
         )
       )
       .map(immunizationToOption)
@@ -133,15 +162,16 @@ export function VaccineStrategyAddSheet({
           item.vaccine_name,
           item.dose_label,
           paymentMethod,
-          catalogIds
+          catalogIds,
+          catalogCtx
         )
     )
-  }, [sortedImmunizations, lines, paymentMethod])
+  }, [sortedImmunizations, lines, paymentMethod, catalogCtx])
 
   const selectedCatalogIds = lines.map((l) => l.catalogId).filter(Boolean)
   const allowedPayments =
     selectedCatalogIds.length > 0
-      ? getAllowedPaymentsForVaccines(selectedCatalogIds)
+      ? getAllowedPaymentsForVaccines(selectedCatalogIds, catalogCtx)
       : (['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH'] as VaccinePaymentMethod[])
 
   const dsa = parseIdrInput(dsaDisplay)
@@ -154,7 +184,8 @@ export function VaccineStrategyAddSheet({
       })),
     paymentMethod,
     dsa,
-    strategy.catalogPrices
+    strategy.catalogPrices,
+    catalogCtx
   )
 
   const rangeWarnings = useMemo(() => {
@@ -169,15 +200,27 @@ export function VaccineStrategyAddSheet({
       .filter((w): w is NonNullable<typeof w> => !!w)
   }, [lines, immunizations, birthDate, targetDate])
 
-  const canSave = lines.every((line) => line.immunizationId && line.catalogId)
+  const canSave = lines.every(
+    (line) =>
+      line.immunizationId &&
+      line.catalogId &&
+      (!line.isManual || line.vaccineProduct.trim().length > 0)
+  )
 
   useEffect(() => {
     if (!open) return
+    if (editingVisit) {
+      setLines(visitToLines(editingVisit))
+      setPaymentMethod(editingVisit.paymentMethod)
+      setDsaDisplay(formatIdrInput(editingVisit.dsaCostIdr))
+      setTargetDate(editingVisit.targetDate ?? '')
+      return
+    }
     setLines([createLine()])
     setPaymentMethod('FULLERTON')
     setDsaDisplay(formatIdrInput(DEFAULT_DSA_COST_IDR))
     setTargetDate('')
-  }, [open])
+  }, [open, editingVisit])
 
   useEffect(() => {
     if (!allowedPayments.includes(paymentMethod)) {
@@ -198,7 +241,8 @@ export function VaccineStrategyAddSheet({
           item.vaccine_name,
           item.dose_label,
           paymentMethod,
-          otherCatalogIds
+          otherCatalogIds,
+          catalogCtx
         )
 
         if (!compatible) {
@@ -207,9 +251,14 @@ export function VaccineStrategyAddSheet({
             ...line,
             immunizationId: '',
             catalogId: '',
+            isManual: false,
             vaccineProduct: '',
             vaccinePriceDisplay: '',
           }
+        }
+
+        if (line.isManual || isManualCatalogId(line.catalogId)) {
+          return line
         }
 
         if (line.catalogId !== compatible.id) {
@@ -217,9 +266,10 @@ export function VaccineStrategyAddSheet({
           return {
             ...line,
             catalogId: compatible.id,
+            isManual: false,
             vaccineProduct: compatible.brand ?? compatible.name,
             vaccinePriceDisplay: formatIdrInput(
-              getCatalogPrice(compatible.id, strategy.catalogPrices)
+              getCatalogPrice(compatible.id, strategy.catalogPrices, catalogCtx)
             ),
           }
         }
@@ -228,7 +278,7 @@ export function VaccineStrategyAddSheet({
       })
       return changed ? next : prev
     })
-  }, [paymentMethod, immunizations, strategy.catalogPrices])
+  }, [paymentMethod, immunizations, strategy.catalogPrices, catalogCtx])
 
   const updateLine = (key: string, patch: Partial<VaccineLine>) => {
     setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)))
@@ -241,7 +291,8 @@ export function VaccineStrategyAddSheet({
       item.vaccine_name,
       item.dose_label,
       paymentMethod,
-      getOtherCatalogIds(line.key, lines)
+      getOtherCatalogIds(line.key, lines),
+      catalogCtx
     ).map(catalogToOption)
   }
 
@@ -250,6 +301,7 @@ export function VaccineStrategyAddSheet({
       updateLine(key, {
         immunizationId: '',
         catalogId: '',
+        isManual: false,
         vaccineProduct: '',
         vaccinePriceDisplay: '',
       })
@@ -262,29 +314,47 @@ export function VaccineStrategyAddSheet({
       return
     }
 
+    const otherCatalogIds = getOtherCatalogIds(key, lines)
     const match = pickCatalogForPlan(
       item.vaccine_name,
       item.dose_label,
       paymentMethod,
-      getOtherCatalogIds(key, lines)
+      otherCatalogIds,
+      catalogCtx
     )
-    if (!match) return
+
+    if (match) {
+      updateLine(key, {
+        immunizationId: id,
+        catalogId: match.id,
+        isManual: false,
+        vaccineProduct: match.brand ?? match.name,
+        vaccinePriceDisplay: formatIdrInput(
+          getCatalogPrice(match.id, strategy.catalogPrices, catalogCtx)
+        ),
+      })
+      return
+    }
 
     updateLine(key, {
       immunizationId: id,
-      catalogId: match.id,
-      vaccineProduct: match.brand ?? match.name,
-      vaccinePriceDisplay: formatIdrInput(getCatalogPrice(match.id, strategy.catalogPrices)),
+      catalogId: MANUAL_CATALOG_ID,
+      isManual: true,
+      vaccineProduct: '',
+      vaccinePriceDisplay: '',
     })
   }
 
   const applyCatalog = (key: string, id: string) => {
-    const item = getCatalogItem(id)
+    const item = getCatalogItem(id, catalogCtx)
     if (!item) return
     updateLine(key, {
       catalogId: id,
+      isManual: false,
       vaccineProduct: item.brand ?? item.name,
-      vaccinePriceDisplay: formatIdrInput(getCatalogPrice(id, strategy.catalogPrices)),
+      vaccinePriceDisplay: formatIdrInput(
+        getCatalogPrice(id, strategy.catalogPrices, catalogCtx)
+      ),
     })
   }
 
@@ -316,7 +386,7 @@ export function VaccineStrategyAddSheet({
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
             <h2 className="mb-3 font-heading text-base font-bold text-foreground">
-              Tambah rencana
+              {editingVisit ? 'Edit rencana' : 'Tambah rencana'}
             </h2>
 
             <div className="space-y-3">
@@ -348,10 +418,13 @@ export function VaccineStrategyAddSheet({
               </label>
 
               {lines.map((line, index) => {
-                const catalog = line.catalogId ? getCatalogItem(line.catalogId) : undefined
+                const catalog = line.catalogId
+                  ? getCatalogItem(line.catalogId, catalogCtx)
+                  : undefined
                 const lineCatalogOptions = getLineCatalogOptions(line)
                 const scheduleOptions = getScheduleOptionsForLine(line.key)
                 const recommendedLabel = catalog ? getCatalogRecommendedLabel(catalog) : '—'
+                const showManualJenis = line.isManual || isManualCatalogId(line.catalogId)
 
                 return (
                   <div
@@ -393,27 +466,45 @@ export function VaccineStrategyAddSheet({
 
                     <label className="block min-w-0">
                       <span className="mb-1 block text-xs text-muted-foreground">Jenis</span>
-                      <SearchableSelect
-                        options={lineCatalogOptions}
-                        value={line.catalogId}
-                        onChange={(id) => applyCatalog(line.key, id)}
-                        placeholder={
-                          line.immunizationId ? 'Pilih jenis…' : 'Pilih vaksin dulu'
-                        }
-                        searchPlaceholder="Cari jenis vaksin…"
-                        disabled={!line.immunizationId || lineCatalogOptions.length === 0}
-                      />
+                      {showManualJenis ? (
+                        <input
+                          value={line.vaccineProduct}
+                          onChange={(e) =>
+                            updateLine(line.key, { vaccineProduct: e.target.value })
+                          }
+                          placeholder="Ketik jenis / produk vaksin"
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                        />
+                      ) : (
+                        <SearchableSelect
+                          options={lineCatalogOptions}
+                          value={line.catalogId}
+                          onChange={(id) => applyCatalog(line.key, id)}
+                          placeholder={
+                            line.immunizationId ? 'Pilih jenis…' : 'Pilih vaksin dulu'
+                          }
+                          searchPlaceholder="Cari jenis vaksin…"
+                          disabled={!line.immunizationId || lineCatalogOptions.length === 0}
+                        />
+                      )}
+                      {showManualJenis && (
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Tidak ada jenis di daftar — isi manual.
+                        </p>
+                      )}
                     </label>
 
-                    <label className="block min-w-0">
-                      <span className="mb-1 block text-xs text-muted-foreground">Produk</span>
-                      <input
-                        readOnly
-                        value={line.vaccineProduct}
-                        placeholder={line.immunizationId ? 'Otomatis dari jenis' : '—'}
-                        className="w-full cursor-default rounded-lg border border-input bg-secondary/40 px-3 py-2 text-sm text-foreground"
-                      />
-                    </label>
+                    {!showManualJenis && (
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-xs text-muted-foreground">Produk</span>
+                        <input
+                          readOnly
+                          value={line.vaccineProduct}
+                          placeholder={line.immunizationId ? 'Otomatis dari jenis' : '—'}
+                          className="w-full cursor-default rounded-lg border border-input bg-secondary/40 px-3 py-2 text-sm text-foreground"
+                        />
+                      </label>
+                    )}
 
                     <label className="block min-w-0">
                       <span className="mb-1 block text-xs text-muted-foreground">
@@ -526,11 +617,14 @@ export function VaccineStrategyAddSheet({
                   try {
                     const catalogPrices: Record<string, number> = {}
                     const vaccines = lines.map((line) => {
-                      const catalog = getCatalogItem(line.catalogId) ?? VACCINE_CATALOG[0]
+                      const catalog = getCatalogItem(line.catalogId, catalogCtx) ?? VACCINE_CATALOG[0]
                       const selected = immunizations.find((i) => i.id === line.immunizationId)
                       const vaccinePriceIdr = parseIdrInput(line.vaccinePriceDisplay)
-                      catalogPrices[line.catalogId] = vaccinePriceIdr
+                      if (!isManualCatalogId(line.catalogId)) {
+                        catalogPrices[line.catalogId] = vaccinePriceIdr
+                      }
                       return {
+                        id: line.key.startsWith('line-') ? undefined : line.key,
                         immunizationId: line.immunizationId || null,
                         vaccineCatalogId: line.catalogId,
                         vaccineName: selected?.vaccine_name ?? catalog.name,
@@ -540,6 +634,7 @@ export function VaccineStrategyAddSheet({
                     })
 
                     const visit = buildStrategyVisit({
+                      id: editingVisit?.id,
                       vaccines,
                       paymentMethod,
                       dsaCostIdr: dsa,
@@ -547,8 +642,9 @@ export function VaccineStrategyAddSheet({
                         ...(strategy.catalogPrices ?? {}),
                         ...catalogPrices,
                       },
+                      customCatalog: strategy.customCatalog,
                       targetDate: targetDate || null,
-                      order: nextOrder,
+                      order: editingVisit?.order ?? nextOrder,
                     })
 
                     await onSave({ visit, catalogPrices })
@@ -559,7 +655,7 @@ export function VaccineStrategyAddSheet({
                 }}
                 className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {saving ? '...' : 'Simpan'}
+                {saving ? '...' : editingVisit ? 'Perbarui' : 'Simpan'}
               </button>
             </div>
           </motion.div>

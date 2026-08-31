@@ -50,6 +50,9 @@ export async function PATCH(request: NextRequest) {
         body.catalog_prices !== undefined && typeof body.catalog_prices === 'object'
           ? { ...(current.catalogPrices ?? {}), ...(body.catalog_prices as Record<string, number>) }
           : current.catalogPrices,
+      customCatalog: Array.isArray(body.custom_catalog)
+        ? body.custom_catalog
+        : current.customCatalog,
       insuranceRules: Array.isArray(body.insurance_rules)
         ? body.insurance_rules
         : current.insuranceRules,
