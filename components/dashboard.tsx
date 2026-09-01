@@ -12,6 +12,7 @@ import { SessionEndSheet, type SessionEndData } from './session-end-sheet'
 import { QuickFeedSheet } from './quick-feed-sheet'
 import { ActiveTimer } from './active-timer'
 import { BabyInfoCard } from './baby-info-card'
+import { GrowthMiniCard } from './growth-mini-card'
 import { BabyLeapCard } from './baby-leap-card'
 import { BabyProfileSheet } from './baby-profile-sheet'
 import { VaccineInfoSheet } from './vaccine-info-sheet'
@@ -384,12 +385,15 @@ export function Dashboard() {
 
       <div className="px-4">
         {homeVis.babyInfo && (
-          <BabyInfoCard
-            summary={summary}
-            showMood={homeVis.mood}
-            onClick={() => setProfileOpen(true)}
-            onVaccineClick={() => setVaccineOpen(true)}
-          />
+          <>
+            <BabyInfoCard
+              summary={summary}
+              showMood={homeVis.mood}
+              onClick={() => setProfileOpen(true)}
+              onVaccineClick={() => setVaccineOpen(true)}
+            />
+            <GrowthMiniCard birthDate={summary?.baby?.birth_date} />
+          </>
         )}
 
         {homeVis.leap && (

@@ -8,7 +8,7 @@ export type WhoPoint = {
 }
 
 export type Gender = 'MALE' | 'FEMALE'
-export type GrowthMetric = 'weight' | 'height'
+export type GrowthMetric = 'weight' | 'height' | 'head'
 
 // Weight kg
 export const WHO_WEIGHT_BOYS: WhoPoint[] = [
@@ -56,6 +56,29 @@ export const WHO_HEIGHT_GIRLS: WhoPoint[] = [
   { month: 24, minus3: 72.0, minus2: 74.3, median: 79.3, plus2: 84.3, plus3: 86.6 },
 ]
 
+// Head circumference cm (WHO)
+export const WHO_HEAD_BOYS: WhoPoint[] = [
+  { month: 0, minus3: 30.7, minus2: 31.9, median: 34.5, plus2: 37.1, plus3: 38.3 },
+  { month: 1, minus3: 32.1, minus2: 33.5, median: 36.2, plus2: 39.0, plus3: 40.5 },
+  { month: 3, minus3: 34.8, minus2: 36.1, median: 39.0, plus2: 42.0, plus3: 43.4 },
+  { month: 6, minus3: 37.3, minus2: 38.7, median: 41.8, plus2: 45.0, plus3: 46.4 },
+  { month: 9, minus3: 38.8, minus2: 40.2, median: 43.4, plus2: 46.7, plus3: 48.1 },
+  { month: 12, minus3: 39.8, minus2: 41.2, median: 44.4, plus2: 47.7, plus3: 49.1 },
+  { month: 18, minus3: 41.0, minus2: 42.5, median: 45.8, plus2: 49.2, plus3: 50.7 },
+  { month: 24, minus3: 41.8, minus2: 43.3, median: 46.6, plus2: 50.0, plus3: 51.5 },
+]
+
+export const WHO_HEAD_GIRLS: WhoPoint[] = [
+  { month: 0, minus3: 30.1, minus2: 31.5, median: 33.9, plus2: 36.2, plus3: 37.6 },
+  { month: 1, minus3: 31.4, minus2: 32.8, median: 35.3, plus2: 37.8, plus3: 39.2 },
+  { month: 3, minus3: 33.8, minus2: 35.1, median: 38.0, plus2: 40.9, plus3: 42.3 },
+  { month: 6, minus3: 36.2, minus2: 37.6, median: 40.6, plus2: 43.6, plus3: 45.0 },
+  { month: 9, minus3: 37.7, minus2: 39.1, median: 42.1, plus2: 45.2, plus3: 46.6 },
+  { month: 12, minus3: 38.7, minus2: 40.1, median: 43.1, plus2: 46.2, plus3: 47.6 },
+  { month: 18, minus3: 39.8, minus2: 41.3, median: 44.5, plus2: 47.8, plus3: 49.3 },
+  { month: 24, minus3: 40.6, minus2: 42.1, median: 45.4, plus2: 48.7, plus3: 50.2 },
+]
+
 export function getWhoReference(
   metric: GrowthMetric,
   gender: Gender = 'MALE'
@@ -63,7 +86,10 @@ export function getWhoReference(
   if (metric === 'weight') {
     return gender === 'FEMALE' ? WHO_WEIGHT_GIRLS : WHO_WEIGHT_BOYS
   }
-  return gender === 'FEMALE' ? WHO_HEIGHT_GIRLS : WHO_HEIGHT_BOYS
+  if (metric === 'height') {
+    return gender === 'FEMALE' ? WHO_HEIGHT_GIRLS : WHO_HEIGHT_BOYS
+  }
+  return gender === 'FEMALE' ? WHO_HEAD_GIRLS : WHO_HEAD_BOYS
 }
 
 export function ageInMonths(birthDate: string, measureDate: string): number {
@@ -77,6 +103,19 @@ export function ageInMonths(birthDate: string, measureDate: string): number {
 }
 
 type WhoField = 'minus3' | 'minus2' | 'median' | 'plus2' | 'plus3'
+
+export function getWhoValueAtAge(
+  birthDate: string,
+  measureDate: string,
+  metric: GrowthMetric,
+  gender: Gender = 'MALE',
+  field: WhoField = 'median'
+): number | null {
+  const months = ageInMonths(birthDate, measureDate)
+  const ref = getWhoReference(metric, gender)
+  if (ref.length === 0) return null
+  return interpolateWhoField(months, ref, field)
+}
 
 function interpolateWhoField(
   months: number,
