@@ -12,6 +12,7 @@ import {
   parseIdrInput,
   type PlafonSummary,
 } from '@/lib/vaccine-strategy'
+import { PaymentMethodLogo } from './payment-method-logo'
 
 type PlafonDetailSheetProps = {
   open: boolean
@@ -132,6 +133,13 @@ function PlafonSheetBody({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <PaymentMethodLogo method={summary.method} size="md" />
+        <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
+          {summary.periodLabel}
+        </span>
+      </div>
+
       {summary.limitIdr != null ? (
         <div>
           <p className="mb-1 text-xs text-muted-foreground">Limit</p>

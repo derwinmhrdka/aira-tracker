@@ -49,6 +49,39 @@ type PaymentMethodBadgeProps = {
   className?: string
 }
 
+type PaymentMethodSelectButtonProps = {
+  method: VaccinePaymentMethod
+  selected: boolean
+  disabled?: boolean
+  onClick: () => void
+}
+
+/** Tombol pilih pembayaran dengan logo. */
+export function PaymentMethodSelectButton({
+  method,
+  selected,
+  disabled,
+  onClick,
+}: PaymentMethodSelectButtonProps) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={PAYMENT_METHOD_LABEL[method]}
+      aria-pressed={selected}
+      className={cn(
+        'flex items-center justify-center rounded-lg border px-2 py-2.5 transition-colors',
+        selected
+          ? cn('border-primary ring-2 ring-primary/25', PAYMENT_METHOD_STYLE[method])
+          : 'border-border bg-background',
+        disabled && 'cursor-not-allowed opacity-30'
+      )}
+    >
+      <PaymentMethodLogo method={method} size="md" />
+    </button>
+  )
+}
 /** Logo dalam badge oval tipis — sama bentuk dengan badge teks sebelumnya. */
 export function PaymentMethodBadge({
   method,

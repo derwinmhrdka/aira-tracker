@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { Check } from 'lucide-react'
 import { PageHeader } from './page-header'
 import {
   api,
@@ -469,8 +470,14 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
       </div>
 
       <div className="mb-4 flex gap-2 text-[11px]">
-        <span className="rounded-full bg-secondary px-2.5 py-1 font-semibold tabular-nums text-foreground">
-          {doneCount}/{items.length} selesai
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 font-semibold tabular-nums text-foreground">
+          <span
+            className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+            aria-hidden
+          >
+            <Check className="h-2 w-2" strokeWidth={3} />
+          </span>
+          {doneCount}/{items.length}
         </span>
         {overdueCount > 0 && (
           <span className="rounded-full bg-red-100 px-2.5 py-1 font-semibold text-red-800 dark:bg-red-950/40 dark:text-red-300">

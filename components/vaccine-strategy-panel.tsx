@@ -14,6 +14,7 @@ import {
   PAYMENT_METHOD_CARD_STYLE,
   sortVisitsByDateAsc,
   visitDisplayLabel,
+  visitPlaceDoctorLine,
   visitVaccineDetail,
 } from '@/lib/vaccine-strategy'
 
@@ -40,16 +41,21 @@ function cardYearLabel(periodLabel: string): string {
 function cardBalance(
   p: ReturnType<typeof computePlafonSummaries>[number]
 ): { primary: { label?: string; amount: string }; secondary?: { label: string; amount: string } } {
+  const expenses = formatIdr(p.usedIdr + p.plannedIdr)
+
   if (p.method === 'FULLERTON') {
-    return { primary: { label: 'Sisa saldo', amount: formatIdr(p.remainingIdr ?? 0) } }
+    return {
+      primary: { amount: expenses },
+      secondary: { label: 'Sisa saldo', amount: formatIdr(p.remainingIdr ?? 0) },
+    }
   }
   if (p.method === 'INHEALTH') {
     return {
-      primary: { amount: formatIdr(p.usedIdr + p.plannedIdr) },
+      primary: { amount: expenses },
       secondary: { label: 'Sisa saldo', amount: '—' },
     }
   }
-  return { primary: { amount: formatIdr(p.usedIdr + p.plannedIdr) } }
+  return { primary: { amount: expenses } }
 }
 
 export function VaccineStrategyPanel({
@@ -138,6 +144,7 @@ export function VaccineStrategyPanel({
           sortedVisits.map((visit) => {
             const rangeWarning = getVisitPlanRangeWarning(visit, immunizations, birthDate)
             const vaccineDetail = visitVaccineDetail(visit)
+            const placeDoctor = visitPlaceDoctorLine(visit)
             return (
               <div
                 key={visit.id}
@@ -168,6 +175,9 @@ export function VaccineStrategyPanel({
                   </p>
                   {vaccineDetail && (
                     <p className="mt-0.5 text-[10px] text-muted-foreground">{vaccineDetail}</p>
+                  )}
+                  {placeDoctor && (
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{placeDoctor}</p>
                   )}
                   {rangeWarning && (
                     <p className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-400">
@@ -210,7 +220,7 @@ export function VaccineStrategyPanel({
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
-          Add Plan
+          Tambah Plan
         </button>
         {onEditSettings && (
           <button

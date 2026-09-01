@@ -243,6 +243,8 @@ export type VaccineStrategyVisit = {
   vaccineCostIdr: number
   estimatedCostIdr: number
   targetDate?: string | null
+  location?: string | null
+  doctorName?: string | null
   vaccines: StrategyVisitVaccine[]
   /** @deprecated single-vaccine legacy */
   immunizationId?: string | null
@@ -277,11 +279,6 @@ export type StrategyCatalogContext = Pick<
 >
 
 export const DEFAULT_VACCINE_STRATEGY: VaccineStrategySettings = {
-  clinicName: 'RS Columbia Asia BSD',
-  doctorName: 'dr. Rita, Sp.A',
-  rotavirusType: 'Rotarix (RV1)',
-  visitGapWeeks: 3,
-  fullertonUsedBeforeTrackingIdr: 0,
   insuranceRules: DEFAULT_INSURANCE_RULES,
   visits: [],
 }
@@ -597,6 +594,8 @@ function migrateLegacyVisit(raw: Record<string, unknown>, order: number): Vaccin
       vaccineCostIdr: Number(raw.vaccineCostIdr ?? 0),
       estimatedCostIdr: Number(raw.estimatedCostIdr ?? 0),
       targetDate: (raw.targetDate as string) ?? null,
+      location: (raw.location as string) ?? null,
+      doctorName: (raw.doctorName as string) ?? null,
       vaccines,
     }
   }
@@ -618,6 +617,8 @@ function migrateLegacyVisit(raw: Record<string, unknown>, order: number): Vaccin
       vaccineCostIdr: Number(raw.vaccineCostIdr ?? raw.estimatedCostIdr ?? 0),
       estimatedCostIdr: Number(raw.estimatedCostIdr ?? 0),
       targetDate: (raw.targetDate as string) ?? null,
+      location: (raw.location as string) ?? null,
+      doctorName: (raw.doctorName as string) ?? null,
       vaccines: [vaccine],
       immunizationId: vaccine.immunizationId,
       vaccineCatalogId: vaccine.vaccineCatalogId,
@@ -649,6 +650,8 @@ function migrateLegacyVisit(raw: Record<string, unknown>, order: number): Vaccin
     vaccineCostIdr: est.vaccineCostIdr,
     estimatedCostIdr: Number(raw.estimatedCostIdr ?? est.plafonImpactIdr),
     targetDate: (raw.targetDate as string) ?? null,
+    location: (raw.location as string) ?? null,
+    doctorName: (raw.doctorName as string) ?? null,
     vaccines: [vaccine],
     title: raw.title as string | undefined,
     actions,
@@ -666,13 +669,11 @@ export function parseStrategySettings(raw: unknown): VaccineStrategySettings {
     : []
 
   return {
-    clinicName: o.clinicName ?? DEFAULT_VACCINE_STRATEGY.clinicName,
-    doctorName: o.doctorName ?? DEFAULT_VACCINE_STRATEGY.doctorName,
-    rotavirusType: o.rotavirusType ?? DEFAULT_VACCINE_STRATEGY.rotavirusType,
-    visitGapWeeks: o.visitGapWeeks ?? DEFAULT_VACCINE_STRATEGY.visitGapWeeks,
-    fullertonUsedBeforeTrackingIdr:
-      o.fullertonUsedBeforeTrackingIdr ??
-      DEFAULT_VACCINE_STRATEGY.fullertonUsedBeforeTrackingIdr,
+    clinicName: o.clinicName,
+    doctorName: o.doctorName,
+    rotavirusType: o.rotavirusType,
+    visitGapWeeks: o.visitGapWeeks,
+    fullertonUsedBeforeTrackingIdr: o.fullertonUsedBeforeTrackingIdr,
     catalogPrices:
       o.catalogPrices && typeof o.catalogPrices === 'object' ? o.catalogPrices : {},
     customCatalog: Array.isArray(o.customCatalog)
@@ -874,15 +875,8 @@ export function computePlafonSummaries(
         })
         .reduce((sum, i) => sum + (i.cost_idr ?? 0), 0)
 
-      const periodYear = period.start.getFullYear()
-      const refYear = refDate.getFullYear()
-      const opening =
-        periodYear === refYear || periodYear === refYear - 1
-          ? settings.fullertonUsedBeforeTrackingIdr ?? 0
-          : 0
-
       const plannedIdr = sumPlafonImpact(planned, 'FULLERTON')
-      const usedIdr = usedFromLogs + opening
+      const usedIdr = usedFromLogs
       const remainingIdr = Math.max(0, rule.annualLimitIdr - usedIdr - plannedIdr)
 
       summaries.push({
@@ -969,6 +963,10 @@ export function formatVisitDate(visit: VaccineStrategyVisit): string {
   })
 }
 
+export function visitPlaceDoctorLine(visit: VaccineStrategyVisit): string {
+  return [visit.location?.trim(), visit.doctorName?.trim()].filter(Boolean).join(' · ')
+}
+
 export function getVisitVaccines(visit: VaccineStrategyVisit): StrategyVisitVaccine[] {
   if (visit.vaccines?.length) return visit.vaccines
   if (visit.vaccineCatalogId && visit.vaccineName) {
@@ -1043,6 +1041,8 @@ export function buildStrategyVisit(input: {
   catalogPrices?: Record<string, number>
   customCatalog?: VaccineCatalogItem[]
   targetDate?: string | null
+  location?: string | null
+  doctorName?: string | null
   order: number
 }): VaccineStrategyVisit {
   const catalogCtx = {
@@ -1085,6 +1085,8 @@ export function buildStrategyVisit(input: {
     vaccineCostIdr: est.vaccineCostIdr,
     estimatedCostIdr: 0,
     targetDate: input.targetDate ?? null,
+    location: input.location?.trim() || null,
+    doctorName: input.doctorName?.trim() || null,
     vaccines: vaccineRows,
     immunizationId: first?.immunizationId ?? null,
     vaccineCatalogId: first?.vaccineCatalogId,

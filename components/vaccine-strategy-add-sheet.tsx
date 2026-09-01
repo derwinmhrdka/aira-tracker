@@ -29,11 +29,11 @@ import {
   buildStrategyVisit,
   getVisitVaccines,
   VACCINE_CATALOG,
-  PAYMENT_METHOD_LABEL,
   type VaccineCatalogItem,
   type VaccineStrategyVisit,
 } from '@/lib/vaccine-strategy'
 import { SearchableSelect } from './searchable-select'
+import { PaymentMethodSelectButton } from './payment-method-logo'
 
 type VaccineLine = {
   key: string
@@ -112,6 +112,8 @@ export function VaccineStrategyAddSheet({
   const [lines, setLines] = useState<VaccineLine[]>([createLine()])
   const [paymentMethod, setPaymentMethod] = useState<VaccinePaymentMethod>('FULLERTON')
   const [dsaDisplay, setDsaDisplay] = useState(formatIdrInput(DEFAULT_DSA_COST_IDR))
+  const [location, setLocation] = useState('')
+  const [doctorName, setDoctorName] = useState('')
   const [targetDate, setTargetDate] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -214,12 +216,16 @@ export function VaccineStrategyAddSheet({
       setLines(visitToLines(editingVisit))
       setPaymentMethod(editingVisit.paymentMethod)
       setDsaDisplay(formatIdrInput(editingVisit.dsaCostIdr))
+      setLocation(editingVisit.location ?? '')
+      setDoctorName(editingVisit.doctorName ?? '')
       setTargetDate(editingVisit.targetDate ?? '')
       return
     }
     setLines([createLine()])
     setPaymentMethod('FULLERTON')
     setDsaDisplay(formatIdrInput(DEFAULT_DSA_COST_IDR))
+    setLocation('')
+    setDoctorName('')
     setTargetDate('')
   }, [open, editingVisit])
 
@@ -387,35 +393,23 @@ export function VaccineStrategyAddSheet({
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
             <h2 className="mb-3 font-heading text-base font-bold text-foreground">
-              {editingVisit ? 'Edit Plan' : 'Add Plan'}
+              {editingVisit ? 'Edit Plan' : 'Tambah Plan'}
             </h2>
 
             <div className="space-y-3">
               <label className="block min-w-0">
                 <span className="mb-1 block text-xs text-muted-foreground">Pembayaran</span>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {(['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH'] as const).map((m) => {
-                    const disabled = !allowedPayments.includes(m)
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => setPaymentMethod(m)}
-                        className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
-                          paymentMethod === m
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border bg-background text-foreground'
-                        } ${disabled ? 'cursor-not-allowed opacity-30' : ''}`}
-                      >
-                        {PAYMENT_METHOD_LABEL[m]}
-                      </button>
-                    )
-                  })}
+                  {(['INHEALTH', 'FULLERTON', 'PUSKESMAS', 'CASH'] as const).map((m) => (
+                    <PaymentMethodSelectButton
+                      key={m}
+                      method={m}
+                      selected={paymentMethod === m}
+                      disabled={!allowedPayments.includes(m)}
+                      onClick={() => setPaymentMethod(m)}
+                    />
+                  ))}
                 </div>
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  Vaksin berikutnya hanya yang cocok dengan pembayaran ini.
-                </p>
               </label>
 
               {lines.map((line, index) => {
@@ -528,7 +522,7 @@ export function VaccineStrategyAddSheet({
                         />
                       </div>
                       <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
-                        Rek: {recommendedLabel}
+                        Est: {recommendedLabel}
                       </p>
                     </label>
                   </div>
@@ -560,6 +554,27 @@ export function VaccineStrategyAddSheet({
                   />
                 </div>
               </label>
+
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block min-w-0">
+                  <span className="mb-1 block text-xs text-muted-foreground">Tempat</span>
+                  <input
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="RS / klinik"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block min-w-0">
+                  <span className="mb-1 block text-xs text-muted-foreground">Dokter</span>
+                  <input
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                    placeholder="Nama dokter"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
 
               <label className="block min-w-0">
                 <span className="mb-1 block text-xs text-muted-foreground">Tanggal</span>
@@ -651,6 +666,8 @@ export function VaccineStrategyAddSheet({
                       },
                       customCatalog: strategy.customCatalog,
                       targetDate: targetDate || null,
+                      location: location || null,
+                      doctorName: doctorName || null,
                       order: editingVisit?.order ?? nextOrder,
                     })
 

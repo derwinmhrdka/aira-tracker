@@ -18,11 +18,6 @@ type VaccineStrategySettingsSheetProps = {
   strategy: VaccineStrategySettings
   onClose: () => void
   onSave: (data: {
-    clinic_name?: string
-    doctor_name?: string
-    rotavirus_type?: string
-    visit_gap_weeks?: number
-    fullerton_used_before_tracking_idr?: number
     catalog_prices?: Record<string, number>
     custom_catalog?: VaccineCatalogItem[]
   }) => Promise<void>
@@ -34,13 +29,6 @@ export function VaccineStrategySettingsSheet({
   onClose,
   onSave,
 }: VaccineStrategySettingsSheetProps) {
-  const [clinicName, setClinicName] = useState(strategy.clinicName ?? '')
-  const [doctorName, setDoctorName] = useState(strategy.doctorName ?? '')
-  const [rotavirusType, setRotavirusType] = useState(strategy.rotavirusType ?? '')
-  const [visitGapWeeks, setVisitGapWeeks] = useState(String(strategy.visitGapWeeks ?? 3))
-  const [fullertonDisplay, setFullertonDisplay] = useState(
-    formatIdrInput(strategy.fullertonUsedBeforeTrackingIdr ?? 0)
-  )
   const [priceDisplays, setPriceDisplays] = useState<Record<string, string>>({})
   const [customCatalog, setCustomCatalog] = useState<VaccineCatalogItem[]>([])
   const [newName, setNewName] = useState('')
@@ -53,11 +41,6 @@ export function VaccineStrategySettingsSheet({
 
   useEffect(() => {
     if (!open) return
-    setClinicName(strategy.clinicName ?? '')
-    setDoctorName(strategy.doctorName ?? '')
-    setRotavirusType(strategy.rotavirusType ?? '')
-    setVisitGapWeeks(String(strategy.visitGapWeeks ?? 3))
-    setFullertonDisplay(formatIdrInput(strategy.fullertonUsedBeforeTrackingIdr ?? 0))
     setCustomCatalog(strategy.customCatalog ?? [])
     setNewName('')
     setNewBrand('')
@@ -137,62 +120,21 @@ export function VaccineStrategySettingsSheet({
             style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
-            <h2 className="mb-3 font-heading text-base font-bold text-foreground">
-              Pengaturan
+            <h2 className="mb-1 font-heading text-base font-bold text-foreground">
+              Pengaturan vaksin
             </h2>
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              Harga referensi untuk estimasi di plan. Tempat dan dokter diisi per plan.
+            </p>
             <div className="space-y-2.5">
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Klinik</span>
-                <input
-                  value={clinicName}
-                  onChange={(e) => setClinicName(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs text-muted-foreground">Dokter</span>
-                <input
-                  value={doctorName}
-                  onChange={(e) => setDoctorName(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block">
-                  <span className="mb-1 block text-xs text-muted-foreground">Jeda (minggu)</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={8}
-                    value={visitGapWeeks}
-                    onChange={(e) => setVisitGapWeeks(e.target.value)}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs text-muted-foreground">FT terpakai</span>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                      Rp
-                    </span>
-                    <input
-                      inputMode="numeric"
-                      value={fullertonDisplay}
-                      onChange={(e) => {
-                        const n = parseIdrInput(e.target.value)
-                        setFullertonDisplay(n > 0 ? formatIdrInput(n) : '')
-                      }}
-                      className="w-full rounded-lg border border-input bg-background py-2 pl-7 pr-2 text-sm tabular-nums"
-                    />
-                  </div>
-                </label>
-              </div>
-
               <div>
                 <p className="mb-2 text-xs font-medium text-foreground">Jenis vaksin & harga</p>
                 <div className="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-border p-2">
                   {mergedCatalog.map((item) => (
-                    <div key={item.id} className="flex items-start gap-2 border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                    <div
+                      key={item.id}
+                      className="flex items-start gap-2 border-b border-border/50 pb-2 last:border-0 last:pb-0"
+                    >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[11px] font-medium text-foreground">
                           {item.brand ? `${item.name} · ${item.brand}` : item.name}
@@ -337,11 +279,6 @@ export function VaccineStrategySettingsSheet({
                       catalog_prices[item.id] = n > 0 ? n : catalogMidPrice(item)
                     }
                     await onSave({
-                      clinic_name: clinicName.trim(),
-                      doctor_name: doctorName.trim(),
-                      rotavirus_type: rotavirusType.trim(),
-                      visit_gap_weeks: Number(visitGapWeeks) || 3,
-                      fullerton_used_before_tracking_idr: parseIdrInput(fullertonDisplay),
                       catalog_prices,
                       custom_catalog: customCatalog,
                     })

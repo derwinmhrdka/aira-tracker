@@ -863,6 +863,8 @@ export type VaccineStrategyVisit = {
   vaccineCostIdr: number
   estimatedCostIdr: number
   targetDate?: string | null
+  location?: string | null
+  doctorName?: string | null
   vaccines: StrategyVisitVaccine[]
   /** @deprecated single-vaccine legacy */
   immunizationId?: string | null
