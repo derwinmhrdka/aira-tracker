@@ -967,6 +967,54 @@ export function visitPlaceDoctorLine(visit: VaccineStrategyVisit): string {
   return [visit.location?.trim(), visit.doctorName?.trim()].filter(Boolean).join(' · ')
 }
 
+/** Semua vaksin terhubung di plan sudah ditandai selesai di jadwal. */
+export function isVisitFullyCompleted(
+  visit: VaccineStrategyVisit,
+  immunizations: Immunization[]
+): boolean {
+  const vaccines = getVisitVaccines(visit).filter((row) => row.immunizationId)
+  if (vaccines.length === 0) return false
+  return vaccines.every((row) => {
+    const item = immunizations.find((i) => i.id === row.immunizationId)
+    return item?.is_done === true
+  })
+}
+
+function collectUniqueVisitFieldValues(
+  visits: VaccineStrategyVisit[],
+  pick: (visit: VaccineStrategyVisit) => string | null | undefined
+): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  const sorted = [...visits].sort((a, b) => {
+    const dateA = a.targetDate ?? ''
+    const dateB = b.targetDate ?? ''
+    if (dateA && dateB) return dateB.localeCompare(dateA)
+    if (dateA) return -1
+    if (dateB) return 1
+    return b.order - a.order
+  })
+
+  for (const visit of sorted) {
+    const value = pick(visit)?.trim()
+    if (!value) continue
+    const key = value.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(value)
+  }
+
+  return result
+}
+
+export function getVisitLocationSuggestions(visits: VaccineStrategyVisit[]): string[] {
+  return collectUniqueVisitFieldValues(visits, (visit) => visit.location)
+}
+
+export function getVisitDoctorSuggestions(visits: VaccineStrategyVisit[]): string[] {
+  return collectUniqueVisitFieldValues(visits, (visit) => visit.doctorName)
+}
+
 export function getVisitVaccines(visit: VaccineStrategyVisit): StrategyVisitVaccine[] {
   if (visit.vaccines?.length) return visit.vaccines
   if (visit.vaccineCatalogId && visit.vaccineName) {

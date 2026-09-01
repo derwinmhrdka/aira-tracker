@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Plus, Pencil, Settings, Trash2 } from 'lucide-react'
+import { Check, MapPin, Pencil, Plus, Settings, Stethoscope, Trash2 } from 'lucide-react'
 import type { Immunization, VaccinePaymentMethod, VaccineStrategySettings } from '@/lib/api-client'
 import { PaymentMethodBadge, PaymentMethodLogo } from './payment-method-logo'
 import { PlafonDetailSheet } from './plafon-detail-sheet'
@@ -11,10 +11,10 @@ import {
   formatVisitDate,
   getVisitDisplayTotal,
   getVisitPlanRangeWarning,
+  isVisitFullyCompleted,
   PAYMENT_METHOD_CARD_STYLE,
   sortVisitsByDateAsc,
   visitDisplayLabel,
-  visitPlaceDoctorLine,
   visitVaccineDetail,
 } from '@/lib/vaccine-strategy'
 
@@ -144,7 +144,9 @@ export function VaccineStrategyPanel({
           sortedVisits.map((visit) => {
             const rangeWarning = getVisitPlanRangeWarning(visit, immunizations, birthDate)
             const vaccineDetail = visitVaccineDetail(visit)
-            const placeDoctor = visitPlaceDoctorLine(visit)
+            const visitDone = isVisitFullyCompleted(visit, immunizations)
+            const place = visit.location?.trim()
+            const doctor = visit.doctorName?.trim()
             return (
               <div
                 key={visit.id}
@@ -157,8 +159,12 @@ export function VaccineStrategyPanel({
                     onEditVisit(visit)
                   }
                 }}
-                className={`flex cursor-pointer items-center gap-2 rounded-xl border bg-card px-3 py-2.5 transition-colors hover:bg-secondary/30 ${
-                  rangeWarning ? 'border-amber-400/70' : 'border-border'
+                className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 transition-colors ${
+                  visitDone
+                    ? 'border-emerald-200/70 bg-emerald-50/70 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30'
+                    : rangeWarning
+                      ? 'border-amber-400/70 bg-card hover:bg-secondary/30'
+                      : 'border-border bg-card hover:bg-secondary/30'
                 }`}
               >
                 <div className="min-w-0 flex-1">
@@ -166,6 +172,14 @@ export function VaccineStrategyPanel({
                     <p className="truncate text-sm font-semibold text-foreground">
                       {visitDisplayLabel(visit)}
                     </p>
+                    {visitDone ? (
+                      <span
+                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                        aria-label="Selesai"
+                      >
+                        <Check className="h-2 w-2" strokeWidth={3} />
+                      </span>
+                    ) : null}
                     <PaymentMethodBadge method={visit.paymentMethod} />
                   </div>
                   <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
@@ -176,8 +190,21 @@ export function VaccineStrategyPanel({
                   {vaccineDetail && (
                     <p className="mt-0.5 text-[10px] text-muted-foreground">{vaccineDetail}</p>
                   )}
-                  {placeDoctor && (
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">{placeDoctor}</p>
+                  {(place || doctor) && (
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-muted-foreground">
+                      {place ? (
+                        <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                          <MapPin className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                          <span className="truncate">{place}</span>
+                        </span>
+                      ) : null}
+                      {doctor ? (
+                        <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                          <Stethoscope className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+                          <span className="truncate">{doctor}</span>
+                        </span>
+                      ) : null}
+                    </div>
                   )}
                   {rangeWarning && (
                     <p className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-400">

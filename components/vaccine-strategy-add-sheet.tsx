@@ -20,6 +20,8 @@ import {
   getCatalogPrice,
   getCatalogRecommendedLabel,
   getVisitDisplayTotal,
+  getVisitDoctorSuggestions,
+  getVisitLocationSuggestions,
   getVaccinePlanRangeWarning,
   isImmunizationCompatibleWithPlan,
   isManualCatalogId,
@@ -123,6 +125,15 @@ export function VaccineStrategyAddSheet({
       catalogPrices: strategy.catalogPrices,
     }),
     [strategy.customCatalog, strategy.catalogPrices]
+  )
+
+  const locationSuggestions = useMemo(
+    () => getVisitLocationSuggestions(strategy.visits),
+    [strategy.visits]
+  )
+  const doctorSuggestions = useMemo(
+    () => getVisitDoctorSuggestions(strategy.visits),
+    [strategy.visits]
   )
 
   const sortedImmunizations = useMemo(
@@ -559,6 +570,7 @@ export function VaccineStrategyAddSheet({
                 <label className="block min-w-0">
                   <span className="mb-1 block text-xs text-muted-foreground">Tempat</span>
                   <input
+                    list="plan-location-suggestions"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="RS / klinik"
@@ -568,6 +580,7 @@ export function VaccineStrategyAddSheet({
                 <label className="block min-w-0">
                   <span className="mb-1 block text-xs text-muted-foreground">Dokter</span>
                   <input
+                    list="plan-doctor-suggestions"
                     value={doctorName}
                     onChange={(e) => setDoctorName(e.target.value)}
                     placeholder="Nama dokter"
@@ -575,6 +588,16 @@ export function VaccineStrategyAddSheet({
                   />
                 </label>
               </div>
+              <datalist id="plan-location-suggestions">
+                {locationSuggestions.map((value) => (
+                  <option key={value} value={value} />
+                ))}
+              </datalist>
+              <datalist id="plan-doctor-suggestions">
+                {doctorSuggestions.map((value) => (
+                  <option key={value} value={value} />
+                ))}
+              </datalist>
 
               <label className="block min-w-0">
                 <span className="mb-1 block text-xs text-muted-foreground">Tanggal</span>
