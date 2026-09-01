@@ -12,8 +12,6 @@ import {
   getVisitDisplayTotal,
   getVisitPlanRangeWarning,
   sortVisitsByDateAsc,
-  PAYMENT_METHOD_LABEL,
-  PAYMENT_METHOD_STYLE,
   visitDisplayLabel,
   visitVaccineDetail,
 } from '@/lib/vaccine-strategy'
@@ -39,13 +37,18 @@ const PLAFON_CARD_STYLE: Record<VaccinePaymentMethod, string> = {
   CASH: 'border-border bg-card',
 }
 
+function cardYearLabel(periodLabel: string): string {
+  if (/^\d{4}$/.test(periodLabel)) return periodLabel
+  return String(new Date().getFullYear())
+}
+
 function cardBalance(
   p: ReturnType<typeof computePlafonSummaries>[number]
-): { label: string; amount: string } | null {
+): { label: string; amount: string } {
   if (p.method === 'FULLERTON') {
     return { label: 'Sisa saldo', amount: formatIdr(p.remainingIdr ?? 0) }
   }
-  return null
+  return { label: '', amount: formatIdr(p.usedIdr + p.plannedIdr) }
 }
 
 export function VaccineStrategyPanel({
@@ -96,25 +99,22 @@ export function VaccineStrategyPanel({
                 clickable ? 'cursor-pointer transition-colors hover:bg-secondary/20' : ''
               }`}
             >
-              <div className="flex min-h-[10px] items-center">
-                {p.method === 'INHEALTH' || p.method === 'FULLERTON' ? (
-                  <PaymentMethodLogo method={p.method} />
-                ) : (
-                  <p className="text-[10px] font-semibold leading-none text-muted-foreground">
-                    {p.label}
-                  </p>
-                )}
+              <div className="flex min-h-[15px] items-center justify-between gap-2">
+                <PaymentMethodLogo method={p.method} size="md" />
+                <span className="shrink-0 text-[9px] font-medium tabular-nums text-muted-foreground">
+                  {cardYearLabel(p.periodLabel)}
+                </span>
               </div>
-              {balance ? (
-                <>
-                  <p className="mt-2 text-[9px] text-muted-foreground">{balance.label}</p>
-                  <p className="text-[11px] font-bold leading-tight tabular-nums text-foreground">
-                    {balance.amount}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-2 text-[11px] font-semibold text-muted-foreground">—</p>
-              )}
+              {balance.label ? (
+                <p className="mt-2 text-[9px] text-muted-foreground">{balance.label}</p>
+              ) : null}
+              <p
+                className={`text-[11px] font-bold leading-tight tabular-nums text-foreground ${
+                  balance.label ? '' : 'mt-2'
+                }`}
+              >
+                {balance.amount}
+              </p>
             </div>
           )
         })}
@@ -150,10 +150,8 @@ export function VaccineStrategyPanel({
                     <p className="truncate text-sm font-semibold text-foreground">
                       {visitDisplayLabel(visit)}
                     </p>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${PAYMENT_METHOD_STYLE[visit.paymentMethod]}`}
-                    >
-                      {PAYMENT_METHOD_LABEL[visit.paymentMethod]}
+                    <span className="shrink-0">
+                      <PaymentMethodLogo method={visit.paymentMethod} size="sm" />
                     </span>
                   </div>
                   <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">

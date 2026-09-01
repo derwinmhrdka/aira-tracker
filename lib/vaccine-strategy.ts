@@ -790,6 +790,7 @@ export function computePlafonSummaries(
 ): PlafonSummary[] {
   const summaries: PlafonSummary[] = []
   const planned = settings.visits
+  const yearLabel = String(refDate.getFullYear())
 
   for (const rule of settings.insuranceRules) {
     if (rule.id === 'INHEALTH') {
@@ -800,7 +801,7 @@ export function computePlafonSummaries(
         usedIdr: 0,
         plannedIdr: 0,
         remainingIdr: null,
-        periodLabel: 'Tanpa plafon',
+        periodLabel: yearLabel,
         unlimited: true,
       })
       continue
@@ -862,7 +863,7 @@ export function computePlafonSummaries(
         usedIdr,
         plannedIdr,
         remainingIdr: null,
-        periodLabel: 'Total',
+        periodLabel: yearLabel,
         unlimited: true,
       })
       continue
@@ -876,7 +877,7 @@ export function computePlafonSummaries(
         usedIdr: 0,
         plannedIdr: 0,
         remainingIdr: null,
-        periodLabel: 'Gratis',
+        periodLabel: yearLabel,
         unlimited: true,
       })
     }
