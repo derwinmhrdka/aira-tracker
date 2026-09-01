@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Plus, Pencil, Settings, Trash2 } from 'lucide-react'
 import type { Immunization, VaccinePaymentMethod, VaccineStrategySettings } from '@/lib/api-client'
-import { PaymentMethodLogo } from './payment-method-logo'
+import { PaymentMethodBadge, PaymentMethodLogo } from './payment-method-logo'
 import { PlafonDetailSheet } from './plafon-detail-sheet'
 import {
   computePlafonSummaries,
@@ -11,6 +11,7 @@ import {
   formatVisitDate,
   getVisitDisplayTotal,
   getVisitPlanRangeWarning,
+  PAYMENT_METHOD_CARD_STYLE,
   sortVisitsByDateAsc,
   visitDisplayLabel,
   visitVaccineDetail,
@@ -29,13 +30,7 @@ type VaccineStrategyPanelProps = {
   }) => Promise<void>
 }
 
-const PLAFON_CARD_STYLE: Record<VaccinePaymentMethod, string> = {
-  INHEALTH: 'border-sky-200/60 bg-sky-50/50 dark:border-sky-900/40 dark:bg-sky-950/20',
-  FULLERTON: 'border-violet-200/60 bg-violet-50/50 dark:border-violet-900/40 dark:bg-violet-950/20',
-  PUSKESMAS:
-    'border-emerald-200/60 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20',
-  CASH: 'border-border bg-card',
-}
+const PLAFON_CARD_STYLE = PAYMENT_METHOD_CARD_STYLE
 
 function cardYearLabel(periodLabel: string): string {
   if (/^\d{4}$/.test(periodLabel)) return periodLabel
@@ -44,11 +39,17 @@ function cardYearLabel(periodLabel: string): string {
 
 function cardBalance(
   p: ReturnType<typeof computePlafonSummaries>[number]
-): { label: string; amount: string } {
+): { primary: { label?: string; amount: string }; secondary?: { label: string; amount: string } } {
   if (p.method === 'FULLERTON') {
-    return { label: 'Sisa saldo', amount: formatIdr(p.remainingIdr ?? 0) }
+    return { primary: { label: 'Sisa saldo', amount: formatIdr(p.remainingIdr ?? 0) } }
   }
-  return { label: '', amount: formatIdr(p.usedIdr + p.plannedIdr) }
+  if (p.method === 'INHEALTH') {
+    return {
+      primary: { amount: formatIdr(p.usedIdr + p.plannedIdr) },
+      secondary: { label: 'Sisa saldo', amount: '—' },
+    }
+  }
+  return { primary: { amount: formatIdr(p.usedIdr + p.plannedIdr) } }
 }
 
 export function VaccineStrategyPanel({
@@ -105,16 +106,24 @@ export function VaccineStrategyPanel({
                   {cardYearLabel(p.periodLabel)}
                 </span>
               </div>
-              {balance.label ? (
-                <p className="mt-2 text-[9px] text-muted-foreground">{balance.label}</p>
+              {balance.primary.label ? (
+                <p className="mt-2 text-[9px] text-muted-foreground">{balance.primary.label}</p>
               ) : null}
               <p
                 className={`text-[11px] font-bold leading-tight tabular-nums text-foreground ${
-                  balance.label ? '' : 'mt-2'
+                  balance.primary.label ? '' : 'mt-2'
                 }`}
               >
-                {balance.amount}
+                {balance.primary.amount}
               </p>
+              {balance.secondary ? (
+                <>
+                  <p className="mt-1.5 text-[9px] text-muted-foreground">{balance.secondary.label}</p>
+                  <p className="text-[11px] font-bold leading-tight tabular-nums text-foreground">
+                    {balance.secondary.amount}
+                  </p>
+                </>
+              ) : null}
             </div>
           )
         })}
@@ -150,9 +159,7 @@ export function VaccineStrategyPanel({
                     <p className="truncate text-sm font-semibold text-foreground">
                       {visitDisplayLabel(visit)}
                     </p>
-                    <span className="shrink-0">
-                      <PaymentMethodLogo method={visit.paymentMethod} size="sm" />
-                    </span>
+                    <PaymentMethodBadge method={visit.paymentMethod} />
                   </div>
                   <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
                     {formatVisitDate(visit)}

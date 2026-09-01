@@ -523,11 +523,7 @@ export function VaccineStrategyAddSheet({
                               updateLine(line.key, { vaccinePriceDisplay: v })
                             )
                           }
-                          disabled={
-                            !line.catalogId ||
-                            paymentMethod === 'INHEALTH' ||
-                            paymentMethod === 'PUSKESMAS'
-                          }
+                          disabled={!line.catalogId || paymentMethod === 'PUSKESMAS'}
                           className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm tabular-nums disabled:opacity-40"
                         />
                       </div>
@@ -559,7 +555,7 @@ export function VaccineStrategyAddSheet({
                     inputMode="numeric"
                     value={dsaDisplay}
                     onChange={(e) => handleIdrChange(e.target.value, setDsaDisplay)}
-                    disabled={paymentMethod === 'INHEALTH' || paymentMethod === 'PUSKESMAS'}
+                    disabled={paymentMethod === 'PUSKESMAS'}
                     className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm tabular-nums disabled:opacity-40"
                   />
                 </div>

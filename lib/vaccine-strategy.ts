@@ -13,10 +13,18 @@ export const PAYMENT_METHOD_LABEL: Record<VaccinePaymentMethod, string> = {
 }
 
 export const PAYMENT_METHOD_STYLE: Record<VaccinePaymentMethod, string> = {
-  INHEALTH: 'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300',
-  FULLERTON: 'bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300',
+  INHEALTH: 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300',
+  FULLERTON: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300',
   PUSKESMAS: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300',
   CASH: 'bg-secondary text-muted-foreground',
+}
+
+export const PAYMENT_METHOD_CARD_STYLE: Record<VaccinePaymentMethod, string> = {
+  INHEALTH: 'border-red-200/60 bg-red-50/50 dark:border-red-900/40 dark:bg-red-950/20',
+  FULLERTON: 'border-blue-200/60 bg-blue-50/50 dark:border-blue-900/40 dark:bg-blue-950/20',
+  PUSKESMAS:
+    'border-emerald-200/60 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20',
+  CASH: 'border-border bg-card',
 }
 
 export const DEFAULT_DSA_COST_IDR = 450_000
@@ -458,6 +466,12 @@ export function estimateStrategyCost(
 
   switch (payment) {
     case 'INHEALTH':
+      return {
+        vaccineCostIdr,
+        dsaCostIdr,
+        totalOutOfPocketIdr: 0,
+        plafonImpactIdr: 0,
+      }
     case 'PUSKESMAS':
       return {
         vaccineCostIdr: 0,
@@ -500,6 +514,12 @@ export function estimateVisitCost(
 
   switch (payment) {
     case 'INHEALTH':
+      return {
+        vaccineCostIdr: vaccineTotal,
+        dsaCostIdr,
+        totalOutOfPocketIdr: 0,
+        plafonImpactIdr: 0,
+      }
     case 'PUSKESMAS':
       return {
         vaccineCostIdr: 0,
@@ -526,7 +546,7 @@ export function estimateVisitCost(
 
 /** Total biaya kunjungan untuk tampilan (vaksin + DSA). */
 export function getVisitDisplayTotal(visit: VaccineStrategyVisit): number {
-  if (visit.paymentMethod === 'INHEALTH' || visit.paymentMethod === 'PUSKESMAS') {
+  if (visit.paymentMethod === 'PUSKESMAS') {
     return 0
   }
   return getVisitVaccineCostTotal(visit) + (visit.dsaCostIdr ?? 0)
@@ -725,6 +745,12 @@ export type PlafonExpenseItem = {
   amountIdr: number
 }
 
+function sumVisitExpenses(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
+  return visits
+    .filter((v) => v.paymentMethod === method)
+    .reduce((sum, v) => sum + getVisitDisplayTotal(v), 0)
+}
+
 function sumPlafonImpact(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
   return visits
     .filter((v) => v.paymentMethod === method)
@@ -780,6 +806,23 @@ export function getPlafonExpenseItems(
     }
   }
 
+  if (method === 'INHEALTH') {
+    for (const item of immunizations) {
+      if (!item.is_done || item.payment_method !== 'INHEALTH' || !item.cost_idr) continue
+      const label = item.dose_label
+        ? `${item.vaccine_name} · ${item.dose_label}`
+        : item.vaccine_name
+      items.push({ label, amountIdr: item.cost_idr })
+    }
+    for (const visit of settings.visits) {
+      if (visit.paymentMethod !== 'INHEALTH') continue
+      items.push({
+        label: visitDisplayLabel(visit),
+        amountIdr: getVisitDisplayTotal(visit),
+      })
+    }
+  }
+
   return items
 }
 
@@ -794,12 +837,17 @@ export function computePlafonSummaries(
 
   for (const rule of settings.insuranceRules) {
     if (rule.id === 'INHEALTH') {
+      const usedIdr = immunizations
+        .filter((i) => i.is_done && i.payment_method === 'INHEALTH' && i.cost_idr)
+        .reduce((sum, i) => sum + (i.cost_idr ?? 0), 0)
+      const plannedIdr = sumVisitExpenses(planned, 'INHEALTH')
+
       summaries.push({
         method: 'INHEALTH',
         label: rule.label,
         limitIdr: null,
-        usedIdr: 0,
-        plannedIdr: 0,
+        usedIdr,
+        plannedIdr,
         remainingIdr: null,
         periodLabel: yearLabel,
         unlimited: true,
@@ -951,9 +999,7 @@ export function reconcileVisitTotals(visit: VaccineStrategyVisit): VaccineStrate
   const vaccineCostIdr = getVisitVaccineCostTotal(visit)
   const dsa = visit.dsaCostIdr ?? 0
   const estimatedCostIdr =
-    visit.paymentMethod === 'INHEALTH' || visit.paymentMethod === 'PUSKESMAS'
-      ? 0
-      : vaccineCostIdr + dsa
+    visit.paymentMethod === 'PUSKESMAS' ? 0 : vaccineCostIdr + dsa
   return { ...visit, vaccineCostIdr, estimatedCostIdr }
 }
 

@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import type { VaccinePaymentMethod } from '@/lib/api-client'
-import { PAYMENT_METHOD_LABEL } from '@/lib/vaccine-strategy'
+import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_STYLE } from '@/lib/vaccine-strategy'
 import { cn } from '@/lib/utils'
 
 const PAYMENT_LOGO: Record<
@@ -40,5 +40,30 @@ export function PaymentMethodLogo({
       className={cn('w-auto object-contain object-left', SIZE_CLASS[size], className)}
       unoptimized
     />
+  )
+}
+
+type PaymentMethodBadgeProps = {
+  method: VaccinePaymentMethod
+  size?: keyof typeof SIZE_CLASS
+  className?: string
+}
+
+/** Logo dalam badge oval tipis — sama bentuk dengan badge teks sebelumnya. */
+export function PaymentMethodBadge({
+  method,
+  size = 'sm',
+  className,
+}: PaymentMethodBadgeProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5',
+        PAYMENT_METHOD_STYLE[method],
+        className
+      )}
+    >
+      <PaymentMethodLogo method={method} size={size} />
+    </span>
   )
 }
