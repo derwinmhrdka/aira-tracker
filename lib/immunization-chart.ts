@@ -66,7 +66,7 @@ export const CHART_ROW_ORDER = [
   'Hepatitis B',
   'Polio',
   'BCG',
-  'DPT',
+  'DPT-HB-Hib',
   'Hib',
   'PCV',
   'Rotavirus',
@@ -94,23 +94,31 @@ const WEEK_COLUMN_ANCHOR: Record<number, string> = {
   260: 'y5',
 }
 
-/** Baris chart untuk satu vaksin — kombinasi bisa masuk beberapa baris. */
+/** Baris chart untuk satu vaksin — kombinasi DPT-HB-Hib satu baris; vaksin terpisah baris sendiri. */
 export function getVaccineChartRows(name: string): string[] {
   const n = name.toLowerCase()
 
   if (/hepatitis\s*a\b/.test(n)) return ['Hepatitis A']
 
-  // DPT-HB-Hib / Pentavalen / Hexavalen → DPT + Hepatitis B + Hib
+  // Kombinasi DPT-HB-Hib / Pentavalen / Hexavalen → satu baris
   if (
     /pentavalen|hexavalen/.test(n) ||
-    (/dpt|dtp/.test(n) && /\bhb\b/.test(n)) ||
-    (/dpt|dtp/.test(n) && /\bhib\b/.test(n) && /hepatitis\s*b/.test(n))
+    /dpt-hb-hib/.test(n) ||
+    ((/dpt|dtp/.test(n) && /\bhb\b/.test(n)) ||
+      (/dpt|dtp/.test(n) && /\bhib\b/.test(n)))
   ) {
-    return ['DPT', 'Hepatitis B', 'Hib']
+    return ['DPT-HB-Hib']
   }
 
-  if (/dpt|dtp/.test(n)) return ['DPT']
-  if (/^hib\b/.test(n) || /\bhib\b/.test(n)) return ['Hib']
+  // DPT/DTP tunggal (mis. booster usia 5–7 thn)
+  if (/dpt|dtp/.test(n)) return ['DPT-HB-Hib']
+
+  // Hib terpisah (bukan bagian kombinasi)
+  if (/^hib\b/.test(n.trim()) || (/\bhib\b/.test(n) && !/dpt|dtp|hb|hepatitis/.test(n))) {
+    return ['Hib']
+  }
+
+  // Hepatitis B terpisah (HB0 monovalen, dll.)
   if (/hepatitis\s*b|hb0|\bhb\b/.test(n)) return ['Hepatitis B']
   if (/bcg/.test(n)) return ['BCG']
   if (/japanese|encephalitis|\bje\b/.test(n)) return ['Japanese Encephalitis']

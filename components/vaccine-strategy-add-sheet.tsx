@@ -387,7 +387,7 @@ export function VaccineStrategyAddSheet({
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
             <h2 className="mb-3 font-heading text-base font-bold text-foreground">
-              {editingVisit ? 'Edit rencana' : 'Tambah rencana'}
+              {editingVisit ? 'Edit Plan' : 'Add Plan'}
             </h2>
 
             <div className="space-y-3">

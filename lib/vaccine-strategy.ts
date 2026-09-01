@@ -526,18 +526,16 @@ export function estimateVisitCost(
 
 /** Total biaya kunjungan untuk tampilan (vaksin + DSA). */
 export function getVisitDisplayTotal(visit: VaccineStrategyVisit): number {
-  const vaccine = visit.vaccineCostIdr ?? 0
-  const dsa = visit.dsaCostIdr ?? 0
   if (visit.paymentMethod === 'INHEALTH' || visit.paymentMethod === 'PUSKESMAS') {
     return 0
   }
-  return vaccine + dsa
+  return getVisitVaccineCostTotal(visit) + (visit.dsaCostIdr ?? 0)
 }
 
-/** Dampak ke plafon asuransi (tanpa DSA cash). */
+/** Dampak ke plafon asuransi (vaksin saja, tanpa DSA cash). */
 export function getVisitPlafonImpact(visit: VaccineStrategyVisit): number {
   if (visit.paymentMethod === 'FULLERTON') {
-    return visit.vaccineCostIdr ?? 0
+    return getVisitVaccineCostTotal(visit)
   }
   if (visit.paymentMethod === 'CASH') {
     return getVisitDisplayTotal(visit)
@@ -679,10 +677,7 @@ export function parseStrategySettings(raw: unknown): VaccineStrategySettings {
         ? o.insuranceRules
         : DEFAULT_INSURANCE_RULES,
     visits: sortVisitsByDateAsc(
-      visits.map((visit) => ({
-        ...visit,
-        estimatedCostIdr: getVisitDisplayTotal(visit),
-      }))
+      visits.map((visit) => reconcileVisitTotals(visit))
     ),
   }
 }
@@ -722,6 +717,11 @@ export type PlafonSummary = {
   label: string
   limitIdr: number | null
   usedIdr: number
+  /** Vaksin rencana yang mengurangi plafon */
+  plannedPlafonIdr: number
+  /** DSA rencana (cash, tidak mengurangi plafon Fullerton) */
+  plannedDsaIdr: number
+  /** Total rencana tampilan (vaksin + DSA) */
   plannedIdr: number
   remainingIdr: number | null
   periodLabel: string
@@ -734,10 +734,10 @@ function sumPlafonImpact(visits: VaccineStrategyVisit[], method: VaccinePaymentM
     .reduce((sum, v) => sum + getVisitPlafonImpact(v), 0)
 }
 
-function sumPlannedDisplay(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
+function sumPlannedDsa(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
   return visits
     .filter((v) => v.paymentMethod === method)
-    .reduce((sum, v) => sum + getVisitDisplayTotal(v), 0)
+    .reduce((sum, v) => sum + (v.dsaCostIdr ?? 0), 0)
 }
 
 export function computePlafonSummaries(
@@ -755,6 +755,8 @@ export function computePlafonSummaries(
         label: rule.label,
         limitIdr: null,
         usedIdr: 0,
+        plannedPlafonIdr: 0,
+        plannedDsaIdr: 0,
         plannedIdr: 0,
         remainingIdr: null,
         periodLabel: 'Tanpa plafon',
@@ -790,7 +792,8 @@ export function computePlafonSummaries(
           : 0
 
       const plannedPlafonIdr = sumPlafonImpact(planned, 'FULLERTON')
-      const plannedIdr = sumPlannedDisplay(planned, 'FULLERTON')
+      const plannedDsaIdr = sumPlannedDsa(planned, 'FULLERTON')
+      const plannedIdr = plannedPlafonIdr + plannedDsaIdr
       const usedIdr = usedFromLogs + opening
       const remainingIdr = Math.max(0, rule.annualLimitIdr - usedIdr - plannedPlafonIdr)
 
@@ -799,6 +802,8 @@ export function computePlafonSummaries(
         label: rule.label,
         limitIdr: rule.annualLimitIdr,
         usedIdr,
+        plannedPlafonIdr,
+        plannedDsaIdr,
         plannedIdr,
         remainingIdr,
         periodLabel: `${period.start.getFullYear()}`,
@@ -811,13 +816,21 @@ export function computePlafonSummaries(
       const usedIdr = immunizations
         .filter((i) => i.is_done && i.payment_method === 'CASH' && i.cost_idr)
         .reduce((sum, i) => sum + (i.cost_idr ?? 0), 0)
-      const plannedIdr = sumPlannedDisplay(planned, 'CASH')
+      const cashVisits = planned.filter((v) => v.paymentMethod === 'CASH')
+      const plannedPlafonIdr = cashVisits.reduce(
+        (sum, v) => sum + getVisitDisplayTotal(v),
+        0
+      )
+      const plannedDsaIdr = sumPlannedDsa(planned, 'CASH')
+      const plannedIdr = plannedPlafonIdr
 
       summaries.push({
         method: 'CASH',
         label: rule.label,
         limitIdr: null,
         usedIdr,
+        plannedPlafonIdr,
+        plannedDsaIdr,
         plannedIdr,
         remainingIdr: null,
         periodLabel: 'Total',
@@ -832,6 +845,8 @@ export function computePlafonSummaries(
         label: rule.label,
         limitIdr: null,
         usedIdr: 0,
+        plannedPlafonIdr: 0,
+        plannedDsaIdr: 0,
         plannedIdr: 0,
         remainingIdr: null,
         periodLabel: 'Gratis',
@@ -893,6 +908,25 @@ export function getVisitVaccines(visit: VaccineStrategyVisit): StrategyVisitVacc
     ]
   }
   return []
+}
+
+/** Total harga vaksin — jumlahkan dari baris vaksin jika ada. */
+export function getVisitVaccineCostTotal(visit: VaccineStrategyVisit): number {
+  const rows = getVisitVaccines(visit)
+  if (rows.length > 0) {
+    return rows.reduce((sum, row) => sum + (row.vaccineCostIdr ?? 0), 0)
+  }
+  return visit.vaccineCostIdr ?? 0
+}
+
+export function reconcileVisitTotals(visit: VaccineStrategyVisit): VaccineStrategyVisit {
+  const vaccineCostIdr = getVisitVaccineCostTotal(visit)
+  const dsa = visit.dsaCostIdr ?? 0
+  const estimatedCostIdr =
+    visit.paymentMethod === 'INHEALTH' || visit.paymentMethod === 'PUSKESMAS'
+      ? 0
+      : vaccineCostIdr + dsa
+  return { ...visit, vaccineCostIdr, estimatedCostIdr }
 }
 
 export function visitDisplayLabel(visit: VaccineStrategyVisit): string {
@@ -984,7 +1018,7 @@ export function buildStrategyVisit(input: {
     vaccineProduct: first?.vaccineProduct ?? null,
   }
   savedVisit.estimatedCostIdr = getVisitDisplayTotal(savedVisit)
-  return savedVisit
+  return reconcileVisitTotals(savedVisit)
 }
 
 export function getVaccineInclusiveWeekRange(item: Immunization): {

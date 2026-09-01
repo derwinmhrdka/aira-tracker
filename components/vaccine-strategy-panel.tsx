@@ -82,7 +82,24 @@ export function VaccineStrategyPanel({
                 / {formatIdr(p.limitIdr)}
               </p>
             )}
-            {(p.method === 'FULLERTON' || p.method === 'CASH') && p.plannedIdr > 0 && (
+            {p.method === 'FULLERTON' && p.usedIdr > 0 && (
+              <p className="mt-0.5 text-[9px] tabular-nums text-muted-foreground">
+                Terpakai {formatIdr(p.usedIdr)}
+              </p>
+            )}
+            {p.method === 'FULLERTON' && p.plannedPlafonIdr > 0 && (
+              <p className="mt-0.5 flex items-center gap-0.5 text-[9px] tabular-nums text-muted-foreground">
+                <TrendingDown className="h-3 w-3 shrink-0" aria-label="Rencana vaksin" />
+                {formatIdr(p.plannedPlafonIdr)}
+                <span className="text-[8px]">vaksin</span>
+              </p>
+            )}
+            {p.method === 'FULLERTON' && p.plannedDsaIdr > 0 && (
+              <p className="mt-0.5 text-[9px] tabular-nums text-muted-foreground">
+                + {formatIdr(p.plannedDsaIdr)} DSA (cash)
+              </p>
+            )}
+            {p.method === 'CASH' && p.plannedIdr > 0 && (
               <p className="mt-0.5 flex items-center gap-0.5 text-[9px] tabular-nums text-muted-foreground">
                 <TrendingDown className="h-3 w-3 shrink-0" aria-label="Rencana biaya" />
                 {formatIdr(p.plannedIdr)}
@@ -179,7 +196,7 @@ export function VaccineStrategyPanel({
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
-          Tambah rencana
+          Add Plan
         </button>
         {onEditSettings && (
           <button

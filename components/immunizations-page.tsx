@@ -463,7 +463,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
                 : 'text-muted-foreground'
             }`}
           >
-            {tab === 'chart' ? 'Jadwal' : tab === 'list' ? 'Daftar' : 'Strategi'}
+            {tab === 'chart' ? 'Jadwal' : tab === 'list' ? 'Daftar' : 'Plan'}
           </button>
         ))}
       </div>
