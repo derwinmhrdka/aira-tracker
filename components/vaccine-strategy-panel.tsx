@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Plus, Pencil, Settings, Trash2, TrendingDown } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, Pencil, Settings, Trash2 } from 'lucide-react'
 import type { Immunization, VaccinePaymentMethod, VaccineStrategySettings } from '@/lib/api-client'
 import { PaymentMethodLogo } from './payment-method-logo'
+import { PlafonDetailSheet } from './plafon-detail-sheet'
 import {
   computePlafonSummaries,
   formatIdr,
@@ -25,6 +26,9 @@ type VaccineStrategyPanelProps = {
   onEditVisit: (visit: VaccineStrategySettings['visits'][number]) => void
   onDeleteVisit: (id: string) => void
   onEditSettings?: () => void
+  onSaveStrategy?: (data: {
+    insurance_rules?: VaccineStrategySettings['insuranceRules']
+  }) => Promise<void>
 }
 
 const PLAFON_CARD_STYLE: Record<VaccinePaymentMethod, string> = {
@@ -35,10 +39,13 @@ const PLAFON_CARD_STYLE: Record<VaccinePaymentMethod, string> = {
   CASH: 'border-border bg-card',
 }
 
-function plafonAmount(p: ReturnType<typeof computePlafonSummaries>[number]): string {
-  if (p.method === 'FULLERTON') return formatIdr(p.remainingIdr ?? 0)
-  if (p.method === 'CASH') return formatIdr(p.usedIdr + p.plannedIdr)
-  return formatIdr(0)
+function cardBalance(
+  p: ReturnType<typeof computePlafonSummaries>[number]
+): { label: string; amount: string } | null {
+  if (p.method === 'FULLERTON') {
+    return { label: 'Sisa saldo', amount: formatIdr(p.remainingIdr ?? 0) }
+  }
+  return null
 }
 
 export function VaccineStrategyPanel({
@@ -49,7 +56,10 @@ export function VaccineStrategyPanel({
   onEditVisit,
   onDeleteVisit,
   onEditSettings,
+  onSaveStrategy,
 }: VaccineStrategyPanelProps) {
+  const [plafonDetail, setPlafonDetail] = useState<VaccinePaymentMethod | null>(null)
+
   const plafon = useMemo(
     () => computePlafonSummaries(immunizations, strategy),
     [immunizations, strategy]
@@ -62,57 +72,58 @@ export function VaccineStrategyPanel({
   return (
     <div className="space-y-3">
       <div className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch]">
-        {plafon.map((p) => (
-          <div
-            key={p.method}
-            className={`relative w-[calc(50%-0.25rem)] shrink-0 snap-start overflow-hidden rounded-xl border p-3 ${PLAFON_CARD_STYLE[p.method]}`}
-          >
-            <div className="flex min-h-[10px] items-center">
-              {p.method === 'INHEALTH' || p.method === 'FULLERTON' ? (
-                <PaymentMethodLogo method={p.method} />
+        {plafon.map((p) => {
+          const balance = cardBalance(p)
+          const clickable = p.method === 'FULLERTON' && onSaveStrategy
+
+          return (
+            <div
+              key={p.method}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={clickable ? () => setPlafonDetail(p.method) : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setPlafonDetail(p.method)
+                      }
+                    }
+                  : undefined
+              }
+              className={`relative w-[calc(50%-0.25rem)] shrink-0 snap-start overflow-hidden rounded-xl border p-3 ${PLAFON_CARD_STYLE[p.method]} ${
+                clickable ? 'cursor-pointer transition-colors hover:bg-secondary/20' : ''
+              }`}
+            >
+              <div className="flex min-h-[10px] items-center">
+                {p.method === 'INHEALTH' || p.method === 'FULLERTON' ? (
+                  <PaymentMethodLogo method={p.method} />
+                ) : (
+                  <p className="text-[10px] font-semibold leading-none text-muted-foreground">
+                    {p.label}
+                  </p>
+                )}
+              </div>
+              {balance ? (
+                <>
+                  <p className="mt-2 text-[9px] text-muted-foreground">{balance.label}</p>
+                  <p className="text-[11px] font-bold leading-tight tabular-nums text-foreground">
+                    {balance.amount}
+                  </p>
+                </>
               ) : (
-                <p className="text-[10px] font-semibold leading-none text-muted-foreground">{p.label}</p>
+                <p className="mt-2 text-[11px] font-semibold text-muted-foreground">—</p>
               )}
             </div>
-            <p className="mt-1 text-[11px] font-bold leading-tight tabular-nums text-foreground">
-              {plafonAmount(p)}
-            </p>
-            {p.limitIdr != null && (
-              <p className="mt-0.5 text-[9px] leading-tight tabular-nums text-muted-foreground">
-                / {formatIdr(p.limitIdr)}
-              </p>
-            )}
-            {p.method === 'FULLERTON' && p.usedIdr > 0 && (
-              <p className="mt-0.5 text-[9px] tabular-nums text-muted-foreground">
-                Terpakai {formatIdr(p.usedIdr)}
-              </p>
-            )}
-            {p.method === 'FULLERTON' && p.plannedPlafonIdr > 0 && (
-              <p className="mt-0.5 flex items-center gap-0.5 text-[9px] tabular-nums text-muted-foreground">
-                <TrendingDown className="h-3 w-3 shrink-0" aria-label="Rencana vaksin" />
-                {formatIdr(p.plannedPlafonIdr)}
-                <span className="text-[8px]">vaksin</span>
-              </p>
-            )}
-            {p.method === 'FULLERTON' && p.plannedDsaIdr > 0 && (
-              <p className="mt-0.5 text-[9px] tabular-nums text-muted-foreground">
-                + {formatIdr(p.plannedDsaIdr)} DSA (cash)
-              </p>
-            )}
-            {p.method === 'CASH' && p.plannedIdr > 0 && (
-              <p className="mt-0.5 flex items-center gap-0.5 text-[9px] tabular-nums text-muted-foreground">
-                <TrendingDown className="h-3 w-3 shrink-0" aria-label="Rencana biaya" />
-                {formatIdr(p.plannedIdr)}
-              </p>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className="space-y-1.5">
         {sortedVisits.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border py-6 text-center text-xs text-muted-foreground">
-            Belum ada rencana
+            Belum ada plan
           </p>
         ) : (
           sortedVisits.map((visit) => {
@@ -148,9 +159,7 @@ export function VaccineStrategyPanel({
                   <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
                     {formatVisitDate(visit)}
                     {' · '}
-                    <span className="text-[9px]">
-                      {formatIdr(getVisitDisplayTotal(visit))}
-                    </span>
+                    <span className="text-[9px]">{formatIdr(getVisitDisplayTotal(visit))}</span>
                   </p>
                   {vaccineDetail && (
                     <p className="mt-0.5 text-[10px] text-muted-foreground">{vaccineDetail}</p>
@@ -208,6 +217,17 @@ export function VaccineStrategyPanel({
           </button>
         )}
       </div>
+
+      {onSaveStrategy && (
+        <PlafonDetailSheet
+          open={plafonDetail === 'FULLERTON'}
+          method={plafonDetail}
+          strategy={strategy}
+          immunizations={immunizations}
+          onClose={() => setPlafonDetail(null)}
+          onSave={onSaveStrategy}
+        />
+      )}
     </div>
   )
 }

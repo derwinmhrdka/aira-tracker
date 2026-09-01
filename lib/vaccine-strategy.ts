@@ -469,8 +469,8 @@ export function estimateStrategyCost(
       return {
         vaccineCostIdr,
         dsaCostIdr,
-        totalOutOfPocketIdr: dsaCostIdr,
-        plafonImpactIdr: vaccineCostIdr,
+        totalOutOfPocketIdr: 0,
+        plafonImpactIdr: vaccineCostIdr + dsaCostIdr,
       }
     case 'CASH':
       return {
@@ -511,8 +511,8 @@ export function estimateVisitCost(
       return {
         vaccineCostIdr: vaccineTotal,
         dsaCostIdr,
-        totalOutOfPocketIdr: dsaCostIdr,
-        plafonImpactIdr: vaccineTotal,
+        totalOutOfPocketIdr: 0,
+        plafonImpactIdr: vaccineTotal + dsaCostIdr,
       }
     case 'CASH':
       return {
@@ -532,12 +532,9 @@ export function getVisitDisplayTotal(visit: VaccineStrategyVisit): number {
   return getVisitVaccineCostTotal(visit) + (visit.dsaCostIdr ?? 0)
 }
 
-/** Dampak ke plafon asuransi (vaksin saja, tanpa DSA cash). */
+/** Dampak ke plafon / saldo (vaksin + DSA sebagai satu pembayaran). */
 export function getVisitPlafonImpact(visit: VaccineStrategyVisit): number {
-  if (visit.paymentMethod === 'FULLERTON') {
-    return getVisitVaccineCostTotal(visit)
-  }
-  if (visit.paymentMethod === 'CASH') {
+  if (visit.paymentMethod === 'FULLERTON' || visit.paymentMethod === 'CASH') {
     return getVisitDisplayTotal(visit)
   }
   return 0
@@ -717,15 +714,15 @@ export type PlafonSummary = {
   label: string
   limitIdr: number | null
   usedIdr: number
-  /** Vaksin rencana yang mengurangi plafon */
-  plannedPlafonIdr: number
-  /** DSA rencana (cash, tidak mengurangi plafon Fullerton) */
-  plannedDsaIdr: number
-  /** Total rencana tampilan (vaksin + DSA) */
   plannedIdr: number
   remainingIdr: number | null
   periodLabel: string
   unlimited: boolean
+}
+
+export type PlafonExpenseItem = {
+  label: string
+  amountIdr: number
 }
 
 function sumPlafonImpact(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
@@ -734,10 +731,56 @@ function sumPlafonImpact(visits: VaccineStrategyVisit[], method: VaccinePaymentM
     .reduce((sum, v) => sum + getVisitPlafonImpact(v), 0)
 }
 
-function sumPlannedDsa(visits: VaccineStrategyVisit[], method: VaccinePaymentMethod): number {
-  return visits
-    .filter((v) => v.paymentMethod === method)
-    .reduce((sum, v) => sum + (v.dsaCostIdr ?? 0), 0)
+export function getPlafonExpenseItems(
+  method: VaccinePaymentMethod,
+  immunizations: Immunization[],
+  settings: VaccineStrategySettings,
+  refDate = new Date()
+): PlafonExpenseItem[] {
+  const items: PlafonExpenseItem[] = []
+
+  if (method === 'FULLERTON') {
+    const period = getInsurancePeriod('FULLERTON', settings.insuranceRules, refDate)
+    if (period) {
+      for (const item of immunizations) {
+        if (!item.is_done || item.payment_method !== 'FULLERTON' || !item.cost_idr) continue
+        if (!item.date_given) continue
+        const given = new Date(item.date_given)
+        if (given < period.start || given > period.end) continue
+        const label = item.dose_label
+          ? `${item.vaccine_name} · ${item.dose_label}`
+          : item.vaccine_name
+        items.push({ label, amountIdr: item.cost_idr })
+      }
+    }
+
+    for (const visit of settings.visits) {
+      if (visit.paymentMethod !== 'FULLERTON') continue
+      items.push({
+        label: visitDisplayLabel(visit),
+        amountIdr: getVisitDisplayTotal(visit),
+      })
+    }
+  }
+
+  if (method === 'CASH') {
+    for (const item of immunizations) {
+      if (!item.is_done || item.payment_method !== 'CASH' || !item.cost_idr) continue
+      const label = item.dose_label
+        ? `${item.vaccine_name} · ${item.dose_label}`
+        : item.vaccine_name
+      items.push({ label, amountIdr: item.cost_idr })
+    }
+    for (const visit of settings.visits) {
+      if (visit.paymentMethod !== 'CASH') continue
+      items.push({
+        label: visitDisplayLabel(visit),
+        amountIdr: getVisitDisplayTotal(visit),
+      })
+    }
+  }
+
+  return items
 }
 
 export function computePlafonSummaries(
@@ -755,8 +798,6 @@ export function computePlafonSummaries(
         label: rule.label,
         limitIdr: null,
         usedIdr: 0,
-        plannedPlafonIdr: 0,
-        plannedDsaIdr: 0,
         plannedIdr: 0,
         remainingIdr: null,
         periodLabel: 'Tanpa plafon',
@@ -791,19 +832,15 @@ export function computePlafonSummaries(
           ? settings.fullertonUsedBeforeTrackingIdr ?? 0
           : 0
 
-      const plannedPlafonIdr = sumPlafonImpact(planned, 'FULLERTON')
-      const plannedDsaIdr = sumPlannedDsa(planned, 'FULLERTON')
-      const plannedIdr = plannedPlafonIdr + plannedDsaIdr
+      const plannedIdr = sumPlafonImpact(planned, 'FULLERTON')
       const usedIdr = usedFromLogs + opening
-      const remainingIdr = Math.max(0, rule.annualLimitIdr - usedIdr - plannedPlafonIdr)
+      const remainingIdr = Math.max(0, rule.annualLimitIdr - usedIdr - plannedIdr)
 
       summaries.push({
         method: 'FULLERTON',
         label: rule.label,
         limitIdr: rule.annualLimitIdr,
         usedIdr,
-        plannedPlafonIdr,
-        plannedDsaIdr,
         plannedIdr,
         remainingIdr,
         periodLabel: `${period.start.getFullYear()}`,
@@ -816,21 +853,13 @@ export function computePlafonSummaries(
       const usedIdr = immunizations
         .filter((i) => i.is_done && i.payment_method === 'CASH' && i.cost_idr)
         .reduce((sum, i) => sum + (i.cost_idr ?? 0), 0)
-      const cashVisits = planned.filter((v) => v.paymentMethod === 'CASH')
-      const plannedPlafonIdr = cashVisits.reduce(
-        (sum, v) => sum + getVisitDisplayTotal(v),
-        0
-      )
-      const plannedDsaIdr = sumPlannedDsa(planned, 'CASH')
-      const plannedIdr = plannedPlafonIdr
+      const plannedIdr = sumPlafonImpact(planned, 'CASH')
 
       summaries.push({
         method: 'CASH',
         label: rule.label,
         limitIdr: null,
         usedIdr,
-        plannedPlafonIdr,
-        plannedDsaIdr,
         plannedIdr,
         remainingIdr: null,
         periodLabel: 'Total',
@@ -845,8 +874,6 @@ export function computePlafonSummaries(
         label: rule.label,
         limitIdr: null,
         usedIdr: 0,
-        plannedPlafonIdr: 0,
-        plannedDsaIdr: 0,
         plannedIdr: 0,
         remainingIdr: null,
         periodLabel: 'Gratis',

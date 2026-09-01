@@ -548,6 +548,7 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
           }}
           onDeleteVisit={deleteStrategyVisit}
           onEditSettings={() => setShowStrategySettings(true)}
+          onSaveStrategy={saveStrategySettings}
         />
       ) : (
         <div className="relative ml-1 pl-5">
