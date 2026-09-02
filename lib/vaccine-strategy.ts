@@ -1049,6 +1049,77 @@ export function reconcileVisitTotals(visit: VaccineStrategyVisit): VaccineStrate
   return { ...visit, vaccineCostIdr, estimatedCostIdr }
 }
 
+export const VISIT_CARD_THEME: Record<
+  VaccinePaymentMethod,
+  {
+    card: string
+    stripe: string
+    dateBg: string
+    chip: string
+    cost: string
+  }
+> = {
+  INHEALTH: {
+    card: 'border-red-200/70 bg-gradient-to-br from-red-50 via-red-50/30 to-background dark:border-red-900/45 dark:from-red-950/40 dark:via-red-950/15 dark:to-card',
+    stripe: 'bg-red-500',
+    dateBg: 'bg-red-500 shadow-red-500/25',
+    chip: 'bg-white/70 text-red-900 ring-1 ring-red-200/80 dark:bg-red-950/50 dark:text-red-100 dark:ring-red-800/50',
+    cost: 'bg-red-500/10 text-red-800 dark:bg-red-950/60 dark:text-red-200',
+  },
+  FULLERTON: {
+    card: 'border-blue-200/70 bg-gradient-to-br from-blue-50 via-blue-50/30 to-background dark:border-blue-900/45 dark:from-blue-950/40 dark:via-blue-950/15 dark:to-card',
+    stripe: 'bg-blue-500',
+    dateBg: 'bg-blue-500 shadow-blue-500/25',
+    chip: 'bg-white/70 text-blue-900 ring-1 ring-blue-200/80 dark:bg-blue-950/50 dark:text-blue-100 dark:ring-blue-800/50',
+    cost: 'bg-blue-500/10 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200',
+  },
+  PUSKESMAS: {
+    card: 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-emerald-50/30 to-background dark:border-emerald-900/45 dark:from-emerald-950/40 dark:via-emerald-950/15 dark:to-card',
+    stripe: 'bg-emerald-500',
+    dateBg: 'bg-emerald-500 shadow-emerald-500/25',
+    chip: 'bg-white/70 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-100 dark:ring-emerald-800/50',
+    cost: 'bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200',
+  },
+  CASH: {
+    card: 'border-border bg-gradient-to-br from-secondary/60 via-secondary/20 to-background dark:from-secondary/30 dark:via-secondary/10 dark:to-card',
+    stripe: 'bg-muted-foreground/40',
+    dateBg: 'bg-foreground/80 shadow-foreground/10',
+    chip: 'bg-background/80 text-foreground ring-1 ring-border',
+    cost: 'bg-secondary text-muted-foreground',
+  },
+}
+
+export const VISIT_DONE_THEME = {
+  card: 'border-emerald-300/70 bg-gradient-to-br from-emerald-50 via-emerald-50/40 to-background dark:border-emerald-800/50 dark:from-emerald-950/35 dark:via-emerald-950/15 dark:to-card',
+  stripe: 'bg-emerald-500',
+  dateBg: 'bg-emerald-500 shadow-emerald-500/25',
+  chip: 'bg-white/80 text-emerald-900 ring-1 ring-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-100 dark:ring-emerald-800/50',
+  cost: 'bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200',
+}
+
+export function formatVisitDateParts(
+  visit: VaccineStrategyVisit
+): { day: string; month: string; year: string } | null {
+  if (!visit.targetDate) return null
+  const d = new Date(visit.targetDate)
+  if (Number.isNaN(d.getTime())) return null
+  return {
+    day: String(d.getDate()),
+    month: d.toLocaleDateString('id-ID', { month: 'short' }).replace('.', ''),
+    year: String(d.getFullYear()),
+  }
+}
+
+export function visitVaccineChipLabel(v: StrategyVisitVaccine): string {
+  const product = v.vaccineProduct?.trim()
+  if (product) return product
+  const brand = BUILTIN_CATALOG_VACCINES[v.vaccineCatalogId]
+  if (brand) return brand
+  const name = v.vaccineName.trim()
+  if (name.length <= 16) return name
+  return `${name.slice(0, 14)}…`
+}
+
 export function visitDisplayLabel(visit: VaccineStrategyVisit): string {
   const vaccines = getVisitVaccines(visit)
   if (vaccines.length === 0) return 'Kunjungan'
