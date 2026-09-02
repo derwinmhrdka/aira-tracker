@@ -6,7 +6,8 @@ import { api, type BabyProfile, type GrowthLog } from '@/lib/api-client'
 import {
   formatGrowthIdealDelta,
   formatGrowthValue,
-  formatGrowthVelocityDelta,
+  formatGrowthVelocityChange,
+  formatGrowthVelocityStatusLabel,
   getGrowthGaugePercent,
   getGrowthTrend,
   getGrowthVelocityTrend,
@@ -77,14 +78,9 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
   const velocity = previous
     ? getGrowthVelocityTrend({ value, date: measureDate }, previous, birthDate, metric, gender)
     : null
-  const velocityDelta =
-    previous != null
-      ? formatGrowthVelocityDelta({ value, date: measureDate }, previous, birthDate, metric, gender)
-      : null
   const style = TREND_STYLE[trend]
   const velocityStyle = velocity ? TREND_STYLE[velocity.trend] : null
   const showIdealDelta = trend !== 'normal' && idealDelta != null
-  const showVelocityDelta = velocity != null && velocity.trend !== 'normal' && velocityDelta != null
 
   return (
     <div className="min-w-0 flex-1 rounded-xl border border-border/70 bg-background/60 px-2 py-2">
@@ -92,41 +88,18 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
         <span className="text-[9px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
           {growthMetricShortLabel(metric)}
         </span>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <div className="flex items-center gap-0.5" title="Posisi">
-            {showIdealDelta ? (
-              <span className={`text-[9px] font-bold tabular-nums leading-none ${style.delta}`}>
-                {idealDelta}
-              </span>
-            ) : null}
-            <span
-              className={`flex h-5 w-5 items-center justify-center rounded-full ${style.ring}`}
-              aria-label={`Posisi ${trend === 'normal' ? 'normal' : trend === 'under' ? 'kurang' : 'lebih'}`}
-            >
-              <TrendIcon trend={trend} />
+        <div className="flex shrink-0 items-center gap-0.5">
+          {showIdealDelta ? (
+            <span className={`text-[9px] font-bold tabular-nums leading-none ${style.delta}`}>
+              {idealDelta}
             </span>
-          </div>
-          {velocity && velocityStyle ? (
-            <div className="flex items-center gap-0.5" title="Laju">
-              {showVelocityDelta ? (
-                <span
-                  className={`text-[9px] font-bold tabular-nums leading-none ${velocityStyle.delta}`}
-                >
-                  {velocityDelta}
-                </span>
-              ) : null}
-              <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full ${velocityStyle.ring}`}
-                aria-label={
-                  velocity.isWeightFaltering
-                    ? 'Laju BB di bawah KBM'
-                    : `Laju ${velocity.trend === 'normal' ? 'normal' : velocity.trend === 'under' ? 'lambat' : 'cepat'}`
-                }
-              >
-                <TrendIcon trend={velocity.trend} />
-              </span>
-            </div>
           ) : null}
+          <span
+            className={`flex h-5 w-5 items-center justify-center rounded-full ${style.ring}`}
+            aria-label={`Posisi ${trend === 'normal' ? 'normal' : trend === 'under' ? 'kurang' : 'lebih'}`}
+          >
+            <TrendIcon trend={trend} />
+          </span>
         </div>
       </div>
 
@@ -148,6 +121,19 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
             style={{ left: `${gaugePct}%` }}
           />
         </div>
+      ) : null}
+
+      {velocity && velocityStyle ? (
+        <p className="mt-1.5 truncate text-[9px] leading-tight">
+          <span className="text-muted-foreground">Laju </span>
+          <span className={`font-semibold tabular-nums ${velocityStyle.delta}`}>
+            {formatGrowthVelocityChange(velocity, metric)}
+          </span>
+          <span className="text-muted-foreground"> · </span>
+          <span className={`font-medium ${velocityStyle.delta}`}>
+            {formatGrowthVelocityStatusLabel(velocity)}
+          </span>
+        </p>
       ) : null}
     </div>
   )

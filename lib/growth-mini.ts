@@ -207,6 +207,24 @@ export function formatGrowthVelocityDelta(
   return velocity.trend === 'under' ? `-${formatted}` : `+${formatted}`
 }
 
+export function formatGrowthVelocityChange(
+  velocity: GrowthVelocityResult,
+  metric: GrowthMetric
+): string {
+  if (metric === 'weight') {
+    const grams = Math.round(velocity.monthlyChange * 1000)
+    return grams > 0 ? `+${grams}g` : `${grams}g`
+  }
+  const change = velocity.monthlyChange.toFixed(1).replace('.', ',')
+  const signed = velocity.monthlyChange > 0 ? `+${change}` : change
+  return `${signed} cm`
+}
+
+export function formatGrowthVelocityStatusLabel(velocity: GrowthVelocityResult): string {
+  if (velocity.isWeightFaltering) return 'Di bawah KBM'
+  return GROWTH_VELOCITY_LABEL[velocity.trend]
+}
+
 export function formatGrowthVelocitySummary(
   current: GrowthMetricPoint,
   previous: GrowthMetricPoint,
@@ -220,13 +238,13 @@ export function formatGrowthVelocitySummary(
   if (metric === 'weight') {
     const grams = Math.round(velocity.monthlyChange * 1000)
     const signed = grams > 0 ? `+${grams}` : String(grams)
-    return `${signed} g/bln · target ${velocity.targetLabel}`
+    return `${signed} g/bln`
   }
 
   const unit = growthMetricUnit(metric)
   const change = velocity.monthlyChange.toFixed(1).replace('.', ',')
   const signed = velocity.monthlyChange > 0 ? `+${change}` : change
-  return `${signed} ${unit}/bln · target ${velocity.targetLabel}`
+  return `${signed} ${unit}/bln`
 }
 
 export function getGrowthTrend(

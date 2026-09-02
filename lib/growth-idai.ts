@@ -288,8 +288,7 @@ export function evaluateIdaiOverallMonthlyGrowth(
   if (hasWeightFaltering) {
     return {
       trend: 'under',
-      message:
-        'WARNING: Kenaikan BB di bawah KBM (risiko weight faltering, evaluasi pelekatan ASI/nutrisi ke Sp.A)',
+      message: 'BB di bawah KBM — evaluasi ke Sp.A',
       hasWeightFaltering: true,
       hasHeadAlert,
     }
@@ -298,8 +297,7 @@ export function evaluateIdaiOverallMonthlyGrowth(
   if (hasHeadAlert) {
     return {
       trend: 'over',
-      message:
-        'Perhatian: kenaikan lingkar kepala perlu konfirmasi dokter anak (3 bulan pertama)',
+      message: 'LK perlu konfirmasi dokter anak',
       hasWeightFaltering: false,
       hasHeadAlert: true,
     }
@@ -308,7 +306,7 @@ export function evaluateIdaiOverallMonthlyGrowth(
   if (allIdeal) {
     return {
       trend: 'normal',
-      message: 'IDEAL: Pertumbuhan sesuai kurva WHO/IDAI',
+      message: 'Pertumbuhan sesuai IDAI',
       hasWeightFaltering: false,
       hasHeadAlert: false,
     }
@@ -317,7 +315,7 @@ export function evaluateIdaiOverallMonthlyGrowth(
   if (hasUnder) {
     return {
       trend: 'under',
-      message: 'Beberapa kenaikan bulanan di bawah rentang IDAI',
+      message: 'Ada kenaikan di bawah rentang IDAI',
       hasWeightFaltering: false,
       hasHeadAlert: false,
     }
@@ -326,7 +324,7 @@ export function evaluateIdaiOverallMonthlyGrowth(
   if (hasOver) {
     return {
       trend: 'over',
-      message: 'Beberapa kenaikan bulanan di atas rentang IDAI',
+      message: 'Ada kenaikan di atas rentang IDAI',
       hasWeightFaltering: false,
       hasHeadAlert: false,
     }
@@ -334,7 +332,7 @@ export function evaluateIdaiOverallMonthlyGrowth(
 
   return {
     trend: 'normal',
-    message: 'Pertumbuhan bulanan dalam pantauan',
+    message: 'Dalam pantauan',
     hasWeightFaltering: false,
     hasHeadAlert: false,
   }

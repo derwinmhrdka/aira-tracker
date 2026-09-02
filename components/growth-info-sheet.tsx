@@ -2,16 +2,16 @@
 
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertTriangle, ArrowDown, ArrowUp, Check, Circle, Ruler, Scale } from 'lucide-react'
+import { AlertTriangle, Check, Circle, Ruler, Scale } from 'lucide-react'
 import {
   formatGrowthIdealRange,
   formatGrowthValueWithUnit,
+  formatGrowthVelocityStatusLabel,
   formatGrowthVelocitySummary,
   getGrowthTrend,
   getGrowthVelocityTrend,
   getOverallMonthlyGrowthStatus,
   GROWTH_TREND_LABEL,
-  GROWTH_VELOCITY_LABEL,
   growthMetricFullLabel,
   type GrowthMetricPoint,
   type GrowthTrend,
@@ -25,27 +25,18 @@ export type GrowthInfoItem = {
   previous?: GrowthMetricPoint
 }
 
-const TREND_STYLE: Record<
-  GrowthTrend,
-  { pill: string; dot: string; icon: typeof Check; banner: string }
-> = {
+const TREND_STYLE: Record<GrowthTrend, { pill: string; text: string }> = {
   normal: {
     pill: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-    dot: 'bg-emerald-500',
-    icon: Check,
-    banner: 'border-emerald-200/70 bg-emerald-50/80 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200',
+    text: 'text-emerald-700 dark:text-emerald-300',
   },
   under: {
     pill: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-    dot: 'bg-amber-500',
-    icon: ArrowDown,
-    banner: 'border-amber-300/70 bg-amber-50/80 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200',
+    text: 'text-amber-700 dark:text-amber-300',
   },
   over: {
     pill: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
-    dot: 'bg-orange-500',
-    icon: ArrowUp,
-    banner: 'border-orange-300/70 bg-orange-50/80 text-orange-950 dark:border-orange-900/50 dark:bg-orange-950/30 dark:text-orange-200',
+    text: 'text-orange-700 dark:text-orange-300',
   },
 }
 
@@ -96,77 +87,52 @@ function GrowthInfoRow({
   const style = TREND_STYLE[trend]
   const velocityStyle = velocity ? TREND_STYLE[velocity.trend] : null
   const MetricIcon = METRIC_ICON[item.metric]
-  const StatusIcon = style.icon
 
   return (
-    <div className="rounded-xl border border-border bg-secondary/20 p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <MetricIcon className="h-3.5 w-3.5" strokeWidth={2.25} />
+    <div className="rounded-xl border border-border bg-secondary/20 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <MetricIcon className="h-3 w-3" strokeWidth={2.25} />
         </span>
-        <p className="text-sm font-semibold text-foreground">
-          {growthMetricFullLabel(item.metric)}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">
+            {growthMetricFullLabel(item.metric)}
+          </p>
+          <p className="text-sm font-bold tabular-nums text-foreground">
+            {formatGrowthValueWithUnit(item.value, item.metric)}
+          </p>
+        </div>
       </div>
 
-      <div className="space-y-1.5 pl-9">
-        <p className="text-sm tabular-nums text-foreground">
-          <span className="text-muted-foreground">Saat ini · </span>
-          <span className="font-bold">{formatGrowthValueWithUnit(item.value, item.metric)}</span>
-        </p>
-        {ideal ? (
-          <p className="text-xs tabular-nums text-muted-foreground">
-            Rentang posisi WHO · <span className="font-medium text-foreground">{ideal}</span>
-          </p>
-        ) : null}
-        <div className="flex flex-wrap gap-1.5">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${style.pill}`}
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
-            <StatusIcon className="h-3 w-3" strokeWidth={2.5} />
-            Posisi · {GROWTH_TREND_LABEL[trend]}
+      <div className="mt-2 flex flex-wrap gap-1 pl-8">
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${style.pill}`}>
+          Posisi {GROWTH_TREND_LABEL[trend]}
+        </span>
+        {velocity && velocityStyle ? (
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${velocityStyle.pill}`}>
+            Laju {formatGrowthVelocityStatusLabel(velocity)}
           </span>
-          {velocity && velocityStyle ? (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${velocityStyle.pill}`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${velocityStyle.dot}`} />
-              {velocity.trend === 'normal' ? (
-                <Check className="h-3 w-3" strokeWidth={2.5} />
-              ) : velocity.trend === 'under' ? (
-                <ArrowDown className="h-3 w-3" strokeWidth={2.5} />
-              ) : (
-                <ArrowUp className="h-3 w-3" strokeWidth={2.5} />
-              )}
-              Laju · {velocity.isWeightFaltering ? 'KBM' : GROWTH_VELOCITY_LABEL[velocity.trend]}
-            </span>
-          ) : null}
-        </div>
-        {velocitySummary ? (
-          <p className="text-xs tabular-nums text-muted-foreground">
-            Kenaikan 1 bln terakhir ({velocity?.bandLabel}) ·{' '}
-            <span className="font-medium text-foreground">{velocitySummary}</span>
-          </p>
-        ) : null}
-        {velocity?.statusDetail ? (
-          <p
-            className={`text-[11px] leading-snug ${
-              velocity.isWeightFaltering || velocity.alert
-                ? 'font-medium text-amber-800 dark:text-amber-300'
-                : 'text-muted-foreground'
-            }`}
-          >
-            {velocity.statusDetail}
-          </p>
-        ) : null}
-        {velocity?.alert ? (
-          <p className="flex items-start gap-1.5 text-[11px] font-medium leading-snug text-orange-800 dark:text-orange-300">
-            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-            {velocity.alert}
-          </p>
         ) : null}
       </div>
+
+      {ideal ? (
+        <p className="mt-1.5 pl-8 text-[10px] text-muted-foreground">
+          Ideal WHO · {ideal}
+        </p>
+      ) : null}
+
+      {velocitySummary ? (
+        <p className={`mt-1 pl-8 text-[10px] font-medium tabular-nums ${velocityStyle?.text ?? 'text-muted-foreground'}`}>
+          1 bln · {velocitySummary}
+        </p>
+      ) : null}
+
+      {velocity?.alert ? (
+        <p className="mt-1.5 flex items-start gap-1 pl-8 text-[10px] font-medium text-orange-700 dark:text-orange-300">
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+          LK perlu cek dokter
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -192,7 +158,9 @@ export function GrowthInfoSheet({
       : null
   )
   const overall = getOverallMonthlyGrowthStatus(velocities)
-  const overallStyle = overall ? TREND_STYLE[overall.trend] : null
+  const showBanner =
+    overall &&
+    (overall.hasWeightFaltering || overall.hasHeadAlert || overall.trend !== 'normal')
 
   return createPortal(
     <AnimatePresence>
@@ -215,18 +183,22 @@ export function GrowthInfoSheet({
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
             <h2 className="mb-3 font-heading text-base font-bold text-foreground">
-              Info pertumbuhan
+              Pertumbuhan
             </h2>
-            {overall && overallStyle ? (
+            {showBanner && overall ? (
               <div
-                className={`mb-3 rounded-xl border px-3 py-2.5 text-xs leading-snug ${overallStyle.banner}`}
+                className={`mb-3 flex items-start gap-1.5 rounded-xl border px-3 py-2 text-xs leading-snug ${
+                  overall.hasWeightFaltering || overall.hasHeadAlert
+                    ? 'border-amber-300/70 bg-amber-50/80 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200'
+                    : 'border-border bg-secondary/40 text-foreground'
+                }`}
               >
                 {overall.hasWeightFaltering || overall.hasHeadAlert ? (
-                  <AlertTriangle className="mb-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                 ) : (
-                  <Check className="mb-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
-                )}{' '}
-                {overall.message}
+                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                )}
+                <span>{overall.message}</span>
               </div>
             ) : null}
             <div className="space-y-2">
