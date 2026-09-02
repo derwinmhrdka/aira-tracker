@@ -22,27 +22,27 @@ type MetricCell = {
   measureDate: string
 }
 
+const GAUGE_GRADIENT =
+  'linear-gradient(to right, #ef4444 0%, #fb923c 20%, #22c55e 50%, #fb923c 80%, #ef4444 100%)'
+
 const TREND_STYLE: Record<
   GrowthTrend,
-  { ring: string; dot: string; delta: string; gauge: string }
+  { ring: string; dot: string; delta: string }
 > = {
   normal: {
     ring: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
     dot: 'bg-emerald-500',
     delta: 'text-emerald-600 dark:text-emerald-400',
-    gauge: 'bg-emerald-500',
   },
   under: {
     ring: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
     dot: 'bg-amber-500',
     delta: 'text-amber-600 dark:text-amber-400',
-    gauge: 'bg-amber-500',
   },
   over: {
     ring: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
     dot: 'bg-orange-500',
     delta: 'text-orange-600 dark:text-orange-400',
-    gauge: 'bg-orange-500',
   },
 }
 
@@ -68,6 +68,7 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
   const idealDelta = formatGrowthIdealDelta(value, birthDate, measureDate, metric, gender)
   const gaugePct = getGrowthGaugePercent(value, birthDate, measureDate, metric, gender)
   const style = TREND_STYLE[trend]
+  const showDelta = trend !== 'normal' && idealDelta != null
 
   return (
     <div className="min-w-0 flex-1 rounded-xl border border-border/70 bg-background/60 px-2 py-2">
@@ -75,12 +76,19 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
         <span className="text-[9px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
           {growthMetricShortLabel(metric)}
         </span>
-        <span
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${style.ring}`}
-          title={trend === 'normal' ? 'Normal' : trend === 'under' ? 'Kurang' : 'Lebih'}
-          aria-hidden
-        >
-          <TrendIcon trend={trend} />
+        <span className="flex shrink-0 items-center gap-0.5">
+          {showDelta ? (
+            <span className={`text-[9px] font-bold tabular-nums leading-none ${style.delta}`}>
+              {idealDelta}
+            </span>
+          ) : null}
+          <span
+            className={`flex h-5 w-5 items-center justify-center rounded-full ${style.ring}`}
+            title={trend === 'normal' ? 'Normal' : trend === 'under' ? 'Kurang' : 'Lebih'}
+            aria-hidden
+          >
+            <TrendIcon trend={trend} />
+          </span>
         </span>
       </div>
 
@@ -92,19 +100,16 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
       </p>
 
       {gaugePct != null ? (
-        <div className="relative mt-2 h-1 overflow-hidden rounded-full bg-secondary">
-          <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border" />
+        <div
+          className="relative mt-2 h-1.5 overflow-hidden rounded-full"
+          style={{ background: GAUGE_GRADIENT }}
+        >
+          <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/50" />
           <div
-            className={`absolute top-0 h-full w-1.5 -translate-x-1/2 rounded-full ${style.gauge}`}
+            className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background shadow-sm ${style.dot}`}
             style={{ left: `${gaugePct}%` }}
           />
         </div>
-      ) : null}
-
-      {idealDelta != null ? (
-        <p className={`mt-1 text-[10px] font-semibold tabular-nums ${style.delta}`}>
-          {idealDelta === '0' ? '·' : idealDelta}
-        </p>
       ) : null}
     </div>
   )
@@ -190,7 +195,7 @@ export function GrowthMiniCard({ birthDate }: GrowthMiniCardProps) {
         <button
           type="button"
           onClick={() => setInfoOpen(true)}
-          className="block w-full text-left transition-opacity hover:opacity-90"
+          className="block w-full text-left active:opacity-90"
         >
           <div className="flex gap-2">
             {metrics.map((cell) => (
