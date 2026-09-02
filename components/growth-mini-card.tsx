@@ -2,14 +2,19 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, Scale } from 'lucide-react'
-import { api, type BabyProfile } from '@/lib/api-client'
+import { api, type BabyProfile, type GrowthLog } from '@/lib/api-client'
 import {
   formatGrowthIdealDelta,
   formatGrowthValue,
+  formatGrowthVelocityDelta,
   getGrowthGaugePercent,
   getGrowthTrend,
+  getGrowthVelocityTrend,
+  getMetricBaselineOneMonthAgo,
+  getMetricHistoryFromLogs,
   growthMetricShortLabel,
   growthMetricUnit,
+  type GrowthMetricPoint,
   type GrowthTrend,
 } from '@/lib/growth-mini'
 import type { Gender, GrowthMetric } from '@/lib/who-growth'
@@ -20,6 +25,7 @@ type MetricCell = {
   metric: GrowthMetric
   value: number
   measureDate: string
+  previous?: GrowthMetricPoint
 }
 
 const GAUGE_GRADIENT =
@@ -59,6 +65,7 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
   birthDate,
   measureDate,
   gender,
+  previous,
 }: MetricCell & {
   birthDate: string
   measureDate: string
@@ -67,8 +74,17 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
   const trend = getGrowthTrend(value, birthDate, measureDate, metric, gender)
   const idealDelta = formatGrowthIdealDelta(value, birthDate, measureDate, metric, gender)
   const gaugePct = getGrowthGaugePercent(value, birthDate, measureDate, metric, gender)
+  const velocity = previous
+    ? getGrowthVelocityTrend({ value, date: measureDate }, previous, birthDate, metric, gender)
+    : null
+  const velocityDelta =
+    previous != null
+      ? formatGrowthVelocityDelta({ value, date: measureDate }, previous, birthDate, metric, gender)
+      : null
   const style = TREND_STYLE[trend]
-  const showDelta = trend !== 'normal' && idealDelta != null
+  const velocityStyle = velocity ? TREND_STYLE[velocity.trend] : null
+  const showIdealDelta = trend !== 'normal' && idealDelta != null
+  const showVelocityDelta = velocity != null && velocity.trend !== 'normal' && velocityDelta != null
 
   return (
     <div className="min-w-0 flex-1 rounded-xl border border-border/70 bg-background/60 px-2 py-2">
@@ -76,20 +92,42 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
         <span className="text-[9px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
           {growthMetricShortLabel(metric)}
         </span>
-        <span className="flex shrink-0 items-center gap-0.5">
-          {showDelta ? (
-            <span className={`text-[9px] font-bold tabular-nums leading-none ${style.delta}`}>
-              {idealDelta}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex items-center gap-0.5" title="Posisi">
+            {showIdealDelta ? (
+              <span className={`text-[9px] font-bold tabular-nums leading-none ${style.delta}`}>
+                {idealDelta}
+              </span>
+            ) : null}
+            <span
+              className={`flex h-5 w-5 items-center justify-center rounded-full ${style.ring}`}
+              aria-label={`Posisi ${trend === 'normal' ? 'normal' : trend === 'under' ? 'kurang' : 'lebih'}`}
+            >
+              <TrendIcon trend={trend} />
             </span>
+          </div>
+          {velocity && velocityStyle ? (
+            <div className="flex items-center gap-0.5" title="Laju">
+              {showVelocityDelta ? (
+                <span
+                  className={`text-[9px] font-bold tabular-nums leading-none ${velocityStyle.delta}`}
+                >
+                  {velocityDelta}
+                </span>
+              ) : null}
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full ${velocityStyle.ring}`}
+                aria-label={
+                  velocity.isWeightFaltering
+                    ? 'Laju BB di bawah KBM'
+                    : `Laju ${velocity.trend === 'normal' ? 'normal' : velocity.trend === 'under' ? 'lambat' : 'cepat'}`
+                }
+              >
+                <TrendIcon trend={velocity.trend} />
+              </span>
+            </div>
           ) : null}
-          <span
-            className={`flex h-5 w-5 items-center justify-center rounded-full ${style.ring}`}
-            title={trend === 'normal' ? 'Normal' : trend === 'under' ? 'Kurang' : 'Lebih'}
-            aria-hidden
-          >
-            <TrendIcon trend={trend} />
-          </span>
-        </span>
+        </div>
       </div>
 
       <p className="text-sm font-bold tabular-nums leading-none text-foreground">
@@ -119,7 +157,26 @@ type GrowthMiniCardProps = {
   birthDate?: string | null
 }
 
-function buildMetrics(profile: BabyProfile): MetricCell[] {
+function buildMetricsFromLogs(logs: GrowthLog[]): MetricCell[] {
+  const metrics: GrowthMetric[] = ['weight', 'height', 'head']
+  const cells: MetricCell[] = []
+
+  for (const metric of metrics) {
+    const history = getMetricHistoryFromLogs(logs, metric)
+    if (history.length === 0) continue
+    const current = history[0]
+    cells.push({
+      metric,
+      value: current.value,
+      measureDate: current.date,
+      previous: getMetricBaselineOneMonthAgo(history) ?? undefined,
+    })
+  }
+
+  return cells
+}
+
+function buildMetricsFromProfile(profile: BabyProfile): MetricCell[] {
   const cells: MetricCell[] = []
   if (profile.latest_weight_kg != null && profile.latest_growth_date) {
     cells.push({
@@ -151,6 +208,7 @@ function buildMetrics(profile: BabyProfile): MetricCell[] {
 
 export function GrowthMiniCard({ birthDate }: GrowthMiniCardProps) {
   const [profile, setProfile] = useState<BabyProfile | null>(null)
+  const [logs, setLogs] = useState<GrowthLog[]>([])
   const [ready, setReady] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
 
@@ -160,8 +218,12 @@ export function GrowthMiniCard({ birthDate }: GrowthMiniCardProps) {
       return
     }
     try {
-      const p = await api.getBabyProfile().catch(() => null)
+      const [p, growthLogs] = await Promise.all([
+        api.getBabyProfile().catch(() => null),
+        api.getGrowth().catch(() => [] as GrowthLog[]),
+      ])
       setProfile(p)
+      setLogs(growthLogs)
     } finally {
       setReady(true)
     }
@@ -173,9 +235,21 @@ export function GrowthMiniCard({ birthDate }: GrowthMiniCardProps) {
 
   useAppDataSync(load, { poll: false })
 
-  const metrics = useMemo(
-    () => (profile?.birth_date ? buildMetrics(profile) : []),
-    [profile]
+  const metrics = useMemo(() => {
+    if (logs.length > 0) return buildMetricsFromLogs(logs)
+    if (profile) return buildMetricsFromProfile(profile)
+    return []
+  }, [logs, profile])
+
+  const infoItems = useMemo<GrowthInfoItem[]>(
+    () =>
+      metrics.map((cell) => ({
+        metric: cell.metric,
+        value: cell.value,
+        measureDate: cell.measureDate,
+        previous: cell.previous,
+      })),
+    [metrics]
   )
 
   if (!birthDate || !ready) return null
@@ -212,7 +286,7 @@ export function GrowthMiniCard({ birthDate }: GrowthMiniCardProps) {
 
       <GrowthInfoSheet
         open={infoOpen}
-        items={metrics}
+        items={infoItems}
         birthDate={profile.birth_date}
         gender={gender}
         onClose={() => setInfoOpen(false)}
