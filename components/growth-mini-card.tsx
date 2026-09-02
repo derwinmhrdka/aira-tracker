@@ -6,12 +6,11 @@ import { api, type BabyProfile, type GrowthLog } from '@/lib/api-client'
 import {
   formatGrowthIdealDelta,
   formatGrowthValue,
-  formatGrowthVelocityChange,
   formatGrowthVelocityStatusLabel,
   getGrowthGaugePercent,
   getGrowthTrend,
   getGrowthVelocityTrend,
-  getMetricBaselineOneMonthAgo,
+  getMetricPreviousMeasurement,
   getMetricHistoryFromLogs,
   growthMetricShortLabel,
   growthMetricUnit,
@@ -124,15 +123,10 @@ const GrowthMetricTile = memo(function GrowthMetricTile({
       ) : null}
 
       {velocity && velocityStyle ? (
-        <p className="mt-1.5 truncate text-[9px] leading-tight">
-          <span className="text-muted-foreground">Laju </span>
-          <span className={`font-semibold tabular-nums ${velocityStyle.delta}`}>
-            {formatGrowthVelocityChange(velocity, metric)}
-          </span>
-          <span className="text-muted-foreground"> · </span>
-          <span className={`font-medium ${velocityStyle.delta}`}>
-            {formatGrowthVelocityStatusLabel(velocity)}
-          </span>
+        <p
+          className={`mt-1.5 text-center text-[9px] font-semibold leading-tight ${velocityStyle.delta}`}
+        >
+          {formatGrowthVelocityStatusLabel(velocity)}
         </p>
       ) : null}
     </div>
@@ -155,7 +149,7 @@ function buildMetricsFromLogs(logs: GrowthLog[]): MetricCell[] {
       metric,
       value: current.value,
       measureDate: current.date,
-      previous: getMetricBaselineOneMonthAgo(history) ?? undefined,
+      previous: getMetricPreviousMeasurement(history) ?? undefined,
     })
   }
 

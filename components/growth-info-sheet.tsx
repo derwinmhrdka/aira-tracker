@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { AlertTriangle, Check, Circle, Ruler, Scale } from 'lucide-react'
 import {
   formatGrowthIdealRange,
+  formatGrowthPositionInfo,
   formatGrowthValueWithUnit,
+  formatGrowthVelocityInfo,
   formatGrowthVelocityStatusLabel,
-  formatGrowthVelocitySummary,
   getGrowthTrend,
   getGrowthVelocityTrend,
   getOverallMonthlyGrowthStatus,
@@ -74,19 +75,11 @@ function GrowthInfoRow({
         gender
       )
     : null
-  const velocitySummary =
-    item.previous != null
-      ? formatGrowthVelocitySummary(
-          { value: item.value, date: item.measureDate },
-          item.previous,
-          birthDate,
-          item.metric,
-          gender
-        )
-      : null
   const style = TREND_STYLE[trend]
   const velocityStyle = velocity ? TREND_STYLE[velocity.trend] : null
   const MetricIcon = METRIC_ICON[item.metric]
+  const positionInfo = formatGrowthPositionInfo(trend, ideal)
+  const velocityInfo = velocity ? formatGrowthVelocityInfo(velocity, item.metric) : null
 
   return (
     <div className="rounded-xl border border-border bg-secondary/20 px-3 py-2.5">
@@ -104,35 +97,35 @@ function GrowthInfoRow({
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-1 pl-8">
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${style.pill}`}>
-          Posisi {GROWTH_TREND_LABEL[trend]}
-        </span>
-        {velocity && velocityStyle ? (
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${velocityStyle.pill}`}>
-            Laju {formatGrowthVelocityStatusLabel(velocity)}
+      <div className="mt-2 space-y-1.5 pl-8">
+        <div>
+          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${style.pill}`}>
+            Posisi · {GROWTH_TREND_LABEL[trend]}
           </span>
-        ) : null}
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{positionInfo}</p>
+        </div>
+
+        {velocity && velocityStyle ? (
+          <div>
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${velocityStyle.pill}`}
+            >
+              Laju · {formatGrowthVelocityStatusLabel(velocity)}
+            </span>
+            <p className={`mt-1 text-[11px] leading-snug ${velocityStyle.text}`}>{velocityInfo}</p>
+            {velocity.alert ? (
+              <p className="mt-1 flex items-start gap-1 text-[11px] font-medium leading-snug text-orange-700 dark:text-orange-300">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                LK di luar normal (3 bln pertama). Konfirmasi ke dokter anak.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Laju belum bisa dihitung — butuh minimal 2 pengukuran, jarak ≥7 hari.
+          </p>
+        )}
       </div>
-
-      {ideal ? (
-        <p className="mt-1.5 pl-8 text-[10px] text-muted-foreground">
-          Ideal WHO · {ideal}
-        </p>
-      ) : null}
-
-      {velocitySummary ? (
-        <p className={`mt-1 pl-8 text-[10px] font-medium tabular-nums ${velocityStyle?.text ?? 'text-muted-foreground'}`}>
-          1 bln · {velocitySummary}
-        </p>
-      ) : null}
-
-      {velocity?.alert ? (
-        <p className="mt-1.5 flex items-start gap-1 pl-8 text-[10px] font-medium text-orange-700 dark:text-orange-300">
-          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
-          LK perlu cek dokter
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -158,9 +151,6 @@ export function GrowthInfoSheet({
       : null
   )
   const overall = getOverallMonthlyGrowthStatus(velocities)
-  const showBanner =
-    overall &&
-    (overall.hasWeightFaltering || overall.hasHeadAlert || overall.trend !== 'normal')
 
   return createPortal(
     <AnimatePresence>
@@ -182,15 +172,18 @@ export function GrowthInfoSheet({
             style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
-            <h2 className="mb-3 font-heading text-base font-bold text-foreground">
+            <h2 className="mb-1 font-heading text-base font-bold text-foreground">
               Pertumbuhan
             </h2>
-            {showBanner && overall ? (
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              Posisi = banding kurva WHO. Laju = kenaikan aktual vs target IDAI (diprorata menurut jarak hari).
+            </p>
+            {overall ? (
               <div
                 className={`mb-3 flex items-start gap-1.5 rounded-xl border px-3 py-2 text-xs leading-snug ${
                   overall.hasWeightFaltering || overall.hasHeadAlert
                     ? 'border-amber-300/70 bg-amber-50/80 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200'
-                    : 'border-border bg-secondary/40 text-foreground'
+                    : 'border-emerald-200/70 bg-emerald-50/80 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200'
                 }`}
               >
                 {overall.hasWeightFaltering || overall.hasHeadAlert ? (

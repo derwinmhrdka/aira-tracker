@@ -1,8 +1,7 @@
 import { getKmsZone, type KmsZone } from '@/lib/kms-status'
 import {
-  evaluateIdaiMonthlyGrowth,
   evaluateIdaiOverallMonthlyGrowth,
-  normalizeToMonthlyChange,
+  evaluateIdaiPeriodGrowth,
   type IdaiOverallGrowthStatus,
   type IdaiVelocityEvaluation,
 } from '@/lib/growth-idai'
@@ -31,14 +30,13 @@ export type GrowthVelocityResult = {
   trend: GrowthTrend
   metric: GrowthMetric
   actualChange: number
-  monthlyChange: number
   daysBetween: number
   minExpected: number
   maxExpected: number
   targetLabel: string
+  periodTargetLabel: string
   bandLabel: string
   alert?: string
-  statusDetail?: string
   isWeightFaltering?: boolean
 }
 
@@ -56,8 +54,7 @@ export const GROWTH_VELOCITY_LABEL: Record<GrowthTrend, string> = {
   over: 'Cepat',
 }
 
-const MIN_VELOCITY_DAYS = 21
-const TARGET_MONTH_DAYS = 30
+const MIN_VELOCITY_DAYS = 7
 
 function daysBetweenDates(from: string, to: string): number {
   const start = new Date(from)
@@ -92,33 +89,23 @@ export function getMetricHistoryFromLogs(
     .filter((point): point is GrowthMetricPoint => point != null)
 }
 
-/** Titik acuan ~1 bulan sebelum pengukuran terbaru (paling dekat 30 hari). */
-export function getMetricBaselineOneMonthAgo(
+/** Pengukuran sebelumnya (langsung, bukan cari ~30 hari). */
+export function getMetricPreviousMeasurement(
   history: GrowthMetricPoint[]
 ): GrowthMetricPoint | null {
   if (history.length < 2) return null
-
   const current = history[0]
-  const currentMs = new Date(current.date).getTime()
-  if (Number.isNaN(currentMs)) return null
+  const previous = history[1]
+  const days = daysBetweenDates(previous.date, current.date)
+  if (days < MIN_VELOCITY_DAYS) return null
+  return previous
+}
 
-  const targetMs = currentMs - TARGET_MONTH_DAYS * 24 * 60 * 60 * 1000
-  let best: { point: GrowthMetricPoint; score: number } | null = null
-
-  for (const point of history.slice(1)) {
-    const days = daysBetweenDates(point.date, current.date)
-    if (days < MIN_VELOCITY_DAYS) continue
-
-    const pointMs = new Date(point.date).getTime()
-    if (Number.isNaN(pointMs)) continue
-
-    const score = Math.abs(pointMs - targetMs)
-    if (!best || score < best.score) {
-      best = { point, score }
-    }
-  }
-
-  return best?.point ?? null
+/** @deprecated Gunakan getMetricPreviousMeasurement */
+export function getMetricBaselineOneMonthAgo(
+  history: GrowthMetricPoint[]
+): GrowthMetricPoint | null {
+  return getMetricPreviousMeasurement(history)
 }
 
 export function getGrowthVelocityTrend(
@@ -132,23 +119,27 @@ export function getGrowthVelocityTrend(
   if (daysBetween < MIN_VELOCITY_DAYS) return null
 
   const actualChange = current.value - previous.value
-  const monthlyChange = normalizeToMonthlyChange(actualChange, daysBetween)
   const ageMonths = ageInMonths(birthDate, current.date)
-  const evaluation = evaluateIdaiMonthlyGrowth(monthlyChange, ageMonths, metric, gender)
+  const evaluation = evaluateIdaiPeriodGrowth(
+    actualChange,
+    daysBetween,
+    ageMonths,
+    metric,
+    gender
+  )
   if (!evaluation) return null
 
   return {
     trend: evaluation.trend,
     metric,
-    actualChange,
-    monthlyChange: evaluation.monthlyChange,
-    daysBetween,
+    actualChange: evaluation.actualChange,
+    daysBetween: evaluation.daysBetween,
     minExpected: evaluation.minExpected,
     maxExpected: evaluation.maxExpected,
     targetLabel: evaluation.targetLabel,
+    periodTargetLabel: evaluation.periodTargetLabel,
     bandLabel: evaluation.bandLabel,
     alert: evaluation.alert,
-    statusDetail: evaluation.statusDetail,
     isWeightFaltering: evaluation.isWeightFaltering,
   }
 }
@@ -162,13 +153,14 @@ export function getOverallMonthlyGrowthStatus(
         ? {
             metric: item.metric,
             trend: item.trend,
-            monthlyChange: item.monthlyChange,
+            actualChange: item.actualChange,
+            daysBetween: item.daysBetween,
             minExpected: item.minExpected,
             maxExpected: item.maxExpected,
             bandLabel: item.bandLabel,
             targetLabel: item.targetLabel,
+            periodTargetLabel: item.periodTargetLabel,
             alert: item.alert,
-            statusDetail: item.statusDetail,
             isWeightFaltering: item.isWeightFaltering,
           }
         : null
@@ -188,12 +180,11 @@ export function formatGrowthVelocityDelta(
   if (!velocity || velocity.trend === 'normal') return null
 
   if (metric === 'weight') {
-    const monthlyGrams = velocity.monthlyChange * 1000
-    const refGrams =
-      velocity.trend === 'under'
-        ? velocity.minExpected * 1000
-        : velocity.maxExpected * 1000
-    const diffGrams = Math.round(Math.abs(monthlyGrams - refGrams))
+    const actualGrams = Math.round(velocity.actualChange * 1000)
+    const refGrams = Math.round(
+      (velocity.trend === 'under' ? velocity.minExpected : velocity.maxExpected) * 1000
+    )
+    const diffGrams = Math.abs(actualGrams - refGrams)
     if (diffGrams >= 1000) {
       const kg = (diffGrams / 1000).toFixed(1).replace('.', ',')
       return velocity.trend === 'under' ? `-${kg}` : `+${kg}`
@@ -202,7 +193,7 @@ export function formatGrowthVelocityDelta(
   }
 
   const ref = velocity.trend === 'under' ? velocity.minExpected : velocity.maxExpected
-  const diff = Math.abs(velocity.monthlyChange - ref)
+  const diff = Math.abs(velocity.actualChange - ref)
   const formatted = diff.toFixed(1).replace('.', ',')
   return velocity.trend === 'under' ? `-${formatted}` : `+${formatted}`
 }
@@ -212,11 +203,11 @@ export function formatGrowthVelocityChange(
   metric: GrowthMetric
 ): string {
   if (metric === 'weight') {
-    const grams = Math.round(velocity.monthlyChange * 1000)
+    const grams = Math.round(velocity.actualChange * 1000)
     return grams > 0 ? `+${grams}g` : `${grams}g`
   }
-  const change = velocity.monthlyChange.toFixed(1).replace('.', ',')
-  const signed = velocity.monthlyChange > 0 ? `+${change}` : change
+  const change = velocity.actualChange.toFixed(1).replace('.', ',')
+  const signed = velocity.actualChange > 0 ? `+${change}` : change
   return `${signed} cm`
 }
 
@@ -225,7 +216,51 @@ export function formatGrowthVelocityStatusLabel(velocity: GrowthVelocityResult):
   return GROWTH_VELOCITY_LABEL[velocity.trend]
 }
 
+export function formatGrowthPositionInfo(
+  trend: GrowthTrend,
+  idealRange: string | null
+): string {
+  if (trend === 'normal') {
+    return idealRange
+      ? `Normal di rentang WHO (${idealRange})`
+      : 'Normal menurut kurva WHO'
+  }
+  if (trend === 'under') {
+    return idealRange
+      ? `Di bawah rentang WHO (${idealRange})`
+      : 'Di bawah rentang WHO'
+  }
+  return idealRange ? `Di atas rentang WHO (${idealRange})` : 'Di atas rentang WHO'
+}
+
+export function formatGrowthVelocityInfo(
+  velocity: GrowthVelocityResult,
+  metric: GrowthMetric
+): string {
+  const change = formatGrowthVelocityChange(velocity, metric)
+  const period = `${change} / ${velocity.daysBetween} hr`
+
+  if (velocity.isWeightFaltering) {
+    return `${period}. Target ${velocity.periodTargetLabel} (${velocity.targetLabel}). Evaluasi ke Sp.A`
+  }
+  if (velocity.trend === 'normal') {
+    return `${period}. Target ${velocity.periodTargetLabel}`
+  }
+  if (velocity.trend === 'under') {
+    return `${period}. Di bawah target ${velocity.periodTargetLabel}`
+  }
+  return `${period}. Di atas target ${velocity.periodTargetLabel}`
+}
+
 export function formatGrowthVelocitySummary(
+  velocity: GrowthVelocityResult,
+  metric: GrowthMetric
+): string {
+  const change = formatGrowthVelocityChange(velocity, metric)
+  return `${change} / ${velocity.daysBetween} hr`
+}
+
+export function formatGrowthVelocitySummaryFromPoints(
   current: GrowthMetricPoint,
   previous: GrowthMetricPoint,
   birthDate: string,
@@ -234,17 +269,7 @@ export function formatGrowthVelocitySummary(
 ): string | null {
   const velocity = getGrowthVelocityTrend(current, previous, birthDate, metric, gender)
   if (!velocity) return null
-
-  if (metric === 'weight') {
-    const grams = Math.round(velocity.monthlyChange * 1000)
-    const signed = grams > 0 ? `+${grams}` : String(grams)
-    return `${signed} g/bln`
-  }
-
-  const unit = growthMetricUnit(metric)
-  const change = velocity.monthlyChange.toFixed(1).replace('.', ',')
-  const signed = velocity.monthlyChange > 0 ? `+${change}` : change
-  return `${signed} ${unit}/bln`
+  return formatGrowthVelocitySummary(velocity, metric)
 }
 
 export function getGrowthTrend(
