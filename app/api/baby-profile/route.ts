@@ -21,6 +21,10 @@ function serializeProfile(
     date: Date
     weightKg: number
     heightCm: number
+  } | null,
+  latestHead?: {
+    date: Date
+    headCircumferenceCm: number
   } | null
 ) {
   const birth_date = profile.birthDate.toISOString().split('T')[0]
@@ -39,6 +43,8 @@ function serializeProfile(
     latest_weight_kg: latestGrowth?.weightKg ?? null,
     latest_height_cm: latestGrowth?.heightCm ?? null,
     latest_growth_date: latestGrowth?.date.toISOString().split('T')[0] ?? null,
+    latest_head_circumference_cm: latestHead?.headCircumferenceCm ?? null,
+    latest_head_date: latestHead?.date.toISOString().split('T')[0] ?? null,
     blood_type: profile.bloodType,
     parent_names: profile.parentNames,
     photo_url: profile.photoUrl,
@@ -52,12 +58,26 @@ function serializeProfile(
 }
 
 async function loadProfileResponse() {
-  const [profile, latestGrowth] = await Promise.all([
+  const [profile, latestGrowth, latestHead] = await Promise.all([
     prisma.babyProfile.findFirst(),
     prisma.growthLog.findFirst({ orderBy: { date: 'desc' } }),
+    prisma.growthLog.findFirst({
+      where: { headCircumferenceCm: { not: null, gt: 0 } },
+      orderBy: { date: 'desc' },
+      select: { date: true, headCircumferenceCm: true },
+    }),
   ])
   if (!profile) return null
-  return serializeProfile(profile, latestGrowth)
+  return serializeProfile(
+    profile,
+    latestGrowth,
+    latestHead?.headCircumferenceCm
+      ? {
+          date: latestHead.date,
+          headCircumferenceCm: latestHead.headCircumferenceCm,
+        }
+      : null
+  )
 }
 
 export async function GET() {

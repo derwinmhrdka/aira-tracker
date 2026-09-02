@@ -1,8 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, Scale } from 'lucide-react'
 import { api, type BabyProfile } from '@/lib/api-client'
 import {
@@ -14,10 +12,9 @@ import {
   growthMetricUnit,
   type GrowthTrend,
 } from '@/lib/growth-mini'
-import { pageToPath } from '@/lib/navigation'
 import type { Gender, GrowthMetric } from '@/lib/who-growth'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
-import { LIVE_SYNC_MS } from '@/lib/use-live-sync'
+import { GrowthInfoSheet, type GrowthInfoItem } from './growth-info-sheet'
 
 type MetricCell = {
   metric: GrowthMetric
@@ -56,7 +53,7 @@ function TrendIcon({ trend }: { trend: GrowthTrend }) {
   return <ArrowUp className={className} strokeWidth={2.5} />
 }
 
-function GrowthMetricTile({
+const GrowthMetricTile = memo(function GrowthMetricTile({
   metric,
   value,
   birthDate,
@@ -75,7 +72,7 @@ function GrowthMetricTile({
   return (
     <div className="min-w-0 flex-1 rounded-xl border border-border/70 bg-background/60 px-2 py-2">
       <div className="mb-1.5 flex items-center justify-between gap-1">
-        <span className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="text-[9px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
           {growthMetricShortLabel(metric)}
         </span>
         <span
@@ -111,39 +108,57 @@ function GrowthMetricTile({
       ) : null}
     </div>
   )
-}
+})
 
 type GrowthMiniCardProps = {
   birthDate?: string | null
 }
 
+function buildMetrics(profile: BabyProfile): MetricCell[] {
+  const cells: MetricCell[] = []
+  if (profile.latest_weight_kg != null && profile.latest_growth_date) {
+    cells.push({
+      metric: 'weight',
+      value: profile.latest_weight_kg,
+      measureDate: profile.latest_growth_date,
+    })
+  }
+  if (profile.latest_height_cm != null && profile.latest_growth_date) {
+    cells.push({
+      metric: 'height',
+      value: profile.latest_height_cm,
+      measureDate: profile.latest_growth_date,
+    })
+  }
+  if (
+    profile.latest_head_circumference_cm != null &&
+    profile.latest_head_circumference_cm > 0 &&
+    profile.latest_head_date
+  ) {
+    cells.push({
+      metric: 'head',
+      value: profile.latest_head_circumference_cm,
+      measureDate: profile.latest_head_date,
+    })
+  }
+  return cells
+}
+
 export function GrowthMiniCard({ birthDate }: GrowthMiniCardProps) {
-  const router = useRouter()
   const [profile, setProfile] = useState<BabyProfile | null>(null)
-  const [headData, setHeadData] = useState<{ value: number; date: string } | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [ready, setReady] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!birthDate) {
-      setLoading(false)
+      setReady(true)
       return
     }
     try {
-      const [p, growth] = await Promise.all([
-        api.getBabyProfile().catch(() => null),
-        api.getGrowth().catch(() => [] as Awaited<ReturnType<typeof api.getGrowth>>),
-      ])
+      const p = await api.getBabyProfile().catch(() => null)
       setProfile(p)
-      const latestWithHead = [...growth]
-        .filter((g) => g.head_circumference_cm != null && g.head_circumference_cm > 0)
-        .sort((a, b) => b.date.localeCompare(a.date))[0]
-      setHeadData(
-        latestWithHead?.head_circumference_cm
-          ? { value: latestWithHead.head_circumference_cm, date: latestWithHead.date }
-          : null
-      )
     } finally {
-      setLoading(false)
+      setReady(true)
     }
   }, [birthDate])
 
@@ -151,69 +166,52 @@ export function GrowthMiniCard({ birthDate }: GrowthMiniCardProps) {
     load()
   }, [load])
 
-  useAppDataSync(() => load(), { intervalMs: LIVE_SYNC_MS })
+  useAppDataSync(load, { poll: false })
 
-  const metrics = useMemo(() => {
-    if (!profile?.birth_date) return []
-    const cells: MetricCell[] = []
-    if (profile.latest_weight_kg != null && profile.latest_growth_date) {
-      cells.push({
-        metric: 'weight',
-        value: profile.latest_weight_kg,
-        measureDate: profile.latest_growth_date,
-      })
-    }
-    if (profile.latest_height_cm != null && profile.latest_growth_date) {
-      cells.push({
-        metric: 'height',
-        value: profile.latest_height_cm,
-        measureDate: profile.latest_growth_date,
-      })
-    }
-    if (headData) {
-      cells.push({
-        metric: 'head',
-        value: headData.value,
-        measureDate: headData.date,
-      })
-    }
-    return cells
-  }, [profile, headData])
+  const metrics = useMemo(
+    () => (profile?.birth_date ? buildMetrics(profile) : []),
+    [profile]
+  )
 
-  if (!birthDate || loading) return null
-  if (metrics.length === 0) return null
+  if (!birthDate || !ready) return null
+  if (!profile?.birth_date || metrics.length === 0) return null
 
-  const gender: Gender = profile?.gender === 'FEMALE' ? 'FEMALE' : 'MALE'
-  const birth = profile!.birth_date
+  const gender: Gender = profile.gender === 'FEMALE' ? 'FEMALE' : 'MALE'
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-4 rounded-2xl border border-border bg-card p-2.5 shadow-sm"
-    >
-      <div className="mb-2 flex items-center gap-1.5 px-0.5">
-        <Scale className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Pertumbuhan
-        </span>
-      </div>
-      <button
-        type="button"
-        onClick={() => router.push(pageToPath('stats'), { scroll: false })}
-        className="block w-full text-left transition-opacity hover:opacity-90"
-      >
-        <div className="flex gap-2">
-          {metrics.map((cell) => (
-            <GrowthMetricTile
-              key={cell.metric}
-              {...cell}
-              birthDate={birth}
-              gender={gender}
-            />
-          ))}
+    <>
+      <div className="mb-4 rounded-2xl border border-border bg-card p-2.5 shadow-sm">
+        <div className="mb-2 flex items-center gap-1.5 px-0.5">
+          <Scale className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Pertumbuhan
+          </span>
         </div>
-      </button>
-    </motion.div>
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          className="block w-full text-left transition-opacity hover:opacity-90"
+        >
+          <div className="flex gap-2">
+            {metrics.map((cell) => (
+              <GrowthMetricTile
+                key={cell.metric}
+                {...cell}
+                birthDate={profile.birth_date}
+                gender={gender}
+              />
+            ))}
+          </div>
+        </button>
+      </div>
+
+      <GrowthInfoSheet
+        open={infoOpen}
+        items={metrics}
+        birthDate={profile.birth_date}
+        gender={gender}
+        onClose={() => setInfoOpen(false)}
+      />
+    </>
   )
 }

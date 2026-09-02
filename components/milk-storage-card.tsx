@@ -11,6 +11,7 @@ import {
 import {
   dedupeClientMilkSlots,
   formatMilkExpiryRemaining,
+  formatMilkTime,
   getBottleDisplayNumber,
   getSlotMilkExpiryStatus,
   MILK_STORAGE_LAYOUT_DEFAULTS,
@@ -100,6 +101,11 @@ function BottleUnit({
       >
         {slot.is_filled ? `${slot.amount_ml} ml` : 'Kosong'}
       </motion.p>
+      {slot.is_filled && slot.filled_at && (
+        <p className="mt-0.5 line-clamp-1 text-[9px] tabular-nums text-muted-foreground">
+          {formatMilkTime(slot.filled_at)}
+        </p>
+      )}
       {slot.is_filled && slot.expires_at && (
         <p
           className={`mt-0.5 line-clamp-1 text-[9px] font-semibold tabular-nums ${

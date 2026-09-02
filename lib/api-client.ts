@@ -808,6 +808,8 @@ export interface BabyProfile {
   latest_weight_kg?: number | null
   latest_height_cm?: number | null
   latest_growth_date?: string | null
+  latest_head_circumference_cm?: number | null
+  latest_head_date?: string | null
   blood_type?: string | null
   parent_names?: string | null
   photo_url?: string | null

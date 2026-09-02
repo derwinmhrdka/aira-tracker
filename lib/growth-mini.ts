@@ -1,6 +1,5 @@
 import { getKmsZone, type KmsZone } from '@/lib/kms-status'
 import {
-  ageInMonths,
   getWhoValueAtAge,
   type Gender,
   type GrowthMetric,
@@ -101,5 +100,28 @@ export function growthMetricUnit(metric: GrowthMetric): string {
 export function growthMetricShortLabel(metric: GrowthMetric): string {
   if (metric === 'weight') return 'Berat'
   if (metric === 'height') return 'Panjang'
-  return 'LK'
+  return 'Lingkar kepala'
+}
+
+export function growthMetricFullLabel(metric: GrowthMetric): string {
+  if (metric === 'weight') return 'Berat badan'
+  if (metric === 'height') return 'Panjang badan'
+  return 'Lingkar kepala'
+}
+
+export function formatGrowthIdealRange(
+  birthDate: string,
+  measureDate: string,
+  metric: GrowthMetric,
+  gender: Gender = 'MALE'
+): string | null {
+  const minus2 = getWhoValueAtAge(birthDate, measureDate, metric, gender, 'minus2')
+  const plus2 = getWhoValueAtAge(birthDate, measureDate, metric, gender, 'plus2')
+  if (minus2 == null || plus2 == null) return null
+  const unit = growthMetricUnit(metric)
+  return `${formatGrowthValue(minus2, metric)}–${formatGrowthValue(plus2, metric)} ${unit}`
+}
+
+export function formatGrowthValueWithUnit(value: number, metric: GrowthMetric): string {
+  return `${formatGrowthValue(value, metric)} ${growthMetricUnit(metric)}`
 }

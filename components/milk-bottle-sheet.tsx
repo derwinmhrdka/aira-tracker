@@ -232,6 +232,22 @@ export function MilkBottleSheet({
 
                   <div>
                     <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Dimasukkan
+                    </p>
+                    <input
+                      type="datetime-local"
+                      value={filledAt}
+                      onChange={(e) => {
+                        const next = e.target.value
+                        setFilledAt(next)
+                        setExpiresAt(expiresFromDuration(next, expiryMinutes))
+                      }}
+                      className="box-border w-full min-w-0 max-w-full appearance-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm tabular-nums text-foreground"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
                       Expired
                     </p>
                     <div className="space-y-2 rounded-2xl bg-secondary/50 p-3">
