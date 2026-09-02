@@ -14,10 +14,10 @@ import {
   isVisitFullyCompleted,
   PAYMENT_METHOD_CARD_STYLE,
   sortVisitsByDateAsc,
-  VISIT_CARD_THEME,
   VISIT_DONE_THEME,
-  visitDisplayLabel,
-  visitVaccineDetail,
+  VISIT_NEUTRAL_THEME,
+  visitPlanTitle,
+  visitPlanVaccineType,
 } from '@/lib/vaccine-strategy'
 
 type VaccineStrategyPanelProps = {
@@ -81,10 +81,11 @@ function VisitPlanCard({
 }: VisitPlanCardProps) {
   const rangeWarning = getVisitPlanRangeWarning(visit, immunizations, birthDate)
   const visitDone = isVisitFullyCompleted(visit, immunizations)
-  const vaccineDetail = visitVaccineDetail(visit)
+  const title = visitPlanTitle(visit)
+  const vaccineType = visitPlanVaccineType(visit)
   const place = visit.location?.trim()
   const doctor = visit.doctorName?.trim()
-  const theme = visitDone ? VISIT_DONE_THEME : VISIT_CARD_THEME[visit.paymentMethod]
+  const theme = visitDone ? VISIT_DONE_THEME : VISIT_NEUTRAL_THEME
 
   return (
     <div
@@ -101,16 +102,21 @@ function VisitPlanCard({
         rangeWarning && !visitDone ? 'ring-1 ring-amber-400/50' : ''
       }`}
     >
-      <div className={`absolute inset-y-0 left-0 w-1 ${theme.stripe}`} aria-hidden />
+      {visitDone ? (
+        <div className={`absolute inset-y-0 left-0 w-1 ${theme.stripe}`} aria-hidden />
+      ) : null}
 
       <div className="min-w-0 flex-1 pl-1">
-        <div className="flex items-start gap-1.5">
-          <p className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-            {visitDisplayLabel(visit)}
-          </p>
+        <div className="flex items-center gap-1.5">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">{title}</p>
+            {vaccineType ? (
+              <p className="truncate text-[10px] text-muted-foreground">{vaccineType}</p>
+            ) : null}
+          </div>
           {visitDone ? (
             <span
-              className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
               aria-label="Selesai"
             >
               <Check className="h-2.5 w-2.5" strokeWidth={3} />
@@ -131,10 +137,6 @@ function VisitPlanCard({
             {formatVisitDate(visit)}
           </span>
         </div>
-
-        {vaccineDetail ? (
-          <p className="mt-1 text-[10px] text-muted-foreground">{vaccineDetail}</p>
-        ) : null}
 
         {(place || doctor) && (
           <div className="mt-1 flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground">

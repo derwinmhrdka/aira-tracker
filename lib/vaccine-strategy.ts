@@ -1089,6 +1089,13 @@ export const VISIT_CARD_THEME: Record<
   },
 }
 
+export const VISIT_NEUTRAL_THEME = {
+  card: 'border-border bg-card',
+  stripe: 'bg-transparent',
+  chip: 'bg-secondary text-muted-foreground',
+  cost: 'bg-secondary text-foreground',
+}
+
 export const VISIT_DONE_THEME = {
   card: 'border-emerald-300/70 bg-gradient-to-br from-emerald-50 via-emerald-50/40 to-background dark:border-emerald-800/50 dark:from-emerald-950/35 dark:via-emerald-950/15 dark:to-card',
   stripe: 'bg-emerald-500',
@@ -1118,6 +1125,20 @@ export function visitVaccineChipLabel(v: StrategyVisitVaccine): string {
   const name = v.vaccineName.trim()
   if (name.length <= 16) return name
   return `${name.slice(0, 14)}…`
+}
+
+export function visitPlanTitle(visit: VaccineStrategyVisit): string {
+  const vaccines = getVisitVaccines(visit)
+  if (vaccines.length === 0) return 'Kunjungan'
+  if (vaccines.length === 1) return vaccines[0].vaccineName
+  return vaccines.map((v) => v.vaccineName).join(' + ')
+}
+
+export function visitPlanVaccineType(visit: VaccineStrategyVisit): string {
+  const vaccines = getVisitVaccines(visit)
+  if (vaccines.length === 0) return ''
+  if (vaccines.length === 1) return vaccines[0].vaccineProduct?.trim() ?? ''
+  return visitVaccineDetail(visit)
 }
 
 export function visitDisplayLabel(visit: VaccineStrategyVisit): string {
