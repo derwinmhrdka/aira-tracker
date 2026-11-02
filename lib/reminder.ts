@@ -198,7 +198,10 @@ export async function showDiaperReminder(babyName?: string) {
 export async function registerServiceWorker(): Promise<void> {
   if (!('serviceWorker' in navigator)) return
   try {
-    await navigator.serviceWorker.register('/sw.js')
+    const registration = await navigator.serviceWorker.register('/sw.js', {
+      updateViaCache: 'none',
+    })
+    await registration.update()
     await navigator.serviceWorker.ready
   } catch {
     // SW registration optional

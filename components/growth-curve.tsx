@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { getWhoReference, type Gender, type GrowthMetric } from '@/lib/who-growth'
 import {
   KMS_CHART_MAX_MONTH,
@@ -459,6 +459,21 @@ function Hit({ item, onTip }: { item: Tip; onTip: (key: string) => void }) {
   )
 }
 
+const MIN_ZOOM = 1
+const MAX_ZOOM = 4
+
+type Zoom = { scale: number; tx: number; ty: number }
+
+function clampZoom(tx: number, ty: number, scale: number, width: number, height: number): Zoom {
+  const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale))
+  if (next <= 1.001 || width <= 0 || height <= 0) return { scale: 1, tx: 0, ty: 0 }
+  return {
+    scale: next,
+    tx: Math.min(0, Math.max(width * (1 - next), tx)),
+    ty: Math.min(0, Math.max(height * (1 - next), ty)),
+  }
+}
+
 function ChartFrame({
   ariaLabel,
   tip,
@@ -472,24 +487,167 @@ function ChartFrame({
   activeMetric?: GrowthMetric
   children: ReactNode
 }) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    const content = contentRef.current
+    if (!viewport || !content) return
+
+    const view: Zoom = { scale: 1, tx: 0, ty: 0 }
+    let pinch: { dist: number; scale: number; tx: number; ty: number; fx: number; fy: number } | null = null
+    let pan: { x: number; y: number; tx: number; ty: number } | null = null
+    let lastTap = 0
+    let suppressClick = false
+
+    const box = () => viewport.getBoundingClientRect()
+    const paint = (next: Zoom) => {
+      view.scale = next.scale
+      view.tx = next.tx
+      view.ty = next.ty
+      content.style.transform = `translate(${next.tx}px, ${next.ty}px) scale(${next.scale})`
+    }
+    const apply = (tx: number, ty: number, scale: number) => {
+      const rect = box()
+      paint(clampZoom(tx, ty, scale, rect.width, rect.height))
+    }
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 2) {
+        event.preventDefault()
+        const rect = box()
+        const [a, b] = [event.touches[0], event.touches[1]]
+        pinch = {
+          dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
+          scale: view.scale,
+          tx: view.tx,
+          ty: view.ty,
+          fx: (a.clientX + b.clientX) / 2 - rect.left,
+          fy: (a.clientY + b.clientY) / 2 - rect.top,
+        }
+        pan = null
+      } else if (event.touches.length === 1 && view.scale > 1) {
+        pan = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+          tx: view.tx,
+          ty: view.ty,
+        }
+      }
+    }
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (pinch && event.touches.length >= 2) {
+        event.preventDefault()
+        const rect = box()
+        const [a, b] = [event.touches[0], event.touches[1]]
+        const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1
+        const fx = (a.clientX + b.clientX) / 2 - rect.left
+        const fy = (a.clientY + b.clientY) / 2 - rect.top
+        const nextScale = pinch.scale * (dist / pinch.dist)
+        const contentX = (pinch.fx - pinch.tx) / pinch.scale
+        const contentY = (pinch.fy - pinch.ty) / pinch.scale
+        apply(fx - contentX * nextScale, fy - contentY * nextScale, nextScale)
+        suppressClick = true
+        return
+      }
+      if (pan && event.touches.length === 1) {
+        const dx = event.touches[0].clientX - pan.x
+        const dy = event.touches[0].clientY - pan.y
+        if (Math.hypot(dx, dy) > 4) {
+          event.preventDefault()
+          apply(pan.tx + dx, pan.ty + dy, view.scale)
+          suppressClick = true
+        }
+      }
+    }
+
+    const zoomAt = (fx: number, fy: number, nextScale: number) => {
+      const contentX = (fx - view.tx) / view.scale
+      const contentY = (fy - view.ty) / view.scale
+      apply(fx - contentX * nextScale, fy - contentY * nextScale, nextScale)
+    }
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) pinch = null
+      if (event.touches.length === 0) {
+        pan = null
+        if (view.scale < 1.06) apply(0, 0, 1)
+        const blocked = suppressClick
+        const now = Date.now()
+        if (!blocked && event.changedTouches.length === 1 && now - lastTap < 280) {
+          const rect = box()
+          const touch = event.changedTouches[0]
+          const fx = touch.clientX - rect.left
+          const fy = touch.clientY - rect.top
+          if (view.scale > 1) apply(0, 0, 1)
+          else zoomAt(fx, fy, 2)
+          suppressClick = true
+          lastTap = 0
+        } else {
+          lastTap = now
+        }
+        if (suppressClick) {
+          window.setTimeout(() => {
+            suppressClick = false
+          }, 400)
+        }
+      }
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return
+      event.preventDefault()
+      const rect = box()
+      const fx = event.clientX - rect.left
+      const fy = event.clientY - rect.top
+      zoomAt(fx, fy, view.scale * Math.exp(-event.deltaY * 0.0025))
+    }
+
+    const onClick = (event: MouseEvent) => {
+      if (!suppressClick) return
+      event.preventDefault()
+      event.stopPropagation()
+      suppressClick = false
+    }
+
+    viewport.addEventListener('touchstart', onTouchStart, { passive: false })
+    viewport.addEventListener('touchmove', onTouchMove, { passive: false })
+    viewport.addEventListener('touchend', onTouchEnd)
+    viewport.addEventListener('touchcancel', onTouchEnd)
+    viewport.addEventListener('wheel', onWheel, { passive: false })
+    viewport.addEventListener('click', onClick, true)
+    return () => {
+      viewport.removeEventListener('touchstart', onTouchStart)
+      viewport.removeEventListener('touchmove', onTouchMove)
+      viewport.removeEventListener('touchend', onTouchEnd)
+      viewport.removeEventListener('touchcancel', onTouchEnd)
+      viewport.removeEventListener('wheel', onWheel)
+      viewport.removeEventListener('click', onClick, true)
+    }
+  }, [])
+
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full font-sans" role="img" aria-label={ariaLabel}>
-        {children}
-      </svg>
-      {tip ? (
-        <div
-          className={`pointer-events-none absolute z-10 w-max -translate-x-1/2 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-popover-foreground shadow-md ${
-            tipAbove ? '-translate-y-[calc(100%+10px)]' : 'translate-y-2'
-          }`}
-          style={{ left: `${(tip.x / W) * 100}%`, top: `${(tip.y / H) * 100}%` }}
-          role="tooltip"
-        >
-          <TipLine text={measureLine('Berat', tip.weight, 'kg')} active={activeMetric == null || activeMetric === 'weight'} />
-          <TipLine text={measureLine('Panjang', tip.height, 'cm')} active={activeMetric == null || activeMetric === 'height'} />
-          <TipLine text={measureLine('Lingkar kepala', tip.head, 'cm')} active={activeMetric == null || activeMetric === 'head'} />
-        </div>
-      ) : null}
+    <div ref={viewportRef} className="relative touch-none overflow-hidden">
+      <div ref={contentRef} className="relative origin-top-left">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full font-sans" role="img" aria-label={ariaLabel}>
+          {children}
+        </svg>
+        {tip ? (
+          <div
+            className={`pointer-events-none absolute z-10 w-max -translate-x-1/2 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-popover-foreground shadow-md ${
+              tipAbove ? '-translate-y-[calc(100%+10px)]' : 'translate-y-2'
+            }`}
+            style={{ left: `${(tip.x / W) * 100}%`, top: `${(tip.y / H) * 100}%` }}
+            role="tooltip"
+          >
+            <TipLine text={measureLine('Berat', tip.weight, 'kg')} active={activeMetric == null || activeMetric === 'weight'} />
+            <TipLine text={measureLine('Panjang', tip.height, 'cm')} active={activeMetric == null || activeMetric === 'height'} />
+            <TipLine text={measureLine('Lingkar kepala', tip.head, 'cm')} active={activeMetric == null || activeMetric === 'head'} />
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

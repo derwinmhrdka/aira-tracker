@@ -1,24 +1,73 @@
-/** Bump when deploy needs a hard cache reset. Activate also clears older names. */
-const CACHE_NAME = 'baby-tracker-v15'
+/** Bump the shell name on each deploy so the new app takes control. */
+const SHELL_CACHE = 'baby-tracker-shell-v16'
+/** Baby art stays across deploys. Bump only when those files change. */
+const MEDIA_CACHE = 'baby-tracker-media-v1'
 const STATIC_ASSETS = ['/manifest.json', '/icon.svg']
+const MEDIA_ASSETS = [
+  '/kms-baby/baby-kurang.jpg',
+  '/kms-baby/baby-kurang-shut.jpg',
+  '/kms-baby/baby-normal.jpg',
+  '/kms-baby/baby-normal-shut.jpg',
+  '/kms-baby/baby-lebih.jpg',
+  '/kms-baby/baby-lebih-shut.jpg',
+  '/kms-baby/baby-obesitas.jpg',
+  '/kms-baby/baby-obesitas-shut.jpg',
+  '/kms-baby/react-kurang.mp4',
+  '/kms-baby/react-normal.mp4',
+  '/kms-baby/react-lebih.mp4',
+  '/kms-baby/react-obesitas.mp4',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    (async () => {
+      const shell = await caches.open(SHELL_CACHE)
+      await shell.addAll(STATIC_ASSETS)
+      const media = await caches.open(MEDIA_CACHE)
+      await Promise.all(
+        MEDIA_ASSETS.map(async (path) => {
+          if (await media.match(path)) return
+          try {
+            await media.add(path)
+          } catch {
+            // A failed video must not block the new app from installing.
+          }
+        })
+      )
+    })()
   )
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+    (async () => {
+      const keys = await caches.keys()
+      await Promise.all(
+        keys
+          .filter((key) => key !== SHELL_CACHE && key !== MEDIA_CACHE)
+          .map((key) => caches.delete(key))
       )
-    )
+      await self.clients.claim()
+    })()
   )
-  self.clients.claim()
 })
+
+async function mediaFirst(request) {
+  const cache = await caches.open(MEDIA_CACHE)
+  const path = new URL(request.url).pathname
+  const cached = await cache.match(path)
+  if (cached) return cached
+  try {
+    const response = await fetch(request)
+    if (response.ok && !response.redirected && !request.headers.has('range')) {
+      await cache.put(path, response.clone())
+    }
+    return response
+  } catch {
+    return Response.error()
+  }
+}
 
 function shouldCache(request, response) {
   if (!response.ok || response.redirected) return false
@@ -46,7 +95,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
 
   if (request.method !== 'GET') return
+  if (url.pathname === '/sw.js') return
   if (url.pathname.startsWith('/api/')) return
+  if (url.pathname.startsWith('/kms-baby/')) {
+    event.respondWith(mediaFirst(request))
+    return
+  }
   if (url.pathname === '/login' || url.pathname.startsWith('/login/')) return
   // Dev HMR and RSC streams must reach the browser directly. Wrapping them
   // makes the login page full-reload on every update.
@@ -64,7 +118,7 @@ self.addEventListener('fetch', (event) => {
         }
         if (shouldCache(request, response)) {
           const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
+          caches.open(SHELL_CACHE).then((cache) => cache.put(request, clone))
         }
         return response
       })

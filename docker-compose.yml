@@ -1,5 +1,6 @@
 # Production stack for VPS — use with deploy/docker-deploy.sh
-# Host nginx proxies https://aira.teknodika.com → 127.0.0.1:13082
+# teknodika-nginx proxies https://aira.teknodika.com → aira-tracker-app-1:3000
+# on the external network teknodika_shared.
 
 services:
   db:
@@ -19,7 +20,11 @@ services:
 
   app:
     build: .
+    container_name: aira-tracker-app-1
     restart: unless-stopped
+    networks:
+      - default
+      - shared
     depends_on:
       db:
         condition: service_healthy
@@ -49,3 +54,8 @@ services:
 volumes:
   pgdata:
   uploads_data:
+
+networks:
+  shared:
+    name: teknodika_shared
+    external: true

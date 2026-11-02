@@ -55,7 +55,21 @@ echo "==> Pruning stopped containers and dangling images..."
 docker container prune -f --filter "until=24h" 2>/dev/null || true
 docker image prune -f 2>/dev/null || true
 
+# `restart: unless-stopped` can start the app again between Compose's
+# stop and remove, which fails with "container is running". Force-remove
+# the app only. The database container is left running.
+app_id="$($COMPOSE ps -aq app 2>/dev/null || true)"
+if [ -n "${app_id}" ]; then
+  echo "==> Force-removing app container ${app_id} before recreate..."
+  docker update --restart=no "${app_id}" 2>/dev/null || true
+  docker rm -f "${app_id}"
+fi
+
 $COMPOSE up -d --build --remove-orphans
+
+# teknodika-nginx resolves this name on teknodika_shared. A recreate
+# drops that attachment and https://aira.teknodika.com returns 502.
+docker network connect teknodika_shared aira-tracker-app-1 2>/dev/null || true
 
 echo "==> Container status:"
 $COMPOSE ps
