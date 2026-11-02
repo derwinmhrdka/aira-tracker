@@ -3,13 +3,18 @@ WORKDIR /app
 RUN apk add --no-cache openssl libc6-compat ca-certificates
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci --ignore-scripts
-# Prisma downloads engine binaries — retry on transient ECONNRESET
+# One npm download. The Prisma CLI for db push is installed here from that
+# cache, so the final image does not download Prisma again.
+RUN --mount=type=cache,target=/root/.npm \
+  npm ci --ignore-scripts --no-audit --no-fund \
+  && mkdir -p /opt/prisma-cli \
+  && npm init -y --prefix /opt/prisma-cli \
+  && npm install --prefix /opt/prisma-cli --prefer-offline --ignore-scripts --no-audit --no-fund prisma@6.19.3
 RUN set -e; \
-  for i in 1 2 3 4 5; do \
-    npx prisma generate && exit 0; \
+  for i in 1 2 3; do \
+    ./node_modules/.bin/prisma generate && exit 0; \
     echo "prisma generate attempt $i failed, retrying..."; \
-    sleep $((i * 10)); \
+    sleep 5; \
   done; \
   exit 1
 
@@ -19,8 +24,7 @@ RUN apk add --no-cache openssl libc6-compat ca-certificates
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Client already generated in deps — only build Next.js (skip prisma generate)
-RUN npx next build
+RUN ./node_modules/.bin/next build --turbopack
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -50,12 +54,7 @@ COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
 COPY --from=builder /app/node_modules/@esbuild ./node_modules/@esbuild
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 
-# Prisma CLI for deploy-time db push (self-contained — partial node_modules copy misses deps like `effect`)
-USER root
-RUN mkdir -p /opt/prisma-cli \
-  && cd /opt/prisma-cli \
-  && npm init -y \
-  && for i in 1 2 3 4 5; do npm install --ignore-scripts prisma@6.19.3 && break || sleep $((i * 10)); done
+COPY --from=deps /opt/prisma-cli /opt/prisma-cli
 ENV PATH="/opt/prisma-cli/node_modules/.bin:${PATH}"
 RUN mkdir -p uploads && chown -R nextjs:nodejs uploads
 USER nextjs
