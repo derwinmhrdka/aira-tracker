@@ -1,6 +1,6 @@
 /** Bump when deploy needs a hard cache reset. Activate also clears older names. */
-const CACHE_NAME = 'baby-tracker-v14'
-const STATIC_ASSETS = ['/', '/manifest.json', '/icon.svg']
+const CACHE_NAME = 'baby-tracker-v15'
+const STATIC_ASSETS = ['/manifest.json', '/icon.svg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -21,9 +21,11 @@ self.addEventListener('activate', (event) => {
 })
 
 function shouldCache(request, response) {
-  if (!response.ok) return false
+  if (!response.ok || response.redirected) return false
   const url = new URL(request.url)
+  const finalUrl = new URL(response.url)
   if (url.origin !== self.location.origin) return false
+  if (finalUrl.pathname.startsWith('/login')) return false
   if (url.pathname.startsWith('/api/')) return false
 
   if (STATIC_ASSETS.includes(url.pathname)) return true
@@ -31,9 +33,9 @@ function shouldCache(request, response) {
   if (url.pathname.startsWith('/icon')) return true
   if (url.pathname === '/manifest.json') return true
 
-  // App shell only — avoid unbounded caching of every navigation URL
+  // Only cache the signed-in home document, never a login redirect.
   if (request.mode === 'navigate' || request.destination === 'document') {
-    return url.pathname === '/'
+    return url.pathname === '/' && finalUrl.pathname === '/'
   }
 
   return false
@@ -45,11 +47,21 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return
   if (url.pathname.startsWith('/api/')) return
+  if (url.pathname === '/login' || url.pathname.startsWith('/login/')) return
+  // Dev HMR and RSC streams must reach the browser directly. Wrapping them
+  // makes the login page full-reload on every update.
+  if (url.pathname.startsWith('/_next') && !url.pathname.startsWith('/_next/static')) return
 
   // Network-first: fresh content when online; cache fallback when offline.
   event.respondWith(
     fetch(request)
       .then((response) => {
+        if (
+          response.redirected &&
+          (request.mode === 'navigate' || request.destination === 'document')
+        ) {
+          return Response.redirect(response.url, 302)
+        }
         if (shouldCache(request, response)) {
           const clone = response.clone()
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))

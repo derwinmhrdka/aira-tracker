@@ -59,7 +59,7 @@ export function OnboardingSheet({ open, onComplete }: OnboardingSheetProps) {
               <p className="mt-1 text-sm text-muted-foreground">
                 {step === 0
                   ? 'Mari setup profil bayi dulu'
-                  : 'Isi data lahir untuk grafik KMS'}
+                  : 'Isi data lahir untuk grafik pertumbuhan'}
               </p>
             </div>
 

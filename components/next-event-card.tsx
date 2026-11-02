@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
 import { api, type CalendarEvent } from '@/lib/api-client'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { pageToPath } from '@/lib/navigation'
@@ -41,6 +40,7 @@ function formatMiniWhen(startIso: string, endIso: string) {
 export function NextEventCard() {
   const router = useRouter()
   const [event, setEvent] = useState<CalendarEvent | null>(null)
+  const [open, setOpen] = useState(false)
 
   const load = async () => {
     try {
@@ -61,35 +61,42 @@ export function NextEventCard() {
   if (!event) return null
 
   return (
-    <motion.button
-      type="button"
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      onClick={() => router.push(pageToPath('events'), { scroll: false })}
-      className="mb-4 w-full rounded-2xl border border-border bg-card p-3 text-left shadow-sm transition-colors hover:bg-secondary/30 active:scale-[0.99]"
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-lg dark:bg-indigo-950/50">
-          📅
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="font-heading truncate text-sm font-semibold text-foreground">
-              {event.title}
-            </p>
-            <span className="shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
-              {formatCountdown(event.start_at)}
-            </span>
-          </div>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={(clickEvent) => {
+          clickEvent.stopPropagation()
+          setOpen((value) => !value)
+        }}
+        className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur-md"
+        aria-expanded={open}
+      >
+        <span aria-hidden>📅</span>
+        <span className="max-w-28 truncate">{formatCountdown(event.start_at)}</span>
+      </button>
+      {open ? (
+        <div
+          className="absolute bottom-[calc(100%+0.45rem)] right-0 z-30 w-64 rounded-2xl border border-border bg-card p-3 text-left shadow-lg"
+          onClick={(clickEvent) => clickEvent.stopPropagation()}
+        >
+          <p className="font-heading text-sm font-semibold text-foreground">{event.title}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {formatMiniWhen(event.start_at, event.end_at)}
           </p>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-            {event.location && <span>📍 {event.location}</span>}
-            {event.meet_with && <span>👤 {event.meet_with}</span>}
+          <p className="mt-1 text-[11px] font-semibold text-primary">{formatCountdown(event.start_at)}</p>
+          <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+            {event.location ? <p>📍 {event.location}</p> : null}
+            {event.meet_with ? <p>👤 {event.meet_with}</p> : null}
           </div>
+          <button
+            type="button"
+            onClick={() => router.push(pageToPath('events'), { scroll: false })}
+            className="mt-2 text-[11px] font-semibold text-primary"
+          >
+            Buka jadwal
+          </button>
         </div>
-      </div>
-    </motion.button>
+      ) : null}
+    </div>
   )
 }

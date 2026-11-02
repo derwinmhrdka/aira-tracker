@@ -38,7 +38,7 @@ export function pageToPath(page: AppPage): string {
 }
 
 export function pathToPage(search: string | null): AppPage {
-  if (search === 'growth') return 'stats'
+  if (search === 'kms' || search === 'growth') return 'home'
   if (!search || !isValidPage(search)) return 'home'
   return search
 }

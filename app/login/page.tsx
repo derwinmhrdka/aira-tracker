@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { api, setLoggedBy } from '@/lib/api-client'
 import type { LoggedBy } from '@/lib/types'
@@ -13,7 +13,6 @@ const LOGGED_BY_OPTIONS: { value: LoggedBy; label: string }[] = [
 ]
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [pin, setPin] = useState('')
   const [loggedBy, setLoggedByState] = useState<LoggedBy>('IBU')
@@ -35,8 +34,9 @@ function LoginForm() {
         !rawFrom.startsWith('/api')
           ? rawFrom
           : '/'
-      router.push(from)
-      router.refresh()
+      // Full navigation so the new session cookie is sent once.
+      // A client-side refresh can replay an older redirect back to /login.
+      window.location.replace(from)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login gagal')
     } finally {

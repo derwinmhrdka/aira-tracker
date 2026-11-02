@@ -25,7 +25,13 @@ export function InsightsCard({ summary }: InsightsCardProps) {
     })
   }
 
-  if (insights.length === 0) return null
+  if (insights.length === 0) {
+    return (
+      <div className="mb-4 rounded-2xl border border-border bg-card/60 p-3 text-sm text-muted-foreground">
+        Belum ada insight hari ini
+      </div>
+    )
+  }
 
   return (
     <div className="mb-4 space-y-1.5 rounded-2xl border border-border bg-card/60 p-3">

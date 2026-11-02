@@ -1,0 +1,137 @@
+.kms-hero {
+  position: relative;
+  height: 28rem;
+  min-height: 24rem;
+  border-radius: 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  overflow: hidden;
+}
+
+.kms-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  container-type: size;
+}
+
+.kms-baby-frame {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: max(100cqw, calc(100cqh * 3 / 4));
+  aspect-ratio: 3 / 4;
+  translate: -50% -50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.kms-baby-frame.on {
+  opacity: 1;
+}
+
+.kms-baby-motion,
+.kms-baby-shot {
+  position: absolute;
+  inset: 0;
+}
+
+.kms-baby-shot {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.kms-baby-shot.on {
+  opacity: 1;
+}
+
+/* Eyes-open stays fully opaque. Fading it out with the closed frame
+   lets the page background flash white or black. */
+.kms-baby-base.on {
+  opacity: 1;
+}
+
+.kms-baby-shut {
+  transition: opacity 90ms linear;
+}
+
+.kms-react-clip {
+  transition: opacity 120ms linear;
+}
+
+.kms-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.75rem 0.85rem 0.7rem;
+  pointer-events: none;
+}
+
+.kms-bubble {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--primary);
+  font-weight: 800;
+  padding: 0.4rem 0.9rem;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.kms-chart-band {
+  fill: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.kms-chart-median {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+.kms-chart-edge {
+  fill: none;
+  stroke: var(--muted-foreground);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.kms-chart-edge-high {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.kms-chart-guide {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.kms-chart-dot {
+  fill: var(--primary);
+  stroke: var(--card);
+  stroke-width: 2;
+}
+
+.kms-chart-dot-past {
+  fill: var(--primary);
+  opacity: 0.45;
+}
+
+.kms-chart-label {
+  fill: var(--muted-foreground);
+  font-size: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kms-baby-shot {
+    transition: none;
+  }
+}

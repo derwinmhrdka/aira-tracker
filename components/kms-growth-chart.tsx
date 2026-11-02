@@ -731,7 +731,7 @@ export function KmsGrowthChart({
             <span
               className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${KMS_ZONE_STYLE[zone]}`}
             >
-              KMS: {KMS_ZONE_LABEL[zone]}
+              {KMS_ZONE_LABEL[zone]}
             </span>
           </p>
         )}
@@ -774,12 +774,12 @@ export function KmsGrowthChart({
   if (growthLogs.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-        Belum ada data — tambah {label} untuk melihat grafik KMS
+        Belum ada data — tambah {label} untuk melihat grafik pertumbuhan
       </div>
     )
   }
 
-  const chartTitle = metric === 'weight' ? 'KMS · Berat' : 'KMS · Panjang'
+  const chartTitle = metric === 'weight' ? 'Berat' : 'Panjang'
 
   const chartPanel = (
     <>

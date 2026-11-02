@@ -2,7 +2,7 @@
 
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertTriangle, Check, Circle, Ruler, Scale } from 'lucide-react'
+import { AlertTriangle, Check, Ruler, Scale, ScanFace } from 'lucide-react'
 import {
   formatGrowthIdealRange,
   formatGrowthPositionInfo,
@@ -44,7 +44,7 @@ const TREND_STYLE: Record<GrowthTrend, { pill: string; text: string }> = {
 const METRIC_ICON: Record<GrowthMetric, typeof Scale> = {
   weight: Scale,
   height: Ruler,
-  head: Circle,
+  head: ScanFace,
 }
 
 type GrowthInfoSheetProps = {

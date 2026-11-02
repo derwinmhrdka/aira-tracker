@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { QuickLogButton } from './quick-log-button'
-import { DailySummary } from './daily-summary'
 import { Toast } from './toast'
 import { ThemeToggle } from './theme-toggle'
 import { LoggedBySelector } from './logged-by-selector'
@@ -12,13 +11,11 @@ import { SessionEndSheet, type SessionEndData } from './session-end-sheet'
 import { QuickFeedSheet } from './quick-feed-sheet'
 import { ActiveTimer } from './active-timer'
 import { BabyInfoCard } from './baby-info-card'
-import { GrowthMiniCard } from './growth-mini-card'
-import { BabyLeapCard } from './baby-leap-card'
 import { BabyProfileSheet } from './baby-profile-sheet'
 import { VaccineInfoSheet } from './vaccine-info-sheet'
 import { InsightsCard } from './insights-card'
-import { NextEventCard } from './next-event-card'
 import { MilkStorageCard } from './milk-storage-card'
+import { HomeGrowthPanel } from './home-growth-panel'
 import { OnboardingSheet } from './onboarding-sheet'
 import { playSoundEffect } from '@/lib/sounds'
 import { api, isQueuedResponse, type TodaySummary } from '@/lib/api-client'
@@ -38,8 +35,6 @@ import {
 export function Dashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [summary, setSummary] = useState<TodaySummary | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [summaryError, setSummaryError] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
   const [feedEndOpen, setFeedEndOpen] = useState(false)
   const [sleepEndOpen, setSleepEndOpen] = useState(false)
@@ -53,15 +48,12 @@ export function Dashboard() {
   )
   const homeVis = mergeHomeVisibility(homeGlobal, homeLocal)
 
-  const fetchSummary = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!opts?.silent) setSummaryError(false)
+  const fetchSummary = useCallback(async (_opts?: { silent?: boolean }) => {
     try {
       const data = await api.getTodaySummary()
       setSummary(data)
     } catch {
-      if (!opts?.silent) setSummaryError(true)
-    } finally {
-      setLoading(false)
+      // Keep the last summary so a refresh blip does not clear home.
     }
   }, [])
 
@@ -368,10 +360,7 @@ export function Dashboard() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                setLoading(true)
-                fetchSummary()
-              }}
+              onClick={() => fetchSummary()}
               className="rounded-full bg-secondary p-2 text-sm"
               aria-label="Refresh"
             >
@@ -385,25 +374,24 @@ export function Dashboard() {
 
       <div className="px-4">
         {homeVis.babyInfo && (
-          <>
-            <BabyInfoCard
-              summary={summary}
-              showMood={homeVis.mood}
-              onClick={() => setProfileOpen(true)}
-              onVaccineClick={() => setVaccineOpen(true)}
-            />
-            <GrowthMiniCard birthDate={summary?.baby?.birth_date} />
-          </>
-        )}
-
-        {homeVis.leap && (
-          <BabyLeapCard
-            birthDate={summary?.baby?.birth_date}
-            dueDate={summary?.baby?.due_date}
+          <BabyInfoCard
+            summary={summary}
+            showMood={homeVis.mood}
+            onClick={() => setProfileOpen(true)}
+            onVaccineClick={() => setVaccineOpen(true)}
           />
         )}
 
-        {homeVis.nextEvent && <NextEventCard />}
+        <HomeGrowthPanel
+          birthDate={summary?.baby?.birth_date}
+          dueDate={summary?.baby?.due_date}
+          showLeap={homeVis.leap}
+          showEvent={homeVis.nextEvent}
+        />
+
+        {homeVis.insights && <InsightsCard summary={summary} />}
+
+        {homeVis.milkStorage && <MilkStorageCard />}
 
         {homeVis.monitoring && (
           <>
@@ -421,24 +409,6 @@ export function Dashboard() {
             />
           </>
         )}
-
-        {homeVis.insights && <InsightsCard summary={summary} />}
-
-        {homeVis.dailySummary && (
-          <div className="pb-4">
-            <DailySummary
-              summary={summary}
-              loading={loading}
-              error={summaryError}
-              onRetry={() => {
-                setLoading(true)
-                fetchSummary()
-              }}
-            />
-          </div>
-        )}
-
-        {homeVis.milkStorage && <MilkStorageCard />}
 
         {homeVis.quickActions && (
           <div className="mb-2">

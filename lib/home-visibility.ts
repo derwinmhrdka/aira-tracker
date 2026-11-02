@@ -8,7 +8,6 @@ export type HomeVisibilityKey =
   | 'nextEvent'
   | 'monitoring'
   | 'insights'
-  | 'dailySummary'
   | 'quickActions'
   | 'milkStorage'
 
@@ -21,7 +20,6 @@ export const HOME_VISIBILITY_DEFAULTS: HomeVisibility = {
   nextEvent: true,
   monitoring: true,
   insights: true,
-  dailySummary: true,
   quickActions: true,
   milkStorage: true,
 }
@@ -37,15 +35,14 @@ export const HOME_VISIBILITY_OPTIONS: {
 }[] = [
   { key: 'babyInfo', label: 'Kartu bayi', hint: 'Nama, usia, vaksin' },
   { key: 'mood', label: 'Mood', hint: 'Widget mood di kartu bayi' },
-  { key: 'leap', label: 'Leap', hint: 'Kartu Wonder Weeks' },
-  { key: 'nextEvent', label: 'Event berikutnya', hint: 'Jadwal terdekat' },
+  { key: 'leap', label: 'Leap', hint: 'Badge di animasi' },
+  { key: 'nextEvent', label: 'Event berikutnya', hint: 'Badge jadwal di animasi' },
   {
     key: 'monitoring',
     label: 'Monitoring sesi',
     hint: 'Timer menyusui & tidur aktif',
   },
   { key: 'insights', label: 'Insights hari ini', hint: 'Total susu & tidur' },
-  { key: 'dailySummary', label: 'Ringkasan harian', hint: 'Hitungan pup/pee/dll' },
   { key: 'quickActions', label: 'Quick Action', hint: 'Tombol log cepat' },
   { key: 'milkStorage', label: 'Milk Storage', hint: 'Stok ASI di botol' },
 ]
@@ -85,32 +82,10 @@ export function getLocalHomeVisibility(): HomeVisibility {
   }
 }
 
-/** @deprecated gunakan getLocalHomeVisibility */
-export function getHomeVisibility(): HomeVisibility {
-  return getLocalHomeVisibility()
-}
-
 export function setLocalHomeVisibility(
   patch: Partial<HomeVisibility>
 ): HomeVisibility {
   const next = { ...getLocalHomeVisibility(), ...patch }
   localStorage.setItem(LOCAL_KEY, JSON.stringify(next))
   return next
-}
-
-/** @deprecated gunakan setLocalHomeVisibility */
-export function setHomeVisibility(
-  patch: Partial<HomeVisibility>
-): HomeVisibility {
-  return setLocalHomeVisibility(patch)
-}
-
-export function isHomeSectionVisible(
-  key: HomeVisibilityKey,
-  globalVis?: HomeVisibility,
-  localVis?: HomeVisibility
-): boolean {
-  const g = globalVis ?? HOME_VISIBILITY_DEFAULTS
-  const l = localVis ?? getLocalHomeVisibility()
-  return g[key] !== false && l[key] !== false
 }

@@ -245,7 +245,7 @@ export function StatsPage() {
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <h2 className="font-heading font-semibold text-foreground">Grafik KMS</h2>
+            <h2 className="font-heading font-semibold text-foreground">Grafik pertumbuhan</h2>
             <p className="text-[10px] text-muted-foreground">
               Kurva pertumbuhan WHO
             </p>
