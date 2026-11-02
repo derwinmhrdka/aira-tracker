@@ -8,6 +8,7 @@ import { ConfirmDeleteSheet } from './confirm-delete-sheet'
 import { Toast } from './toast'
 import { playSoundEffect } from '@/lib/sounds'
 import { api, type CalendarEvent, type CreateEventInput } from '@/lib/api-client'
+import { addToIosCalendar, openGoogleCalendar } from '@/lib/calendar-link'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { notifyDataSynced } from '@/lib/use-live-sync'
 
@@ -59,21 +60,21 @@ export function EventsPage({ onBack }: EventsPageProps) {
 
   useAppDataSync(() => loadEvents(true))
 
-  const handleCreate = async (data: CreateEventInput) => {
+  const handleCreate = async (data: CreateEventInput, note?: string) => {
     await api.createEvent(data)
     playSoundEffect('success')
-    setToast('📅 Event tersimpan!')
+    setToast(note ?? '📅 Event tersimpan!')
     setTimeout(() => setToast(null), 2000)
     setSheetOpen(false)
     await loadEvents(true)
     notifyDataSynced()
   }
 
-  const handleEdit = async (data: CreateEventInput) => {
+  const handleEdit = async (data: CreateEventInput, note?: string) => {
     if (!editing) return
     await api.updateEvent(editing.id, data)
     playSoundEffect('success')
-    setToast('✓ Event diperbarui!')
+    setToast(note ?? '✓ Event diperbarui!')
     setTimeout(() => setToast(null), 2000)
     setEditing(null)
     await loadEvents(true)
@@ -210,6 +211,29 @@ function EventCard({
             {event.location && <p>📍 {event.location}</p>}
             {event.meet_with && <p>👤 {event.meet_with}</p>}
             {event.notes && <p>📝 {event.notes}</p>}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void openGoogleCalendar(event).then((result) => {
+                  if (result === 'copied') {
+                    setToast('Tautan Google Calendar disalin')
+                    setTimeout(() => setToast(null), 2000)
+                  }
+                })
+              }}
+              className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground"
+            >
+              Google Calendar
+            </button>
+            <button
+              type="button"
+              onClick={() => void addToIosCalendar(event)}
+              className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground"
+            >
+              Kalender iPhone
+            </button>
           </div>
         </div>
         <button

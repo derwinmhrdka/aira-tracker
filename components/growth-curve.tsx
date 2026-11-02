@@ -274,11 +274,11 @@ function MetricCurve({
             key={item.visit.key}
             cx={xOf(item.visit.month)}
             cy={yOf(item.value, min, max)}
-            r="3.5"
+            r="2"
             className="kms-chart-dot-past"
           />
         ))}
-      {dotY != null ? <circle cx={dotX} cy={dotY} r="6" className="kms-chart-dot" /> : null}
+      {dotY != null ? <circle cx={dotX} cy={dotY} r="3.5" className="kms-chart-dot" /> : null}
       {currentValue != null && dotY != null ? (
         <text
           x={dotX > W - 54 ? dotX - 8 : dotX + 8}
@@ -357,17 +357,17 @@ function AllCurve({
           return (
             <g key={metric}>
               {points.length > 1 ? (
-                <path d={lineFor(points)} fill="none" stroke={SERIES_STROKE[metric]} strokeWidth="2.25" />
+                <path d={lineFor(points)} fill="none" stroke={SERIES_STROKE[metric]} strokeOpacity="0.55" strokeWidth="1.25" />
               ) : null}
               {points.map((point) => (
                 <circle
                   key={point.visit.key}
                   cx={xOf(point.month)}
                   cy={point.y}
-                  r={point.visit.key === 'current' ? 4.5 : 3}
+                  r={point.visit.key === 'current' ? 3 : 2}
                   fill={SERIES_STROKE[metric]}
                   stroke="var(--card)"
-                  strokeWidth="1.5"
+                  strokeWidth="1"
                 />
               ))}
             </g>

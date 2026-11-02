@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { CalendarEvent, CreateEventInput } from '@/lib/api-client'
+import { addToIosCalendar, openGoogleCalendar } from '@/lib/calendar-link'
 
 interface EventSheetProps {
   open: boolean
   onClose: () => void
-  onSave: (data: CreateEventInput) => Promise<void>
+  onSave: (data: CreateEventInput, note?: string) => Promise<void>
   initial?: CalendarEvent | null
   mode?: 'create' | 'edit'
 }
@@ -72,7 +73,16 @@ export function EventSheet({
     setError(null)
   }, [open, initial])
 
-  const handleSave = async () => {
+  const draft = () => ({
+    title: title.trim(),
+    location: location.trim() || undefined,
+    meet_with: meetWith.trim() || undefined,
+    start_at: fromDatetimeLocal(startAt),
+    end_at: fromDatetimeLocal(endAt),
+    notes: notes.trim() || undefined,
+  })
+
+  const handleSave = async (also?: 'google' | 'ios') => {
     if (!title.trim()) {
       setError('Judul event wajib diisi')
       return
@@ -86,17 +96,21 @@ export function EventSheet({
       return
     }
 
+    const data = draft()
+    let calendarNote: string | undefined
+    if (also === 'google') {
+      const result = await openGoogleCalendar(data)
+      if (result === 'copied') calendarNote = 'Tautan Google Calendar disalin. Event tersimpan.'
+    }
+    if (also === 'ios') {
+      const result = await addToIosCalendar(data)
+      if (result === 'cancelled') calendarNote = undefined
+    }
+
     setSaving(true)
     setError(null)
     try {
-      await onSave({
-        title: title.trim(),
-        location: location.trim() || undefined,
-        meet_with: meetWith.trim() || undefined,
-        start_at: fromDatetimeLocal(startAt),
-        end_at: fromDatetimeLocal(endAt),
-        notes: notes.trim() || undefined,
-      })
+      await onSave(data, calendarNote)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal menyimpan')
@@ -208,13 +222,37 @@ export function EventSheet({
               </button>
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={() => handleSave()}
                 disabled={saving}
                 className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
                 {saving ? '...' : 'Simpan'}
               </button>
             </div>
+
+            {mode === 'create' ? (
+              <div className="mt-3">
+                <p className="mb-2 text-xs text-muted-foreground">Simpan dan tambahkan ke</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSave('google')}
+                    disabled={saving}
+                    className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold text-foreground disabled:opacity-50"
+                  >
+                    Google Calendar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSave('ios')}
+                    disabled={saving}
+                    className="rounded-xl border border-border bg-background py-2.5 text-xs font-semibold text-foreground disabled:opacity-50"
+                  >
+                    Kalender iPhone
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </motion.div>
         </>
       )}

@@ -99,13 +99,13 @@
 
 .kms-zone-median {
   fill: none;
-  stroke: rgb(47 122 82 / 0.7);
-  stroke-width: 1.5;
+  stroke: rgb(47 122 82 / 0.38);
+  stroke-width: 1;
 }
 
 .kms-chart-grid {
-  stroke: color-mix(in srgb, var(--foreground) 16%, transparent);
-  stroke-width: 1;
+  stroke: color-mix(in srgb, var(--foreground) 9%, transparent);
+  stroke-width: 0.75;
 }
 
 .kms-chart-band {
@@ -133,14 +133,14 @@
 }
 
 .kms-chart-guide {
-  stroke: var(--border);
-  stroke-width: 1;
+  stroke: color-mix(in srgb, var(--foreground) 12%, transparent);
+  stroke-width: 0.75;
 }
 
 .kms-chart-dot {
   fill: var(--primary);
   stroke: var(--card);
-  stroke-width: 2;
+  stroke-width: 1;
 }
 
 .kms-chart-dot-past {

@@ -262,26 +262,31 @@ function GrowthReadout({
           event.stopPropagation()
           onToggle()
         }}
-        className="flex w-full items-center justify-center gap-1 px-1 py-2 text-slate-900"
+        className="flex w-full flex-col items-center justify-center gap-1 px-1 py-2 text-slate-900"
         aria-expanded={open}
         aria-label={cell ? `${fullLabel} ${number} ${unit}, ${status}` : `${fullLabel}, belum ada`}
       >
-        <span className="grid size-5 shrink-0 place-items-center rounded-full border border-slate-400/70 bg-white/40">
-          <MetricIcon className="size-3 text-slate-700" strokeWidth={2.25} aria-hidden />
+        <span className="flex h-6 items-end justify-center text-center text-[9px] leading-tight font-semibold tracking-wide text-slate-600">
+          {fullLabel}
         </span>
-        <span className="font-heading text-[13px] leading-none font-bold tabular-nums">
-          {number}
-          {cell ? <span className="ml-0.5 text-[9px] font-medium text-slate-600">{unit}</span> : null}
+        <span className="flex items-center justify-center gap-1">
+          <span className="grid size-5 shrink-0 place-items-center rounded-full border border-slate-400/70 bg-white/40">
+            <MetricIcon className="size-3 text-slate-700" strokeWidth={2.25} aria-hidden />
+          </span>
+          <span className="font-heading text-[13px] leading-none font-bold tabular-nums">
+            {number}
+            {cell ? <span className="ml-0.5 text-[9px] font-medium text-slate-600">{unit}</span> : null}
+          </span>
+          {TrendIcon ? (
+            <TrendIcon
+              className={`size-3.5 shrink-0 ${trend ? TREND_TEXT[trend] : 'text-slate-400'}`}
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          ) : (
+            <Minus className="size-3.5 shrink-0 text-slate-400" strokeWidth={2.5} aria-hidden />
+          )}
         </span>
-        {TrendIcon ? (
-          <TrendIcon
-            className={`size-3.5 shrink-0 ${trend ? TREND_TEXT[trend] : 'text-slate-400'}`}
-            strokeWidth={2.5}
-            aria-hidden
-          />
-        ) : (
-          <Minus className="size-3.5 shrink-0 text-slate-400" strokeWidth={2.5} aria-hidden />
-        )}
       </button>
       {open ? (
         <div

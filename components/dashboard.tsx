@@ -358,14 +358,6 @@ export function Dashboard() {
             </p>
           </motion.div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fetchSummary()}
-              className="rounded-full bg-secondary p-2 text-sm"
-              aria-label="Refresh"
-            >
-              ↻
-            </button>
             <LoggedBySelector />
             <ThemeToggle />
           </div>
