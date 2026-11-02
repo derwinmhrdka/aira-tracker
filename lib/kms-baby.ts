@@ -11,10 +11,12 @@ export type KmsBabyStatus = 'sangat-kurang' | 'kurang' | 'normal' | 'lebih' | 'o
 
 export type WhoSample = {
   month: number
+  minus3: number
   minus2: number
   median: number
   plus1: number
   plus2: number
+  plus3: number
 }
 
 function mix(a: number, b: number, t: number) {
@@ -34,10 +36,12 @@ export function whoSampleAtMonth(ref: WhoPoint[], month: number): WhoSample {
   const plus2 = mix(lo.plus2, hi.plus2, t)
   return {
     month: m,
+    minus3: mix(lo.minus3, hi.minus3, t),
     minus2: mix(lo.minus2, hi.minus2, t),
     median,
     plus1: median + (plus2 - median) / 2,
     plus2,
+    plus3: mix(lo.plus3, hi.plus3, t),
   }
 }
 

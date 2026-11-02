@@ -1,7 +1,7 @@
 .kms-hero {
   position: relative;
-  height: 28rem;
-  min-height: 24rem;
+  height: 32rem;
+  min-height: 28rem;
   border-radius: 1.5rem;
   border: 1px solid var(--border);
   background: var(--background);
@@ -17,11 +17,7 @@
 
 .kms-baby-frame {
   position: absolute;
-  left: 50%;
-  top: 58%;
-  width: max(100cqw, calc(100cqh * 3 / 4));
-  aspect-ratio: 3 / 4;
-  translate: -50% -50%;
+  inset: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -40,6 +36,10 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* Keep the cream above the head so the metric bar sits on the backdrop. */
+  object-position: center 74%;
+  transform: scale(1.22);
+  transform-origin: center 80%;
   opacity: 0;
 }
 
@@ -68,7 +68,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 0.75rem 0.85rem 0.7rem;
+  padding: 0.55rem 0.65rem 0.7rem;
   pointer-events: none;
 }
 
@@ -83,6 +83,29 @@
   font-weight: 800;
   padding: 0.4rem 0.9rem;
   box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.kms-zone-red {
+  fill: rgb(224 122 114 / 0.28);
+}
+
+.kms-zone-yellow {
+  fill: rgb(232 196 92 / 0.34);
+}
+
+.kms-zone-green {
+  fill: rgb(110 186 122 / 0.28);
+}
+
+.kms-zone-median {
+  fill: none;
+  stroke: rgb(47 122 82 / 0.7);
+  stroke-width: 1.5;
+}
+
+.kms-chart-grid {
+  stroke: color-mix(in srgb, var(--foreground) 16%, transparent);
+  stroke-width: 1;
 }
 
 .kms-chart-band {
@@ -128,6 +151,12 @@
 .kms-chart-label {
   fill: var(--muted-foreground);
   font-size: 10px;
+}
+
+.kms-chart-value {
+  fill: var(--foreground);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 @media (prefers-reduced-motion: reduce) {

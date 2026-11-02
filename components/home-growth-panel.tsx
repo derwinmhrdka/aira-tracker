@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, type BabyProfile, type GrowthLog } from '@/lib/api-client'
+import { ArrowDown, ArrowUp, Check, ChevronDown, Minus, Ruler, Scale, ScanFace, type LucideIcon } from 'lucide-react'
+import { api, getLoggedBy, type BabyProfile, type GrowthLog } from '@/lib/api-client'
 import { ageInMonths, type Gender, type GrowthMetric } from '@/lib/who-growth'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import {
@@ -15,11 +16,12 @@ import {
   formatGrowthValue,
   getGrowthGaugePercent,
   getGrowthTrend,
+  GROWTH_TREND_LABEL,
   growthMetricShortLabel,
   growthMetricUnit,
   type GrowthTrend,
 } from '@/lib/growth-mini'
-import { GrowthCurve } from './growth-curve'
+import { GrowthCurve, type GrowthCurveMode } from './growth-curve'
 import { GrowthStage, type GrowthStageHandle } from './growth-stage'
 import { buildGrowthMetrics, type GrowthMetricCell } from '@/lib/growth-metrics'
 import { GrowthInfoSheet, type GrowthInfoItem } from './growth-info-sheet'
@@ -47,10 +49,138 @@ type SavedGrowth = {
 
 const METRICS: GrowthMetric[] = ['weight', 'height', 'head']
 
-const TREND_STROKE: Record<GrowthTrend, string> = {
-  normal: '#059669',
-  under: '#d97706',
-  over: '#ea580c',
+const CURVE_OPTIONS: Array<{ id: GrowthCurveMode; label: string; aria: string }> = [
+  { id: 'all', label: 'Semua', aria: 'Semua kurva' },
+  { id: 'weight', label: 'Berat', aria: 'Kurva berat' },
+  { id: 'height', label: 'Panjang', aria: 'Kurva panjang' },
+  { id: 'head', label: 'Lingkar kepala', aria: 'Kurva lingkar kepala' },
+]
+
+const TREND_TEXT: Record<GrowthTrend, string> = {
+  normal: 'text-emerald-700',
+  under: 'text-amber-700',
+  over: 'text-orange-700',
+}
+
+const TREND_DOT: Record<GrowthTrend, string> = {
+  normal: 'bg-emerald-600',
+  under: 'bg-amber-600',
+  over: 'bg-orange-600',
+}
+
+const TREND_MARK: Record<GrowthTrend, LucideIcon> = {
+  normal: Minus,
+  under: ArrowDown,
+  over: ArrowUp,
+}
+
+const METER_TRACK =
+  'linear-gradient(to right, #ef4444 0%, #f59e0b 22%, #10b981 50%, #f59e0b 78%, #ef4444 100%)'
+
+const METRIC_ICON: Record<GrowthMetric, LucideIcon> = {
+  weight: Scale,
+  height: Ruler,
+  head: ScanFace,
+}
+
+function curveHasData(mode: GrowthCurveMode, saved: SavedGrowth) {
+  if (mode === 'all' || mode === 'weight') return saved.weight > 0
+  const current = mode === 'height' ? saved.height : saved.head
+  if (current != null && current > 0) return true
+  return saved.history.some((point) => {
+    const value = mode === 'height' ? point.height : point.head
+    return value != null && value > 0
+  })
+}
+
+function curveEmptyCopy(mode: GrowthCurveMode) {
+  if (mode === 'height') return 'Belum ada panjang tersimpan.'
+  if (mode === 'head') return 'Belum ada lingkar kepala tersimpan.'
+  return 'Belum ada berat tersimpan.'
+}
+
+function CurvePicker({
+  value,
+  onChange,
+}: {
+  value: GrowthCurveMode
+  onChange: (mode: GrowthCurveMode) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const current = CURVE_OPTIONS.find((option) => option.id === value) ?? CURVE_OPTIONS[0]
+
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={current.aria}
+        onClick={() => setOpen((currentOpen) => !currentOpen)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background py-1 pr-2 pl-3 text-xs font-semibold text-foreground shadow-sm"
+      >
+        {current.label}
+        <ChevronDown
+          className={`size-3.5 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <ul
+          role="listbox"
+          aria-label="Pilih kurva"
+          className="absolute top-[calc(100%+0.4rem)] right-0 z-30 w-44 overflow-hidden rounded-2xl border border-border bg-popover p-1 shadow-lg"
+        >
+          {CURVE_OPTIONS.map((option) => {
+            const selected = option.id === value
+            return (
+              <li key={option.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm ${
+                    selected ? 'bg-primary/10 font-semibold text-primary' : 'text-foreground hover:bg-muted'
+                  }`}
+                  onClick={() => {
+                    onChange(option.id)
+                    setOpen(false)
+                  }}
+                >
+                  {option.label}
+                  {selected ? <Check className="size-3.5" aria-hidden /> : <span className="size-3.5" />}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
+function babyGreeting() {
+  const who = getLoggedBy()
+  if (who === 'IBU') return 'Hihi, hello Ibun! 💕'
+  if (who === 'AYAH') return 'Hihi, hi papa! 💙'
+  return 'Hihi!'
 }
 
 function latestLog(logs: GrowthLog[]) {
@@ -92,69 +222,103 @@ function savedFromSources(profile: BabyProfile, logs: GrowthLog[]): SavedGrowth 
   }
 }
 
-function GrowthDonut({
+function GrowthReadout({
   metric,
   cell,
   birthDate,
   gender,
-  onOpen,
+  open,
+  onToggle,
+  onDetail,
 }: {
   metric: GrowthMetric
   cell: GrowthMetricCell | null
   birthDate: string | null
   gender: Gender
-  onOpen: () => void
+  open: boolean
+  onToggle: () => void
+  onDetail: () => void
 }) {
-  const label = growthMetricShortLabel(metric)
+  const fullLabel = growthMetricShortLabel(metric)
+  const MetricIcon = METRIC_ICON[metric]
   const trend =
     cell && birthDate
       ? getGrowthTrend(cell.value, birthDate, cell.measureDate, metric, gender)
       : null
-  const pct =
+  const TrendIcon = trend ? TREND_MARK[trend] : null
+  const number = cell ? formatGrowthValue(cell.value, metric) : '—'
+  const unit = growthMetricUnit(metric)
+  const status = trend ? GROWTH_TREND_LABEL[trend] : 'Belum ada'
+  const meter =
     cell && birthDate
       ? getGrowthGaugePercent(cell.value, birthDate, cell.measureDate, metric, gender)
       : null
-  const radius = 16
-  const circumference = 2 * Math.PI * radius
-  const filled = pct == null ? 0 : (pct / 100) * circumference
-  const number = cell ? formatGrowthValue(cell.value, metric) : '—'
-  const unit = growthMetricUnit(metric)
 
   return (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation()
-        if (cell) onOpen()
-      }}
-      className="flex min-w-0 flex-1 flex-col items-center gap-1 text-slate-900"
-      aria-label={cell ? `${label} ${number} ${unit}` : label}
-    >
-      <span className="max-w-16 text-center text-[10px] font-semibold leading-tight tracking-wide uppercase">
-        {cell ? label : 'Lingkar kepala'}
-      </span>
-      <span className="relative grid size-[4.4rem] place-items-center">
-        <svg viewBox="0 0 40 40" className="size-[4.4rem] -rotate-90" aria-hidden>
-          <circle cx="20" cy="20" r={radius} fill="none" stroke="rgb(226 232 240)" strokeWidth="3.5" />
-          {filled > 0 ? (
-            <circle
-              cx="20"
-              cy="20"
-              r={radius}
-              fill="none"
-              stroke={trend ? TREND_STROKE[trend] : '#059669'}
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeDasharray={`${filled} ${circumference - filled}`}
-            />
-          ) : null}
-        </svg>
-        <span className="absolute text-center leading-none">
-          <span className="block font-heading text-sm font-bold tabular-nums">{number}</span>
-          {cell && unit ? <span className="mt-0.5 block text-[9px] font-medium text-slate-500">{unit}</span> : null}
+    <div className="relative min-w-0">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          onToggle()
+        }}
+        className="flex w-full items-center justify-center gap-1 px-1 py-2 text-slate-900"
+        aria-expanded={open}
+        aria-label={cell ? `${fullLabel} ${number} ${unit}, ${status}` : `${fullLabel}, belum ada`}
+      >
+        <span className="grid size-5 shrink-0 place-items-center rounded-full border border-slate-400/70 bg-white/40">
+          <MetricIcon className="size-3 text-slate-700" strokeWidth={2.25} aria-hidden />
         </span>
-      </span>
-    </button>
+        <span className="font-heading text-[13px] leading-none font-bold tabular-nums">
+          {number}
+          {cell ? <span className="ml-0.5 text-[9px] font-medium text-slate-600">{unit}</span> : null}
+        </span>
+        {TrendIcon ? (
+          <TrendIcon
+            className={`size-3.5 shrink-0 ${trend ? TREND_TEXT[trend] : 'text-slate-400'}`}
+            strokeWidth={2.5}
+            aria-hidden
+          />
+        ) : (
+          <Minus className="size-3.5 shrink-0 text-slate-400" strokeWidth={2.5} aria-hidden />
+        )}
+      </button>
+      {open ? (
+        <div
+          className="absolute top-[calc(100%+0.35rem)] left-1/2 z-30 w-36 -translate-x-1/2 rounded-xl border border-white/70 bg-white/90 p-2.5 text-center shadow-md backdrop-blur-md"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <p className={`text-[11px] leading-none font-semibold ${trend ? TREND_TEXT[trend] : 'text-slate-400'}`}>
+            {status}
+          </p>
+          <span
+            className="relative mt-2 block h-1.5 w-full overflow-visible rounded-full bg-slate-200"
+            style={meter != null ? { background: METER_TRACK } : undefined}
+            aria-hidden
+          >
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/80" />
+            {meter != null && trend ? (
+              <span
+                className={`absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white shadow-sm ${TREND_DOT[trend]}`}
+                style={{ left: `${meter}%` }}
+              />
+            ) : null}
+          </span>
+          {cell ? (
+            <button
+              type="button"
+              className="mt-2 text-[10px] font-semibold text-slate-600 underline-offset-2 hover:underline"
+              onClick={(event) => {
+                event.stopPropagation()
+                onDetail()
+              }}
+            >
+              Detail
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -168,7 +332,9 @@ export function HomeGrowthPanel({
   const [logs, setLogs] = useState<GrowthLog[]>([])
   const [ready, setReady] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
-  const [greet, setGreet] = useState(false)
+  const [tipMetric, setTipMetric] = useState<GrowthMetric | null>(null)
+  const [curveMode, setCurveMode] = useState<GrowthCurveMode>('all')
+  const [greet, setGreet] = useState<string | null>(null)
   const stageRef = useRef<GrowthStageHandle>(null)
 
   const load = useCallback(async () => {
@@ -224,32 +390,36 @@ export function HomeGrowthPanel({
       <div
         className="kms-hero"
         onClick={() => {
+          setTipMetric(null)
           stageRef.current?.react()
-          setGreet(true)
-          window.setTimeout(() => setGreet(false), 2600)
+          setGreet(babyGreeting())
+          window.setTimeout(() => setGreet(null), 2600)
         }}
       >
         <GrowthStage ref={stageRef} status={reading?.status ?? 'normal'} />
         <div className="kms-hud">
           <div
-            className="pointer-events-auto mx-auto w-full max-w-md rounded-2xl border border-white/70 bg-white/80 px-2 py-2 shadow-sm backdrop-blur-md"
+            className="pointer-events-auto grid w-full grid-cols-3 divide-x divide-white/50 rounded-2xl border border-white/40 bg-white/30 shadow-sm backdrop-blur-sm"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-1">
-              {METRICS.map((metric) => (
-                <GrowthDonut
-                  key={metric}
-                  metric={metric}
-                  cell={metricByKey.get(metric) ?? null}
-                  birthDate={resolvedBirth}
-                  gender={gender}
-                  onOpen={() => setInfoOpen(true)}
-                />
-              ))}
-            </div>
+            {METRICS.map((metric) => (
+              <GrowthReadout
+                key={metric}
+                metric={metric}
+                cell={metricByKey.get(metric) ?? null}
+                birthDate={resolvedBirth}
+                gender={gender}
+                open={tipMetric === metric}
+                onToggle={() => setTipMetric((current) => (current === metric ? null : metric))}
+                onDetail={() => {
+                  setTipMetric(null)
+                  setInfoOpen(true)
+                }}
+              />
+            ))}
           </div>
 
-          {greet ? <span className="kms-bubble">Hihi!</span> : null}
+          {greet ? <span className="kms-bubble max-w-[92%] text-center text-sm whitespace-nowrap">{greet}</span> : null}
 
           <div
             className="pointer-events-auto flex items-end justify-between gap-2"
@@ -262,24 +432,28 @@ export function HomeGrowthPanel({
       </div>
 
       <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <div className="mb-2 flex items-baseline justify-between gap-3">
-          <h2 className="font-heading text-lg font-semibold text-foreground">Kurva berat</h2>
-          <p className="text-sm font-semibold text-muted-foreground">
-            {reading?.weightZ == null ? '—' : `Z ${reading.weightZ.toFixed(1)}`}
-          </p>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="font-heading text-lg font-semibold text-foreground">Kurva</h2>
+          <CurvePicker value={curveMode} onChange={setCurveMode} />
         </div>
         {saved && reading ? (
-          <>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">{formatMeasureDate(saved.measureDate)}</p>
-            <GrowthCurve
-              month={saved.month}
-              weight={saved.weight}
-              height={saved.height}
-              head={saved.head}
-              gender={saved.gender}
-              history={saved.history}
-            />
-          </>
+          curveHasData(curveMode, saved) ? (
+            <>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">{formatMeasureDate(saved.measureDate)}</p>
+              <GrowthCurve
+                key={curveMode}
+                mode={curveMode}
+                month={saved.month}
+                weight={saved.weight}
+                height={saved.height}
+                head={saved.head}
+                gender={saved.gender}
+                history={saved.history}
+              />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">{curveEmptyCopy(curveMode)}</p>
+          )
         ) : (
           <p className="text-sm text-muted-foreground">
             {ready ? 'Belum ada berat tersimpan.' : 'Memuat kurva...'}

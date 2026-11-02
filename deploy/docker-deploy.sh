@@ -46,6 +46,8 @@ echo "    HTTPS is handled by host nginx — see deploy/nginx-aira.conf.example"
 
 echo "==> Disk space before build:"
 df -h / /tmp 2>/dev/null || df -h /
+echo "==> Memory before build:"
+free -h 2>/dev/null || true
 
 echo "==> Pruning stopped containers and dangling images..."
 # Do not prune the BuildKit cache here. That cache is what skips the

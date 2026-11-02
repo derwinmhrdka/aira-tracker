@@ -5,10 +5,12 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 # One npm download. The Prisma CLI for db push is installed here from that
 # cache, so the final image does not download Prisma again.
+# Write the CLI package.json directly. `npm init -y --prefix` ignores
+# --prefix on npm 10 and overwrites /app/package.json.
 RUN --mount=type=cache,target=/root/.npm \
   npm ci --ignore-scripts --no-audit --no-fund \
   && mkdir -p /opt/prisma-cli \
-  && npm init -y --prefix /opt/prisma-cli \
+  && printf '%s\n' '{"name":"prisma-cli","private":true}' > /opt/prisma-cli/package.json \
   && npm install --prefix /opt/prisma-cli --prefer-offline --ignore-scripts --no-audit --no-fund prisma@6.19.3
 RUN set -e; \
   for i in 1 2 3; do \
@@ -24,7 +26,9 @@ RUN apk add --no-cache openssl libc6-compat ca-certificates
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN ./node_modules/.bin/next build --turbopack
+# Turbopack on Alpine (musl) can sit at the memory ceiling and emit no logs
+# until the SSH deploy timeout kills the build. Webpack completes this app.
+RUN ./node_modules/.bin/next build --webpack
 
 FROM node:22-alpine AS runner
 WORKDIR /app

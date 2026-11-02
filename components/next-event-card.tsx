@@ -80,18 +80,20 @@ export function NextEventCard() {
           onClick={(clickEvent) => clickEvent.stopPropagation()}
         >
           <p className="font-heading text-sm font-semibold text-foreground">{event.title}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {formatMiniWhen(event.start_at, event.end_at)}
           </p>
-          <p className="mt-1 text-[11px] font-semibold text-primary">{formatCountdown(event.start_at)}</p>
-          <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
-            {event.location ? <p>📍 {event.location}</p> : null}
-            {event.meet_with ? <p>👤 {event.meet_with}</p> : null}
-          </div>
+          <p className="mt-1 text-xs font-semibold text-primary">{formatCountdown(event.start_at)}</p>
+          {event.location || event.meet_with ? (
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-3.5 text-xs text-muted-foreground marker:text-primary">
+              {event.location ? <li>{event.location}</li> : null}
+              {event.meet_with ? <li>{event.meet_with}</li> : null}
+            </ul>
+          ) : null}
           <button
             type="button"
             onClick={() => router.push(pageToPath('events'), { scroll: false })}
-            className="mt-2 text-[11px] font-semibold text-primary"
+            className="mt-2 text-xs font-semibold text-primary"
           >
             Buka jadwal
           </button>
