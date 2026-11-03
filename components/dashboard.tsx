@@ -2,17 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { QuickLogButton } from './quick-log-button'
 import { Toast } from './toast'
 import { ThemeToggle } from './theme-toggle'
 import { LoggedBySelector } from './logged-by-selector'
-import { NoteSheet } from './note-sheet'
 import { SessionEndSheet, type SessionEndData } from './session-end-sheet'
-import { QuickFeedSheet } from './quick-feed-sheet'
 import { ActiveTimer } from './active-timer'
-import { BabyInfoCard } from './baby-info-card'
-import { BabyProfileSheet } from './baby-profile-sheet'
-import { VaccineInfoSheet } from './vaccine-info-sheet'
 import { InsightsCard } from './insights-card'
 import { MilkStorageCard } from './milk-storage-card'
 import { HomeGrowthPanel } from './home-growth-panel'
@@ -26,8 +20,6 @@ import {
   notifyDataSynced,
 } from '@/lib/use-live-sync'
 import {
-  getLocalHomeVisibility,
-  mergeHomeVisibility,
   HOME_VISIBILITY_DEFAULTS,
   type HomeVisibility,
 } from '@/lib/home-visibility'
@@ -35,18 +27,10 @@ import {
 export function Dashboard() {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [summary, setSummary] = useState<TodaySummary | null>(null)
-  const [noteOpen, setNoteOpen] = useState(false)
   const [feedEndOpen, setFeedEndOpen] = useState(false)
   const [sleepEndOpen, setSleepEndOpen] = useState(false)
-  const [quickFeedOpen, setQuickFeedOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
-  const [vaccineOpen, setVaccineOpen] = useState(false)
-  const [homeLocal, setHomeLocal] = useState(getLocalHomeVisibility)
-  const [homeGlobal, setHomeGlobal] = useState<HomeVisibility>(
-    HOME_VISIBILITY_DEFAULTS
-  )
-  const homeVis = mergeHomeVisibility(homeGlobal, homeLocal)
+  const [homeVis, setHomeVis] = useState<HomeVisibility>(HOME_VISIBILITY_DEFAULTS)
 
   const fetchSummary = useCallback(async (_opts?: { silent?: boolean }) => {
     try {
@@ -62,21 +46,16 @@ export function Dashboard() {
   }, [fetchSummary])
 
   useEffect(() => {
-    const refreshLocal = () => setHomeLocal(getLocalHomeVisibility())
-    refreshLocal()
-    window.addEventListener('focus', refreshLocal)
-
     let cancelled = false
     api
       .getHomeVisibilityGlobal()
       .then((vis) => {
-        if (!cancelled) setHomeGlobal(vis)
+        if (!cancelled) setHomeVis(vis)
       })
       .catch(() => {})
 
     return () => {
       cancelled = true
-      window.removeEventListener('focus', refreshLocal)
     }
   }, [])
 
@@ -111,17 +90,6 @@ export function Dashboard() {
     setToastMessage(message)
     playSoundEffect('success')
     setTimeout(() => setToastMessage(null), 2000)
-  }
-
-  const handleSaveNote = async (content: string, photoUrl?: string, audioUrl?: string) => {
-    const result = await api.createNote(content, photoUrl, audioUrl)
-    if (isQueuedResponse(result)) {
-      showToast('📡 Menunggu sync...')
-    } else {
-      showToast('📝 Catatan tersimpan!')
-      notifyDataSynced()
-    }
-    fetchSummary({ silent: true })
   }
 
   const optimisticUpdate = (action: string, durationMinutes?: number) => {
@@ -318,25 +286,6 @@ export function Dashboard() {
     }
   }
 
-  const handleQuickFeed = async (data: { feed_type: string; amount_ml?: number }) => {
-    showToast('🍼 Tercatat!')
-    setQuickFeedOpen(false)
-    if (summary) {
-      setSummary({
-        ...summary,
-        counts: { ...summary.counts, feed: summary.counts.feed + 1 },
-        lastTimes: { ...summary.lastTimes, feed: new Date().toISOString() },
-      })
-    }
-    try {
-      await api.logFeeding('quick', data)
-      fetchSummary()
-      notifyDataSynced()
-    } catch (err) {
-      showLogError(err)
-    }
-  }
-
   return (
     <div className="pt-6">
       <div className="px-4 pb-4 pt-6">
@@ -365,20 +314,14 @@ export function Dashboard() {
       </div>
 
       <div className="px-4">
-        {homeVis.babyInfo && (
-          <BabyInfoCard
-            summary={summary}
-            showMood={homeVis.mood}
-            onClick={() => setProfileOpen(true)}
-            onVaccineClick={() => setVaccineOpen(true)}
-          />
-        )}
-
         <HomeGrowthPanel
           birthDate={summary?.baby?.birth_date}
           dueDate={summary?.baby?.due_date}
           showLeap={homeVis.leap}
           showEvent={homeVis.nextEvent}
+          showIdentity={homeVis.babyInfo}
+          baby={summary?.baby ?? null}
+          nextVaccine={summary?.nextVaccine ?? null}
         />
 
         {homeVis.insights && <InsightsCard summary={summary} />}
@@ -402,95 +345,8 @@ export function Dashboard() {
           </>
         )}
 
-        {homeVis.quickActions && (
-          <div className="mb-2">
-            <h2 className="font-heading mb-3 text-base font-semibold text-foreground">
-              Quick Action
-            </h2>
-            <div className="grid grid-cols-3 gap-2">
-              <QuickLogButton
-                compact
-                type="pup"
-                emoji="💩"
-                label="Pup"
-                color="bg-yellow-200 dark:bg-yellow-900"
-                onClick={() => handleLog('pup')}
-              />
-              <QuickLogButton
-                compact
-                type="pee"
-                emoji="💧"
-                label="Pee"
-                color="bg-blue-200 dark:bg-blue-900"
-                onClick={() => handleLog('pee')}
-              />
-              <QuickLogButton
-                compact
-                type="both"
-                icon={
-                  <span className="inline-flex items-center gap-0.5 text-[1.05rem] leading-none">
-                    <span>💩</span>
-                    <span>💧</span>
-                  </span>
-                }
-                label="Pupee"
-                color="bg-teal-200 dark:bg-teal-900"
-                onClick={() => handleLog('both')}
-              />
-              <QuickLogButton
-                compact
-                type="change"
-                emoji="🩲"
-                label="Popok"
-                color="bg-slate-200 dark:bg-slate-800"
-                onClick={() => handleLog('change')}
-              />
-              <QuickLogButton
-                compact
-                type="feed"
-                emoji={summary?.activeFeeding ? '✅' : '🍼'}
-                label={summary?.activeFeeding ? 'Done' : 'Susu'}
-                color="bg-orange-200 dark:bg-orange-900"
-                onClick={() => handleLog('feed')}
-              />
-              <QuickLogButton
-                compact
-                type="pumped"
-                emoji="🥛"
-                label="Pumping"
-                color="bg-amber-200 dark:bg-amber-900"
-                onClick={() => setQuickFeedOpen(true)}
-              />
-              <QuickLogButton
-                compact
-                type="sleep"
-                emoji={summary?.activeSleep ? '☀️' : '😴'}
-                label={summary?.activeSleep ? 'Bangun' : 'Tidur'}
-                color={
-                  summary?.activeSleep
-                    ? 'bg-green-200 dark:bg-green-900'
-                    : 'bg-purple-200 dark:bg-purple-900'
-                }
-                onClick={() => handleLog('sleep')}
-              />
-              <QuickLogButton
-                compact
-                type="note"
-                emoji="📝"
-                label="Note"
-                color="bg-pink-200 dark:bg-pink-900"
-                onClick={() => setNoteOpen(true)}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
-      <NoteSheet
-        open={noteOpen}
-        onClose={() => setNoteOpen(false)}
-        onSave={handleSaveNote}
-      />
       <SessionEndSheet
         open={feedEndOpen}
         type="feeding"
@@ -505,11 +361,6 @@ export function Dashboard() {
         onClose={() => setSleepEndOpen(false)}
         onConfirm={handleSleepEnd}
       />
-      <QuickFeedSheet
-        open={quickFeedOpen}
-        onClose={() => setQuickFeedOpen(false)}
-        onSave={handleQuickFeed}
-      />
       <OnboardingSheet
         open={onboardingOpen}
         onComplete={() => {
@@ -517,13 +368,6 @@ export function Dashboard() {
           fetchSummary()
         }}
       />
-      <BabyProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} />
-      <VaccineInfoSheet
-        open={vaccineOpen}
-        brief={summary?.nextVaccine}
-        onClose={() => setVaccineOpen(false)}
-      />
-
       {toastMessage && <Toast message={toastMessage} />}
     </div>
   )

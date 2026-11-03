@@ -12,6 +12,7 @@ import {
 } from '@/lib/navigation'
 import { Dashboard } from '@/components/dashboard'
 import { BottomNav } from '@/components/bottom-nav'
+import { QuickActionDock } from '@/components/quick-action-dock'
 import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
 import { notifyDataSynced } from '@/lib/use-live-sync'
 
@@ -114,6 +115,7 @@ export function AppShell() {
   const [currentPage, setCurrentPage] = useState<AppPage>(() =>
     pathToPage(searchParams.get('p'))
   )
+  const [quickOpen, setQuickOpen] = useState(false)
 
   useEffect(() => {
     const page = pathToPage(searchParams.get('p'))
@@ -122,6 +124,7 @@ export function AppShell() {
 
   const navigate = useCallback(
     (page: AppPage) => {
+      setQuickOpen(false)
       setCurrentPage(page)
       router.push(pageToPath(page), { scroll: false })
       if (page === 'home') {
@@ -175,9 +178,16 @@ export function AppShell() {
         {currentPage === 'settings' && <SettingsPage onBack={goBack} />}
       </div>
 
+      <QuickActionDock
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        onNavigate={navigate}
+      />
       <BottomNav
         currentPage={navPageFor(currentPage)}
         onPageChange={navigate}
+        quickOpen={quickOpen}
+        onQuickToggle={() => setQuickOpen((open) => !open)}
       />
       <PwaInstallPrompt />
     </div>

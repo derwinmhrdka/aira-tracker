@@ -8,7 +8,7 @@ import { addToIosCalendar, openGoogleCalendar } from '@/lib/calendar-link'
 interface EventSheetProps {
   open: boolean
   onClose: () => void
-  onSave: (data: CreateEventInput, note?: string) => Promise<void>
+  onSave: (data: CreateEventInput) => Promise<void>
   initial?: CalendarEvent | null
   mode?: 'create' | 'edit'
 }
@@ -97,20 +97,12 @@ export function EventSheet({
     }
 
     const data = draft()
-    let calendarNote: string | undefined
-    if (also === 'google') {
-      const result = await openGoogleCalendar(data)
-      if (result === 'copied') calendarNote = 'Tautan Google Calendar disalin. Event tersimpan.'
-    }
-    if (also === 'ios') {
-      const result = await addToIosCalendar(data)
-      if (result === 'cancelled') calendarNote = undefined
-    }
-
     setSaving(true)
     setError(null)
     try {
-      await onSave(data, calendarNote)
+      await onSave(data)
+      if (also === 'google') openGoogleCalendar(data)
+      if (also === 'ios') addToIosCalendar(data)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal menyimpan')

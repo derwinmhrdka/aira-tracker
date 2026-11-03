@@ -11,6 +11,7 @@ import { api, type CalendarEvent, type CreateEventInput } from '@/lib/api-client
 import { addToIosCalendar, openGoogleCalendar } from '@/lib/calendar-link'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import { notifyDataSynced } from '@/lib/use-live-sync'
+import { useQuickAdd } from '@/lib/quick-add'
 
 interface EventsPageProps {
   onBack: () => void
@@ -44,6 +45,12 @@ export function EventsPage({ onBack }: EventsPageProps) {
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
+  const openAdd = useCallback(() => {
+    setEditing(null)
+    setSheetOpen(true)
+  }, [])
+  useQuickAdd('event', openAdd)
+
   const loadEvents = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
@@ -60,21 +67,21 @@ export function EventsPage({ onBack }: EventsPageProps) {
 
   useAppDataSync(() => loadEvents(true))
 
-  const handleCreate = async (data: CreateEventInput, note?: string) => {
+  const handleCreate = async (data: CreateEventInput) => {
     await api.createEvent(data)
     playSoundEffect('success')
-    setToast(note ?? '📅 Event tersimpan!')
+    setToast('📅 Event tersimpan!')
     setTimeout(() => setToast(null), 2000)
     setSheetOpen(false)
     await loadEvents(true)
     notifyDataSynced()
   }
 
-  const handleEdit = async (data: CreateEventInput, note?: string) => {
+  const handleEdit = async (data: CreateEventInput) => {
     if (!editing) return
     await api.updateEvent(editing.id, data)
     playSoundEffect('success')
-    setToast(note ?? '✓ Event diperbarui!')
+    setToast('✓ Event diperbarui!')
     setTimeout(() => setToast(null), 2000)
     setEditing(null)
     await loadEvents(true)
@@ -215,21 +222,14 @@ function EventCard({
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => {
-                void openGoogleCalendar(event).then((result) => {
-                  if (result === 'copied') {
-                    setToast('Tautan Google Calendar disalin')
-                    setTimeout(() => setToast(null), 2000)
-                  }
-                })
-              }}
+              onClick={() => openGoogleCalendar(event)}
               className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground"
             >
               Google Calendar
             </button>
             <button
               type="button"
-              onClick={() => void addToIosCalendar(event)}
+              onClick={() => addToIosCalendar(event)}
               className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground"
             >
               Kalender iPhone

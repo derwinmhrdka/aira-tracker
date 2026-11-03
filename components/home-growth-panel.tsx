@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDown, ArrowUp, Check, ChevronDown, Minus, Ruler, Scale, ScanFace, type LucideIcon } from 'lucide-react'
-import { api, getLoggedBy, type BabyProfile, type GrowthLog } from '@/lib/api-client'
+import { api, getLoggedBy, type BabyProfile, type GrowthLog, type TodaySummary } from '@/lib/api-client'
 import { ageInMonths, type Gender, type GrowthMetric } from '@/lib/who-growth'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
 import {
@@ -27,6 +28,8 @@ import { buildGrowthMetrics, type GrowthMetricCell } from '@/lib/growth-metrics'
 import { GrowthInfoSheet, type GrowthInfoItem } from './growth-info-sheet'
 import { BabyLeapCard } from './baby-leap-card'
 import { NextEventCard } from './next-event-card'
+import { VaccineInfoSheet } from './vaccine-info-sheet'
+import { ageMonthsAndDays } from '@/lib/baby-utils'
 import '@/app/kms-baby.css'
 
 type HomeGrowthPanelProps = {
@@ -34,7 +37,13 @@ type HomeGrowthPanelProps = {
   dueDate?: string | null
   showLeap?: boolean
   showEvent?: boolean
+  showIdentity?: boolean
+  baby?: TodaySummary['baby']
+  nextVaccine?: TodaySummary['nextVaccine']
 }
+
+const GLASS_CARD =
+  'pointer-events-auto w-full rounded-2xl border border-white/40 bg-white/30 shadow-sm backdrop-blur-sm'
 
 type SavedGrowth = {
   gender: Gender
@@ -262,11 +271,11 @@ function GrowthReadout({
           event.stopPropagation()
           onToggle()
         }}
-        className="flex w-full flex-col items-center justify-center gap-1 px-1 py-2 text-slate-900"
+        className="flex w-full flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-slate-900"
         aria-expanded={open}
         aria-label={cell ? `${fullLabel} ${number} ${unit}, ${status}` : `${fullLabel}, belum ada`}
       >
-        <span className="flex h-6 items-end justify-center text-center text-[9px] leading-tight font-semibold tracking-wide text-slate-600">
+        <span className="text-center text-[9px] leading-none font-semibold tracking-wide whitespace-nowrap text-slate-600">
           {fullLabel}
         </span>
         <span className="flex items-center justify-center gap-1">
@@ -327,11 +336,54 @@ function GrowthReadout({
   )
 }
 
+function AgeReadout({ birthDate }: { birthDate?: string | null }) {
+  if (!birthDate) {
+    return <span className="shrink-0 text-sm font-semibold text-slate-500">—</span>
+  }
+  const { months, days } = ageMonthsAndDays(birthDate)
+  return (
+    <span className="inline-grid h-8 shrink-0 grid-cols-[auto_auto] grid-rows-2 items-stretch gap-x-0.5 leading-none">
+      <span className="row-span-2 self-center font-heading text-[2rem] font-bold tabular-nums leading-none text-slate-900">
+        {months}
+      </span>
+      <span className="self-start text-[11px] font-semibold leading-none text-slate-600">m</span>
+      <span className="self-end text-[11px] font-semibold tabular-nums leading-none text-slate-600">
+        {days}
+        <span className="text-[8px] font-medium">d</span>
+      </span>
+    </span>
+  )
+}
+
+function VaccineBadge({ brief }: { brief: NonNullable<TodaySummary['nextVaccine']> }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen(true)
+        }}
+        className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/30 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur-sm"
+        aria-expanded={open}
+      >
+        <span aria-hidden>💉</span>
+        <span className="max-w-28 truncate">{brief.name}</span>
+      </button>
+      <VaccineInfoSheet open={open} brief={brief} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
 export function HomeGrowthPanel({
   birthDate,
   dueDate,
   showLeap = true,
   showEvent = true,
+  showIdentity = true,
+  baby = null,
+  nextVaccine = null,
 }: HomeGrowthPanelProps) {
   const [profile, setProfile] = useState<BabyProfile | null>(null)
   const [logs, setLogs] = useState<GrowthLog[]>([])
@@ -340,7 +392,28 @@ export function HomeGrowthPanel({
   const [tipMetric, setTipMetric] = useState<GrowthMetric | null>(null)
   const [curveMode, setCurveMode] = useState<GrowthCurveMode>('all')
   const [greet, setGreet] = useState<string | null>(null)
+  const [showMetrics, setShowMetrics] = useState(!showIdentity)
   const stageRef = useRef<GrowthStageHandle>(null)
+  const metricsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showMetrics || !showIdentity) return
+    const back = () => {
+      setTipMetric(null)
+      setShowMetrics(false)
+    }
+    const timer = window.setTimeout(back, 5000)
+    const onPointerDown = (event: PointerEvent) => {
+      const card = metricsRef.current
+      if (card && event.target instanceof Node && card.contains(event.target)) return
+      back()
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [showMetrics, showIdentity])
 
   const load = useCallback(async () => {
     try {
@@ -403,25 +476,72 @@ export function HomeGrowthPanel({
       >
         <GrowthStage ref={stageRef} status={reading?.status ?? 'normal'} />
         <div className="kms-hud">
-          <div
-            className="pointer-events-auto grid w-full grid-cols-3 divide-x divide-white/50 rounded-2xl border border-white/40 bg-white/30 shadow-sm backdrop-blur-sm"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {METRICS.map((metric) => (
-              <GrowthReadout
-                key={metric}
-                metric={metric}
-                cell={metricByKey.get(metric) ?? null}
-                birthDate={resolvedBirth}
-                gender={gender}
-                open={tipMetric === metric}
-                onToggle={() => setTipMetric((current) => (current === metric ? null : metric))}
-                onDetail={() => {
-                  setTipMetric(null)
-                  setInfoOpen(true)
-                }}
-              />
-            ))}
+          <div className="overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            {showMetrics || !showIdentity ? (
+              <motion.div
+                key="metrics"
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                ref={metricsRef}
+                className={`${GLASS_CARD} grid grid-cols-3 divide-x divide-white/50 p-1`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {METRICS.map((metric) => (
+                  <GrowthReadout
+                    key={metric}
+                    metric={metric}
+                    cell={metricByKey.get(metric) ?? null}
+                    birthDate={resolvedBirth}
+                    gender={gender}
+                    open={tipMetric === metric}
+                    onToggle={() => setTipMetric((current) => (current === metric ? null : metric))}
+                    onDetail={() => {
+                      setTipMetric(null)
+                      setInfoOpen(true)
+                    }}
+                  />
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="identity"
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                className={`${GLASS_CARD} flex items-center gap-2 px-2.5 py-1.5`}
+              >
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setShowMetrics(true)
+                  }}
+                  aria-label="Lihat berat, panjang, dan lingkar kepala"
+                >
+                  {baby?.photo_url ? (
+                    <img
+                      src={baby.photo_url}
+                      alt=""
+                      className="size-10 shrink-0 rounded-full object-cover ring-2 ring-white/70"
+                    />
+                  ) : (
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/50 text-lg">
+                      👶
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate font-heading text-sm font-bold text-slate-900">
+                    {baby?.name ?? '—'}
+                  </span>
+                  <AgeReadout birthDate={baby?.birth_date} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
           </div>
 
           {greet ? <span className="kms-bubble max-w-[92%] text-center text-sm whitespace-nowrap">{greet}</span> : null}
@@ -430,7 +550,10 @@ export function HomeGrowthPanel({
             className="pointer-events-auto flex items-end justify-between gap-2"
             onClick={(event) => event.stopPropagation()}
           >
-            {showLeap ? <BabyLeapCard birthDate={resolvedBirth} dueDate={dueDate} /> : <span />}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {showLeap ? <BabyLeapCard birthDate={resolvedBirth} dueDate={dueDate} /> : null}
+              {nextVaccine ? <VaccineBadge brief={nextVaccine} /> : null}
+            </div>
             {showEvent ? <NextEventCard /> : null}
           </div>
         </div>

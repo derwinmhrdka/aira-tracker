@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PageHeader } from './page-header'
 import { PhotoUpload } from './photo-upload'
@@ -8,6 +8,7 @@ import { Celebration } from './celebration'
 import { playSoundEffect } from '@/lib/sounds'
 import { api, type Milestone, cleanupDraftUploads } from '@/lib/api-client'
 import { ConfirmDeleteSheet } from './confirm-delete-sheet'
+import { useQuickAdd } from '@/lib/quick-add'
 
 interface MilestonesPageProps {
   onBack: () => void
@@ -27,13 +28,19 @@ export function MilestonesPage({ onBack }: MilestonesPageProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Milestone | null>(null)
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setTitle('')
     setDescription('')
     setDate(new Date().toISOString().split('T')[0])
     setPhotoUrl(null)
     setEditing(null)
-  }
+  }, [])
+
+  const openAdd = useCallback(() => {
+    resetForm()
+    setShowForm(true)
+  }, [resetForm])
+  useQuickAdd('milestone', openAdd)
 
   useEffect(() => {
     api.getMilestones().then(setMilestones).finally(() => setLoading(false))

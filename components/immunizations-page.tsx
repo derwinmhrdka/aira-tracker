@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
 import { PageHeader } from './page-header'
@@ -11,6 +11,7 @@ import {
   type VaccineStrategySettings,
 } from '@/lib/api-client'
 import { ageInWeeks } from '@/lib/baby-utils'
+import { useQuickAdd } from '@/lib/quick-add'
 import {
   STATUS_LABEL,
   STATUS_STYLE,
@@ -312,6 +313,12 @@ export function ImmunizationsPage({ onBack }: ImmunizationsPageProps) {
   const [newAge, setNewAge] = useState('0')
   const [newNotes, setNewNotes] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const openAdd = useCallback(() => {
+    setView('list')
+    setShowAdd(true)
+  }, [])
+  useQuickAdd('immunization', openAdd)
 
   useEffect(() => {
     Promise.all([api.getImmunizations(), api.getVaccineStrategy()])

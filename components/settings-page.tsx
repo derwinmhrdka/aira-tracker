@@ -1,7 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Moon, Sun } from 'lucide-react'
+import { useState, useEffect, type ReactNode } from 'react'
+import {
+  Baby,
+  CalendarDays,
+  ChartColumn,
+  Milk,
+  Moon,
+  Sparkles,
+  Sun,
+  Timer,
+  type LucideIcon,
+} from 'lucide-react'
 import { PageHeader } from './page-header'
 import { Toast } from './toast'
 import { AppIcon } from './app-icon'
@@ -14,8 +24,6 @@ import {
 import { subscribeToPush, unsubscribeFromPush, updatePushReminderSettings } from '@/lib/push-client'
 import { isSoundEnabled, setSoundEnabled } from '@/lib/sound-settings'
 import {
-  getLocalHomeVisibility,
-  setLocalHomeVisibility,
   HOME_VISIBILITY_DEFAULTS,
   HOME_VISIBILITY_OPTIONS,
   type HomeVisibility,
@@ -35,6 +43,13 @@ import { exportHistoryCsv, exportGrowthCsv, exportFullCsv } from '@/lib/export-c
 import { exportHistoryPdf, exportGrowthPdf, exportFullPdf } from '@/lib/export-pdf'
 import { downloadBackupJson, readBackupFile } from '@/lib/backup-client'
 import { ReminderIntervalPicker } from './reminder-interval-picker'
+import {
+  getQuickActionPrefs,
+  QUICK_ACTION_OPTIONS,
+  setQuickActionPrefs,
+  type QuickActionId,
+  type QuickActionPrefs,
+} from '@/lib/quick-actions'
 
 interface SettingsPageProps {
   onBack: () => void
@@ -42,12 +57,63 @@ interface SettingsPageProps {
 
 const EXPORT_DAYS = [7, 30, 90]
 
+const HOME_VISIBILITY_ICONS: Record<HomeVisibilityKey, LucideIcon> = {
+  babyInfo: Baby,
+  leap: Sparkles,
+  nextEvent: CalendarDays,
+  monitoring: Timer,
+  insights: ChartColumn,
+  milkStorage: Milk,
+}
+
+function IconToggle({
+  on,
+  label,
+  children,
+  disabled,
+  onClick,
+}: {
+  on: boolean
+  label: string
+  children: ReactNode
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex flex-col items-center gap-1.5 disabled:opacity-50"
+    >
+      <span
+        className={`grid size-14 place-items-center rounded-2xl text-2xl ${
+          on
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-secondary text-muted-foreground'
+        }`}
+      >
+        {children}
+      </span>
+      <span
+        className={`line-clamp-2 text-center text-[11px] font-semibold leading-tight ${
+          on ? 'text-foreground' : 'text-muted-foreground'
+        }`}
+      >
+        {label}
+      </span>
+    </button>
+  )
+}
+
 export function SettingsPage({ onBack }: SettingsPageProps) {
   const { theme, toggleTheme } = useTheme()
   const [reminders, setReminders] = useState(getReminderSettings())
   const [soundOn, setSoundOn] = useState(isSoundEnabled())
-  const [homeLocal, setHomeLocal] = useState<HomeVisibility>(getLocalHomeVisibility)
-  const [homeGlobal, setHomeGlobal] = useState<HomeVisibility>(HOME_VISIBILITY_DEFAULTS)
+  const [quickPrefs, setQuickPrefs] = useState<QuickActionPrefs>(getQuickActionPrefs)
+  const [homeVis, setHomeVis] = useState<HomeVisibility>(HOME_VISIBILITY_DEFAULTS)
   const [homeGlobalLoading, setHomeGlobalLoading] = useState(true)
   const [homeGlobalSaving, setHomeGlobalSaving] = useState(false)
   const [milkLayout, setMilkLayout] = useState<MilkStorageLayout>(
@@ -70,10 +136,10 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     api
       .getHomeVisibilityGlobal()
       .then((vis) => {
-        if (!cancelled) setHomeGlobal(vis)
+        if (!cancelled) setHomeVis(vis)
       })
       .catch(() => {
-        if (!cancelled) setHomeGlobal({ ...HOME_VISIBILITY_DEFAULTS })
+        if (!cancelled) setHomeVis({ ...HOME_VISIBILITY_DEFAULTS })
       })
       .finally(() => {
         if (!cancelled) setHomeGlobalLoading(false)
@@ -189,35 +255,32 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     setTimeout(() => setToast(null), 2000)
   }
 
-  const toggleHomeLocal = (key: HomeVisibilityKey) => {
-    const next = setLocalHomeVisibility({ [key]: !homeLocal[key] })
-    setHomeLocal(next)
-    const opt = HOME_VISIBILITY_OPTIONS.find((o) => o.key === key)
+  const toggleQuickAction = (id: QuickActionId) => {
+    const next = setQuickActionPrefs({
+      enabled: { [id]: !quickPrefs.enabled[id] },
+    })
+    setQuickPrefs(next)
+    const opt = QUICK_ACTION_OPTIONS.find((item) => item.id === id)
     setToast(
-      next[key]
-        ? `📱 ${opt?.label ?? key} tampil di perangkat ini`
-        : `📱 ${opt?.label ?? key} disembunyikan di perangkat ini`
+      next.enabled[id]
+        ? `⚡ ${opt?.label ?? id} tampil di aksi cepat`
+        : `⚡ ${opt?.label ?? id} disembunyikan`
     )
     setTimeout(() => setToast(null), 2000)
   }
 
-  const toggleHomeGlobal = async (key: HomeVisibilityKey) => {
+  const toggleHomeItem = async (key: HomeVisibilityKey) => {
     if (homeGlobalSaving) return
+    const nextOn = !homeVis[key]
+    const previous = homeVis[key]
+    setHomeVis((current) => ({ ...current, [key]: nextOn }))
     setHomeGlobalSaving(true)
     try {
-      const next = await api.updateHomeVisibilityGlobal({
-        [key]: !homeGlobal[key],
-      })
-      setHomeGlobal(next)
-      const opt = HOME_VISIBILITY_OPTIONS.find((o) => o.key === key)
-      setToast(
-        next[key]
-          ? `🌐 ${opt?.label ?? key} tampil untuk semua`
-          : `🌐 ${opt?.label ?? key} disembunyikan untuk semua`
-      )
-      setTimeout(() => setToast(null), 2000)
+      const next = await api.updateHomeVisibilityGlobal({ [key]: nextOn })
+      setHomeVis(next)
     } catch {
-      setToast('❌ Gagal menyimpan pengaturan global')
+      setHomeVis((current) => ({ ...current, [key]: previous }))
+      setToast('❌ Gagal menyimpan')
       setTimeout(() => setToast(null), 3000)
     } finally {
       setHomeGlobalSaving(false)
@@ -408,7 +471,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
   return (
     <div className="px-4 pt-6 pb-8">
-      <PageHeader title="Pengaturan" subtitle="Notifikasi & data" onBack={onBack} />
+      <PageHeader title="Pengaturan" onBack={onBack} />
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <h2 className="font-heading mb-3 font-semibold text-foreground">Tampilan</h2>
@@ -434,70 +497,46 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       </div>
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <h2 className="font-heading mb-1 font-semibold text-foreground">
-          Tampilan Beranda
+        <h2 className="font-heading mb-3 font-semibold text-foreground">
+          Aksi cepat
         </h2>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Off di perangkat = hanya di HP ini. Off untuk semua = semua user.
-          Tampil jika keduanya On.
-        </p>
-        <div className="mb-2 flex items-center justify-end gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <span className="w-16 text-center">Lokal</span>
-          <span className="w-16 text-center">Semua</span>
-        </div>
-        <div className="space-y-2">
-          {HOME_VISIBILITY_OPTIONS.map((opt) => {
-            const localOn = homeLocal[opt.key]
-            const globalOn = homeGlobal[opt.key]
-            return (
-              <div
-                key={opt.key}
-                className="flex items-center justify-between gap-3 rounded-xl bg-secondary px-3 py-3"
-              >
-                <span className="min-w-0 flex-1 text-left text-sm font-semibold text-foreground">
-                  <span className="block">{opt.label}</span>
-                  <span className="block text-[11px] font-normal text-muted-foreground">
-                    {opt.hint}
-                  </span>
-                </span>
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleHomeLocal(opt.key)}
-                    className={`w-16 rounded-lg py-2 text-[11px] font-bold ${
-                      localOn
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-card text-muted-foreground'
-                    }`}
-                  >
-                    {localOn ? 'On' : 'Off'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={homeGlobalLoading || homeGlobalSaving}
-                    onClick={() => toggleHomeGlobal(opt.key)}
-                    className={`w-16 rounded-lg py-2 text-[11px] font-bold disabled:opacity-50 ${
-                      globalOn
-                        ? 'bg-sky-600 text-white'
-                        : 'bg-card text-muted-foreground'
-                    }`}
-                  >
-                    {globalOn ? 'On' : 'Off'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+        <div className="grid grid-cols-4 gap-x-2 gap-y-4">
+          {QUICK_ACTION_OPTIONS.map((opt) => (
+            <IconToggle
+              key={opt.id}
+              on={quickPrefs.enabled[opt.id]}
+              label={opt.label}
+              onClick={() => toggleQuickAction(opt.id)}
+            >
+              <span aria-hidden>{opt.emoji}</span>
+            </IconToggle>
+          ))}
         </div>
       </div>
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <h2 className="font-heading mb-1 font-semibold text-foreground">
+        <h2 className="font-heading mb-3 font-semibold text-foreground">
+          Tampilan Beranda
+        </h2>
+        <div className="grid grid-cols-4 gap-x-2 gap-y-4">
+          {HOME_VISIBILITY_OPTIONS.map((opt) => (
+            <IconToggle
+              key={opt.key}
+              on={homeVis[opt.key]}
+              label={opt.label}
+              disabled={homeGlobalLoading || homeGlobalSaving}
+              onClick={() => toggleHomeItem(opt.key)}
+            >
+              <AppIcon icon={HOME_VISIBILITY_ICONS[opt.key]} size={26} strokeWidth={1.75} />
+            </IconToggle>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <h2 className="font-heading mb-3 font-semibold text-foreground">
           Milk Storage
         </h2>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Grid botol di beranda. Default 1×4.
-        </p>
         <div className="mb-4 rounded-xl border border-border/60 bg-secondary/30 p-3">
           <p className="mb-2 text-xs font-medium text-foreground">
             Pengingat expired
@@ -553,9 +592,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             </button>
           ))}
         </div>
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          Total: {milkLayout.rows * milkLayout.cols} botol
-        </p>
       </div>
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -579,9 +615,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             onChange={setFeedingInterval}
           />
         )}
-        <p className="mt-3 text-[11px] text-muted-foreground/90">
-          On = push notif, tetap jalan saat app ditutup.
-        </p>
       </div>
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -605,9 +638,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             onChange={setDiaperInterval}
           />
         )}
-        <p className="mt-3 text-[11px] text-muted-foreground/90">
-          On = push notif, tetap jalan saat app ditutup.
-        </p>
       </div>
 
       <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">

@@ -95,7 +95,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
 
   if (request.method !== 'GET') return
-  if (url.pathname === '/sw.js') return
+  if (url.pathname === '/sw.js' || url.pathname.endsWith('.ics')) return
   if (url.pathname.startsWith('/api/')) return
   if (url.pathname.startsWith('/kms-baby/')) {
     event.respondWith(mediaFirst(request))

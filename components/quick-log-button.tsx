@@ -12,6 +12,8 @@ interface QuickLogButtonProps {
   color: string
   onClick: () => void
   compact?: boolean
+  orb?: boolean
+  orbSize?: number
 }
 
 export function QuickLogButton({
@@ -22,6 +24,8 @@ export function QuickLogButton({
   color,
   onClick,
   compact = false,
+  orb = false,
+  orbSize = 64,
 }: QuickLogButtonProps) {
   const [isPressed, setIsPressed] = useState(false)
 
@@ -91,16 +95,20 @@ export function QuickLogButton({
       whileHover={variants.hover}
       whileTap={variants.tap}
       aria-label={label}
-      className={`relative w-full overflow-hidden rounded-2xl font-heading font-semibold text-foreground shadow-md transition-all duration-200 ${color} ${
-        compact ? 'px-2 py-3' : 'px-4 py-6'
+      className={`relative overflow-hidden font-heading font-semibold text-foreground shadow-md transition-all duration-200 ${color} ${
+        orb
+          ? 'rounded-full px-1 py-1'
+          : `w-full rounded-2xl ${compact ? 'px-2 py-3' : 'px-4 py-6'}`
       }`}
       style={{
-        minHeight: compact ? '72px' : '88px',
+        width: orb ? orbSize : undefined,
+        height: orb ? orbSize : undefined,
+        minHeight: orb ? undefined : compact ? '72px' : '88px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: compact ? '0.25rem' : '0.5rem',
+        gap: orb || compact ? '0.1rem' : '0.5rem',
       }}
     >
       {/* Ripple effect on tap */}
@@ -130,14 +138,14 @@ export function QuickLogButton({
         }
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         className={`flex shrink-0 items-center justify-center leading-none ${
-          icon ? 'h-6' : compact ? 'h-6 w-6 text-xl' : 'h-8 w-8 text-2xl'
+          icon ? 'h-6' : orb ? 'h-6 w-6 text-xl' : compact ? 'h-6 w-6 text-xl' : 'h-8 w-8 text-2xl'
         }`}
       >
         {icon ?? emoji}
       </motion.div>
 
       {/* Label */}
-      <span className="text-[11px] font-semibold leading-tight">{label}</span>
+      <span className={`font-semibold leading-none ${orb ? 'text-[9px]' : 'text-[11px] leading-tight'}`}>{label}</span>
 
       {/* Shine effect on hover */}
       <div

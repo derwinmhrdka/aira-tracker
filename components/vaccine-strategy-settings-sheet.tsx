@@ -8,7 +8,6 @@ import type { VaccineCatalogItem, VaccineStrategySettings } from '@/lib/api-clie
 import {
   catalogMidPrice,
   formatIdrInput,
-  getCatalogVaccineLabel,
   getMergedCatalog,
   parseIdrInput,
 } from '@/lib/vaccine-strategy'
@@ -120,12 +119,9 @@ export function VaccineStrategySettingsSheet({
             style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-muted" />
-            <h2 className="mb-1 font-heading text-base font-bold text-foreground">
+            <h2 className="mb-3 font-heading text-base font-bold text-foreground">
               Pengaturan vaksin
             </h2>
-            <p className="mb-3 text-[11px] text-muted-foreground">
-              Harga referensi untuk estimasi di plan. Tempat dan dokter diisi per plan.
-            </p>
             <div className="space-y-2.5">
               <div>
                 <p className="mb-2 text-xs font-medium text-foreground">Jenis vaksin & harga</p>
@@ -157,11 +153,7 @@ export function VaccineStrategySettingsSheet({
                             placeholder="Kata kunci vaksin (koma)"
                             className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-[10px]"
                           />
-                        ) : (
-                          <p className="mt-0.5 text-[9px] text-muted-foreground">
-                            Vaksin: {getCatalogVaccineLabel(item)}
-                          </p>
-                        )}
+                        ) : null}
                       </div>
                       <div className="relative w-28 shrink-0">
                         <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">

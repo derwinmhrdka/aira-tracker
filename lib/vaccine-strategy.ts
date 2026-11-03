@@ -316,17 +316,6 @@ export function matchesCatalogKeywords(text: string, keywords: string): boolean 
     .some((kw) => hay.includes(kw))
 }
 
-export function getCatalogVaccineLabel(item: VaccineCatalogItem): string {
-  if (item.isCustom && item.matchKeywords?.trim()) {
-    return item.matchKeywords
-      .split(',')
-      .map((k) => k.trim())
-      .filter(Boolean)
-      .join(', ')
-  }
-  return BUILTIN_CATALOG_VACCINES[item.id] ?? item.name
-}
-
 export function getCatalogPrice(
   catalogId: string,
   catalogPrices?: Record<string, number>,

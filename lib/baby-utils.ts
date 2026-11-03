@@ -16,6 +16,34 @@ export function ageInWeeks(birthDate: string, refDate?: string): number {
   return Math.max(0, Math.floor(ms / (7 * 24 * 60 * 60 * 1000)))
 }
 
+function localDate(iso: string): Date {
+  const [year, month, day] = iso.slice(0, 10).split('-').map(Number)
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
+function addCalendarMonths(date: Date, count: number): Date {
+  const target = new Date(date.getFullYear(), date.getMonth() + count, 1)
+  const dim = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
+  target.setDate(Math.min(date.getDate(), dim))
+  return target
+}
+
+/** Completed calendar months, plus days since that month anniversary. */
+export function ageMonthsAndDays(
+  birthDate: string,
+  refDate = new Date()
+): { months: number; days: number } {
+  const birth = localDate(birthDate)
+  const today = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate())
+  let months =
+    (today.getFullYear() - birth.getFullYear()) * 12 +
+    (today.getMonth() - birth.getMonth())
+  if (today < addCalendarMonths(birth, months)) months -= 1
+  const start = addCalendarMonths(birth, Math.max(0, months))
+  const days = Math.max(0, Math.round((today.getTime() - start.getTime()) / 86400000))
+  return { months: Math.max(0, months), days }
+}
+
 export function formatAge(birthDate: string): string {
   const birth = new Date(birthDate)
   const now = new Date()

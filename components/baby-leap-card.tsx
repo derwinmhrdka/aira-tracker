@@ -93,7 +93,7 @@ export function BabyLeapCard({ birthDate, dueDate }: BabyLeapCardProps) {
           event.stopPropagation()
           setOpen((value) => !value)
         }}
-        className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur-md"
+        className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/30 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur-sm"
         aria-expanded={open}
       >
         <span aria-hidden>{leap.emoji}</span>
