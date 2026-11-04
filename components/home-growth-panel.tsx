@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDown, ArrowUp, Check, ChevronDown, Minus, Ruler, Scale, ScanFace, type LucideIcon } from 'lucide-react'
 import { api, getLoggedBy, type BabyProfile, type GrowthLog, type TodaySummary } from '@/lib/api-client'
@@ -238,7 +238,6 @@ function GrowthReadout({
   gender,
   open,
   onToggle,
-  onDetail,
 }: {
   metric: GrowthMetric
   cell: GrowthMetricCell | null
@@ -246,7 +245,6 @@ function GrowthReadout({
   gender: Gender
   open: boolean
   onToggle: () => void
-  onDetail: () => void
 }) {
   const fullLabel = growthMetricShortLabel(metric)
   const MetricIcon = METRIC_ICON[metric]
@@ -258,10 +256,6 @@ function GrowthReadout({
   const number = cell ? formatGrowthValue(cell.value, metric) : '—'
   const unit = growthMetricUnit(metric)
   const status = trend ? GROWTH_TREND_LABEL[trend] : 'Belum ada'
-  const meter =
-    cell && birthDate
-      ? getGrowthGaugePercent(cell.value, birthDate, cell.measureDate, metric, gender)
-      : null
 
   return (
     <div className="relative min-w-0">
@@ -297,40 +291,74 @@ function GrowthReadout({
           )}
         </span>
       </button>
-      {open ? (
-        <div
-          className="absolute top-[calc(100%+0.35rem)] left-1/2 z-30 w-36 -translate-x-1/2 rounded-xl border border-white/70 bg-white/90 p-2.5 text-center shadow-md backdrop-blur-md"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p className={`text-[11px] leading-none font-semibold ${trend ? TREND_TEXT[trend] : 'text-slate-400'}`}>
-            {status}
-          </p>
+    </div>
+  )
+}
+
+const TIP_ALIGN: Record<GrowthMetric, string> = {
+  weight: 'left-0',
+  height: 'left-1/2 -translate-x-1/2',
+  head: 'right-0',
+}
+
+function GrowthMeterTip({
+  metric,
+  cell,
+  birthDate,
+  gender,
+  onDetail,
+  tipRef,
+}: {
+  metric: GrowthMetric
+  cell: GrowthMetricCell | null
+  birthDate: string | null
+  gender: Gender
+  onDetail: () => void
+  tipRef: RefObject<HTMLDivElement | null>
+}) {
+  const trend =
+    cell && birthDate
+      ? getGrowthTrend(cell.value, birthDate, cell.measureDate, metric, gender)
+      : null
+  const status = trend ? GROWTH_TREND_LABEL[trend] : 'Belum ada'
+  const meter =
+    cell && birthDate
+      ? getGrowthGaugePercent(cell.value, birthDate, cell.measureDate, metric, gender)
+      : null
+
+  return (
+    <div
+      ref={tipRef}
+      className={`pointer-events-auto absolute top-full z-30 mt-1.5 w-36 rounded-xl border border-white/70 bg-white/90 p-2.5 text-center shadow-md backdrop-blur-md ${TIP_ALIGN[metric]}`}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <p className={`text-[11px] leading-none font-semibold ${trend ? TREND_TEXT[trend] : 'text-slate-400'}`}>
+        {status}
+      </p>
+      <span
+        className="relative mt-2 block h-1.5 w-full overflow-visible rounded-full bg-slate-200"
+        style={meter != null ? { background: METER_TRACK } : undefined}
+        aria-hidden
+      >
+        <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/80" />
+        {meter != null && trend ? (
           <span
-            className="relative mt-2 block h-1.5 w-full overflow-visible rounded-full bg-slate-200"
-            style={meter != null ? { background: METER_TRACK } : undefined}
-            aria-hidden
-          >
-            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/80" />
-            {meter != null && trend ? (
-              <span
-                className={`absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white shadow-sm ${TREND_DOT[trend]}`}
-                style={{ left: `${meter}%` }}
-              />
-            ) : null}
-          </span>
-          {cell ? (
-            <button
-              type="button"
-              className="mt-2 text-[10px] font-semibold text-slate-600 underline-offset-2 hover:underline"
-              onClick={(event) => {
-                event.stopPropagation()
-                onDetail()
-              }}
-            >
-              Detail
-            </button>
-          ) : null}
-        </div>
+            className={`absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white shadow-sm ${TREND_DOT[trend]}`}
+            style={{ left: `${meter}%` }}
+          />
+        ) : null}
+      </span>
+      {cell ? (
+        <button
+          type="button"
+          className="mt-2 text-[10px] font-semibold text-slate-600 underline-offset-2 hover:underline"
+          onClick={(event) => {
+            event.stopPropagation()
+            onDetail()
+          }}
+        >
+          Detail
+        </button>
       ) : null}
     </div>
   )
@@ -395,6 +423,7 @@ export function HomeGrowthPanel({
   const [showMetrics, setShowMetrics] = useState(!showIdentity)
   const stageRef = useRef<GrowthStageHandle>(null)
   const metricsRef = useRef<HTMLDivElement>(null)
+  const meterRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!showMetrics || !showIdentity) return
@@ -402,18 +431,19 @@ export function HomeGrowthPanel({
       setTipMetric(null)
       setShowMetrics(false)
     }
-    const timer = window.setTimeout(back, 5000)
+    const timer = tipMetric ? null : window.setTimeout(back, 5000)
     const onPointerDown = (event: PointerEvent) => {
       const card = metricsRef.current
-      if (card && event.target instanceof Node && card.contains(event.target)) return
+      if (!(event.target instanceof Node)) return
+      if (card?.contains(event.target) || meterRef.current?.contains(event.target)) return
       back()
     }
     document.addEventListener('pointerdown', onPointerDown)
     return () => {
-      window.clearTimeout(timer)
+      if (timer) window.clearTimeout(timer)
       document.removeEventListener('pointerdown', onPointerDown)
     }
-  }, [showMetrics, showIdentity])
+  }, [showMetrics, showIdentity, tipMetric])
 
   const load = useCallback(async () => {
     try {
@@ -476,6 +506,7 @@ export function HomeGrowthPanel({
       >
         <GrowthStage ref={stageRef} status={reading?.status ?? 'normal'} />
         <div className="kms-hud">
+          <div className="relative">
           <div className="overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             {showMetrics || !showIdentity ? (
@@ -498,10 +529,6 @@ export function HomeGrowthPanel({
                     gender={gender}
                     open={tipMetric === metric}
                     onToggle={() => setTipMetric((current) => (current === metric ? null : metric))}
-                    onDetail={() => {
-                      setTipMetric(null)
-                      setInfoOpen(true)
-                    }}
                   />
                 ))}
               </motion.div>
@@ -542,6 +569,20 @@ export function HomeGrowthPanel({
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
+          {tipMetric && (showMetrics || !showIdentity) ? (
+            <GrowthMeterTip
+              metric={tipMetric}
+              cell={metricByKey.get(tipMetric) ?? null}
+              birthDate={resolvedBirth}
+              gender={gender}
+              tipRef={meterRef}
+              onDetail={() => {
+                setTipMetric(null)
+                setInfoOpen(true)
+              }}
+            />
+          ) : null}
           </div>
 
           {greet ? <span className="kms-bubble max-w-[92%] text-center text-sm whitespace-nowrap">{greet}</span> : null}

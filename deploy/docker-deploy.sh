@@ -67,9 +67,24 @@ fi
 
 $COMPOSE up -d --build --remove-orphans
 
-# teknodika-nginx resolves this name on teknodika_shared. A recreate
-# drops that attachment and https://aira.teknodika.com returns 502.
-docker network connect teknodika_shared aira-tracker-app-1 2>/dev/null || true
+# teknodika-nginx proxies to aira-tracker-app-1:3000 and keeps the IP it
+# resolved at startup. A recreated app gets a new IP, so HTTPS stays 502
+# until this container is on teknodika_shared and nginx is reloaded.
+APP_NAME="aira-tracker-app-1"
+SHARED_NET="teknodika_shared"
+if docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' "$APP_NAME" | grep -qw "$SHARED_NET"; then
+  echo "==> ${APP_NAME} is on ${SHARED_NET}"
+else
+  echo "==> Attaching ${APP_NAME} to ${SHARED_NET}..."
+  docker network connect "$SHARED_NET" "$APP_NAME"
+fi
+
+if docker ps --format '{{.Names}}' | grep -qx 'teknodika-nginx'; then
+  echo "==> Reloading teknodika-nginx so it uses the current app address..."
+  docker exec teknodika-nginx nginx -s reload
+else
+  echo "WARNING: teknodika-nginx is not running. https://${DOMAIN} will 502 until that proxy reloads." >&2
+fi
 
 echo "==> Container status:"
 $COMPOSE ps
