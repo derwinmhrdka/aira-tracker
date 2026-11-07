@@ -160,9 +160,12 @@ model CalendarEvent {
   meetWith  String?  @map("meet_with")
   startAt   DateTime @map("start_at")
   endAt     DateTime @map("end_at")
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  notes         String?
+  showSummary   Boolean   @default(false) @map("show_summary")
+  dayNotifiedAt DateTime? @map("day_notified_at")
+  hourNotifiedAt DateTime? @map("hour_notified_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([startAt])
   @@map("calendar_events")

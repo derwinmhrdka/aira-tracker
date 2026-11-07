@@ -10,6 +10,7 @@ function serialize(event: {
   startAt: Date
   endAt: Date
   notes: string | null
+  showSummary: boolean
 }) {
   return {
     id: event.id,
@@ -19,6 +20,7 @@ function serialize(event: {
     start_at: event.startAt.toISOString(),
     end_at: event.endAt.toISOString(),
     notes: event.notes,
+    show_summary: event.showSummary,
   }
 }
 
@@ -66,6 +68,8 @@ export async function PATCH(
           body.notes !== undefined
             ? String(body.notes || '').trim() || null
             : undefined,
+        showSummary:
+          body.show_summary !== undefined ? body.show_summary === true : undefined,
       },
     })
 

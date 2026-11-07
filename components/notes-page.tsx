@@ -19,6 +19,7 @@ import {
   type UpdateLogInput,
 } from '@/lib/api-client'
 import { useAppDataSync } from '@/lib/use-app-data-sync'
+import { useOpenNote } from '@/lib/open-note'
 
 interface NotesPageProps {
   onBack: () => void
@@ -53,7 +54,11 @@ export function NotesPage({ onBack }: NotesPageProps) {
   const [editingNote, setEditingNote] = useState<HistoryItem | null>(null)
   const [pendingDelete, setPendingDelete] = useState<DailyNote | null>(null)
   const [viewingPhoto, setViewingPhoto] = useState<string | null>(null)
+  const [focusId, setFocusId] = useState<string | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
+
+  const focusNote = useCallback((id: string) => setFocusId(id), [])
+  useOpenNote(focusNote)
 
   const canSave = content.trim().length > 0 || !!audioUrl
 
@@ -97,6 +102,16 @@ export function NotesPage({ onBack }: NotesPageProps) {
   useEffect(() => {
     loadInitial()
   }, [loadInitial])
+
+  useEffect(() => {
+    if (!focusId || loading) return
+    const el = document.getElementById(`note-${focusId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    if (hasMore && !loadingMore) loadMore()
+  }, [focusId, notes, loading, hasMore, loadingMore, loadMore])
 
   useEffect(() => {
     const el = loadMoreRef.current
@@ -195,9 +210,10 @@ export function NotesPage({ onBack }: NotesPageProps) {
           {notes.map((note) => (
             <motion.div
               key={note.id}
+              id={`note-${note.id}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="rounded-xl border border-border bg-card p-3 shadow-sm"
+              className={`rounded-xl border bg-card p-3 shadow-sm ${focusId === note.id ? 'border-primary' : 'border-border'}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="flex-1 text-sm text-foreground">{note.content}</p>

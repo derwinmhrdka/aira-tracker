@@ -10,6 +10,7 @@ import { ActiveTimer } from './active-timer'
 import { InsightsCard } from './insights-card'
 import { MilkStorageCard } from './milk-storage-card'
 import { HomeGrowthPanel } from './home-growth-panel'
+import { AppointmentSummary } from './appointment-summary'
 import { OnboardingSheet } from './onboarding-sheet'
 import { playSoundEffect } from '@/lib/sounds'
 import { api, isQueuedResponse, type TodaySummary } from '@/lib/api-client'
@@ -314,6 +315,7 @@ export function Dashboard() {
       </div>
 
       <div className="px-4">
+        <AppointmentSummary />
         <HomeGrowthPanel
           birthDate={summary?.baby?.birth_date}
           dueDate={summary?.baby?.due_date}

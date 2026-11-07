@@ -366,19 +366,19 @@ function GrowthMeterTip({
 
 function AgeReadout({ birthDate }: { birthDate?: string | null }) {
   if (!birthDate) {
-    return <span className="shrink-0 text-sm font-semibold text-slate-500">—</span>
+    return <span className="shrink-0 text-sm font-medium text-slate-500">—</span>
   }
   const { months, days } = ageMonthsAndDays(birthDate)
   return (
-    <span className="inline-grid h-8 shrink-0 grid-cols-[auto_auto] grid-rows-2 items-stretch gap-x-0.5 leading-none">
-      <span className="row-span-2 self-center font-heading text-[2rem] font-bold tabular-nums leading-none text-slate-900">
+    <span
+      className="inline-flex shrink-0 items-baseline gap-1.5 leading-none tabular-nums"
+      aria-label={`${months} bulan ${days} hari`}
+    >
+      <span className="font-heading text-2xl font-medium text-slate-900">
         {months}
+        <span className="ml-px text-sm font-medium">m</span>
       </span>
-      <span className="self-start text-[11px] font-semibold leading-none text-slate-600">m</span>
-      <span className="self-end text-[11px] font-semibold tabular-nums leading-none text-slate-600">
-        {days}
-        <span className="text-[8px] font-medium">d</span>
-      </span>
+      <span className="text-xs font-normal text-slate-500">{days}d</span>
     </span>
   )
 }

@@ -10,6 +10,7 @@ function serialize(event: {
   startAt: Date
   endAt: Date
   notes: string | null
+  showSummary: boolean
 }) {
   return {
     id: event.id,
@@ -19,6 +20,7 @@ function serialize(event: {
     start_at: event.startAt.toISOString(),
     end_at: event.endAt.toISOString(),
     notes: event.notes,
+    show_summary: event.showSummary,
   }
 }
 
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
         startAt,
         endAt,
         notes: body.notes?.trim() || null,
+        showSummary: body.show_summary === true,
       },
     })
 

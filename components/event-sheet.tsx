@@ -49,6 +49,7 @@ export function EventSheet({
   const [startAt, setStartAt] = useState(defaultStart())
   const [endAt, setEndAt] = useState(defaultEnd(defaultStart()))
   const [notes, setNotes] = useState('')
+  const [showSummary, setShowSummary] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -61,6 +62,7 @@ export function EventSheet({
       setStartAt(toDatetimeLocal(initial.start_at))
       setEndAt(toDatetimeLocal(initial.end_at))
       setNotes(initial.notes ?? '')
+      setShowSummary(initial.show_summary === true)
     } else {
       const start = defaultStart()
       setTitle('')
@@ -69,6 +71,7 @@ export function EventSheet({
       setStartAt(start)
       setEndAt(defaultEnd(start))
       setNotes('')
+      setShowSummary(false)
     }
     setError(null)
   }, [open, initial])
@@ -80,6 +83,7 @@ export function EventSheet({
     start_at: fromDatetimeLocal(startAt),
     end_at: fromDatetimeLocal(endAt),
     notes: notes.trim() || undefined,
+    show_summary: showSummary,
   })
 
   const handleSave = async (also?: 'google' | 'ios') => {
@@ -188,6 +192,21 @@ export function EventSheet({
                   className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm"
                 />
               </label>
+              <button
+                type="button"
+                onClick={() => setShowSummary((current) => !current)}
+                aria-pressed={showSummary}
+                className="flex w-full items-center justify-between rounded-xl border border-input bg-background px-3 py-2.5 text-left"
+              >
+                <span className="text-sm font-medium text-foreground">Show Summary</span>
+                <span
+                  className={`relative h-6 w-11 rounded-full transition-colors ${showSummary ? 'bg-primary' : 'bg-muted'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform ${showSummary ? 'left-5' : 'left-0.5'}`}
+                  />
+                </span>
+              </button>
               <label className="block">
                 <span className="mb-1 block text-xs text-muted-foreground">Catatan</span>
                 <input

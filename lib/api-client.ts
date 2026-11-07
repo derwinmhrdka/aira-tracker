@@ -755,6 +755,7 @@ export interface CalendarEvent {
   start_at: string
   end_at: string
   notes?: string | null
+  show_summary?: boolean
 }
 
 export interface CreateEventInput {
@@ -764,6 +765,7 @@ export interface CreateEventInput {
   start_at: string
   end_at: string
   notes?: string
+  show_summary?: boolean
 }
 
 export type VaccinePaymentMethod = 'INHEALTH' | 'FULLERTON' | 'PUSKESMAS' | 'CASH'

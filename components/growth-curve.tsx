@@ -267,6 +267,12 @@ function MetricCurve({
       <ChartGrid min={min} max={max} unit={metric === 'weight' ? 'kg' : 'cm'} />
       <path d={pathFor(rows, 'median', min, max)} className="kms-zone-median" />
       {dotY != null ? <line x1={dotX} y1={PAD.t} x2={dotX} y2={H - PAD.b} className="kms-chart-guide" /> : null}
+      {plotted.length > 1 ? (
+        <path
+          d={lineFor(plotted.map((item) => ({ month: item.visit.month, y: yOf(item.value, min, max) })))}
+          className="kms-chart-track"
+        />
+      ) : null}
       {plotted
         .filter((item) => item.visit.key !== 'current')
         .map((item) => (
@@ -357,7 +363,15 @@ function AllCurve({
           return (
             <g key={metric}>
               {points.length > 1 ? (
-                <path d={lineFor(points)} fill="none" stroke={SERIES_STROKE[metric]} strokeOpacity="0.55" strokeWidth="1.25" />
+                <path
+                  d={lineFor(points)}
+                  fill="none"
+                  stroke={SERIES_STROKE[metric]}
+                  strokeOpacity="0.85"
+                  strokeWidth="1.25"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
               ) : null}
               {points.map((point) => (
                 <circle

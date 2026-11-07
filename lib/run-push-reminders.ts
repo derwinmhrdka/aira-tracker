@@ -9,6 +9,7 @@ import {
   markDiaperPushSent,
   markPushSent,
 } from '@/lib/push-server'
+import { sendEventReminders } from '@/lib/event-push'
 import {
   DEFAULT_DIAPER_INTERVAL_MINUTES,
   DEFAULT_FEEDING_INTERVAL_MINUTES,
@@ -17,7 +18,7 @@ import {
 } from '@/lib/reminder'
 
 export type PushReminderResult = {
-  type: 'vaccine' | 'milk' | 'feeding' | 'diaper'
+  type: 'vaccine' | 'milk' | 'feeding' | 'diaper' | 'event'
   count: number
 }
 
@@ -97,6 +98,11 @@ export async function runAllPushReminders(): Promise<{
       await markPushSent()
       results.push({ type: 'feeding', count: result.sent })
     }
+  }
+
+  const events = await sendEventReminders()
+  if (events.sent > 0) {
+    results.push({ type: 'event', count: events.sent })
   }
 
   const diaperInterval = await getDiaperIntervalMinutes()

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { getNextEventReminderAt } from '@/lib/event-push'
 import { resolveSlotReminder } from '@/lib/milk-storage'
 import { getMilkReminderSettingsFromDb } from '@/lib/push-server'
 import {
@@ -59,6 +60,9 @@ export async function getNextReminderDueAt(now = Date.now()): Promise<number | n
   if (!hasSub) return null
 
   const candidates: number[] = []
+
+  const eventAt = await getNextEventReminderAt(now)
+  if (eventAt != null) candidates.push(eventAt)
 
   const milkSettings = await getMilkReminderSettingsFromDb()
   if (milkSettings.enabled) {
