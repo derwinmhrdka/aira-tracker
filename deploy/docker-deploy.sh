@@ -49,6 +49,19 @@ df -h / /tmp 2>/dev/null || df -h /
 echo "==> Memory before build:"
 free -h 2>/dev/null || true
 
+# A Next.js image build on this 1.7 GB VPS swaps forever when RAM and swap
+# are already full, and the SSH session hits its 90 minute limit.
+avail_kb="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+swap_total_kb="$(awk '/SwapTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+swap_free_kb="$(awk '/SwapFree:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+if [ "${avail_kb}" -lt 600000 ] || { [ "${swap_total_kb}" -gt 0 ] && [ "${swap_free_kb}" -lt 200000 ]; }; then
+  echo "ERROR: Not enough free memory to build the app image." >&2
+  echo "       MemAvailable=$((avail_kb / 1024)) MB, SwapFree=$((swap_free_kb / 1024)) MB." >&2
+  echo "       Stop other app containers, wait until available memory is above 600 MB, then redeploy." >&2
+  echo "       Leave database containers and teknodika-nginx running." >&2
+  exit 1
+fi
+
 echo "==> Pruning stopped containers and dangling images..."
 # Do not prune the BuildKit cache here. That cache is what skips the
 # ~15 minute npm ci when package-lock.json has not changed.
