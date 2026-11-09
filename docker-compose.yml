@@ -12,6 +12,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-baby_tracker}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # Four Postgres instances share this 1.7 GB VPS. The default 128 MB
+    # shared_buffers is what filled RAM and swap.
+    command: ["postgres", "-c", "shared_buffers=32MB"]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-baby_tracker}']
       interval: 5s
@@ -19,6 +22,9 @@ services:
       retries: 5
 
   app:
+    # Tagged by GitHub Actions and loaded on the VPS. `build` remains so a
+    # manual recovery on a machine with enough RAM can still compile.
+    image: aira-tracker:release
     build: .
     container_name: aira-tracker-app-1
     restart: unless-stopped

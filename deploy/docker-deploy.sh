@@ -41,32 +41,62 @@ fi
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
-echo "==> Building and starting containers (db, app)..."
+echo "==> Starting containers (db, app)..."
 echo "    HTTPS is handled by host nginx — see deploy/nginx-aira.conf.example"
 
-echo "==> Disk space before build:"
+IMAGE_NAME="aira-tracker:release"
+IMAGE_TAR="/tmp/aira-tracker-image.tar.gz"
+PREBUILT=false
+if [ -f "${IMAGE_TAR}" ] || docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
+  PREBUILT=true
+fi
+
+echo "==> Disk space before deploy:"
 df -h / /tmp 2>/dev/null || df -h /
-echo "==> Memory before build:"
+echo "==> Memory before deploy:"
 free -h 2>/dev/null || true
 
-# A Next.js image build on this 1.7 GB VPS swaps forever when RAM and swap
-# are already full, and the SSH session hits its 90 minute limit.
+# Compiling Next.js on this 1.7 GB VPS swaps until the 90 minute SSH limit.
+# A prebuilt image only needs enough RAM to load the archive and restart.
 avail_kb="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
 swap_total_kb="$(awk '/SwapTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
 swap_free_kb="$(awk '/SwapFree:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
-if [ "${avail_kb}" -lt 600000 ] || { [ "${swap_total_kb}" -gt 0 ] && [ "${swap_free_kb}" -lt 200000 ]; }; then
-  echo "ERROR: Not enough free memory to build the app image." >&2
+if [ "${PREBUILT}" = true ]; then
+  need_avail_kb=250000
+  need_swap_kb=500000
+  need_label="250 MB RAM and 500 MB free swap to restart the app"
+else
+  need_avail_kb=600000
+  need_swap_kb=200000
+  need_label="600 MB RAM and 200 MB free swap to compile on the VPS"
+fi
+if [ "${avail_kb}" -lt "${need_avail_kb}" ] || { [ "${swap_total_kb}" -gt 0 ] && [ "${swap_free_kb}" -lt "${need_swap_kb}" ]; }; then
+  echo "ERROR: Not enough free memory. Need ${need_label}." >&2
   echo "       MemAvailable=$((avail_kb / 1024)) MB, SwapFree=$((swap_free_kb / 1024)) MB." >&2
-  echo "       Stop other app containers, wait until available memory is above 600 MB, then redeploy." >&2
+  echo "       Leave Bliyo, Mahardiora Hub, and Teknokika AI stopped." >&2
   echo "       Leave database containers and teknodika-nginx running." >&2
   exit 1
+fi
+
+if [ -f "${IMAGE_TAR}" ]; then
+  echo "==> Loading prebuilt image from ${IMAGE_TAR}..."
+  gunzip -c "${IMAGE_TAR}" | docker load
+  rm -f "${IMAGE_TAR}"
+  PREBUILT=true
 fi
 
 echo "==> Pruning stopped containers and dangling images..."
 # Do not prune the BuildKit cache here. That cache is what skips the
 # ~15 minute npm ci when package-lock.json has not changed.
-docker container prune -f --filter "until=24h" 2>/dev/null || true
+# Limit container prune to this project. A machine-wide prune removes
+# other apps' stopped containers (Airafin, Teknokika) after 24 hours.
+docker container prune -f --filter "until=24h" --filter "label=com.docker.compose.project=aira-tracker" 2>/dev/null || true
 docker image prune -f 2>/dev/null || true
+
+if [ "${PREBUILT}" = true ] && ! docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
+  echo "ERROR: ${IMAGE_NAME} is not present after load. The running app was left in place." >&2
+  exit 1
+fi
 
 # `restart: unless-stopped` can start the app again between Compose's
 # stop and remove, which fails with "container is running". Force-remove
@@ -78,7 +108,13 @@ if [ -n "${app_id}" ]; then
   docker rm -f "${app_id}"
 fi
 
-$COMPOSE up -d --build --remove-orphans
+if [ "${PREBUILT}" = true ]; then
+  echo "==> Using prebuilt ${IMAGE_NAME}. Not compiling on the VPS."
+  $COMPOSE up -d --no-build --remove-orphans
+else
+  echo "==> No prebuilt image. Compiling on the VPS."
+  $COMPOSE up -d --build --remove-orphans
+fi
 
 # teknodika-nginx proxies to aira-tracker-app-1:3000 and keeps the IP it
 # resolved at startup. A recreated app gets a new IP, so HTTPS stays 502

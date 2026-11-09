@@ -1,4 +1,6 @@
 # Auto deploy to VPS — Baby Tracker (aira.teknodika.com)
+# The image is built on the GitHub runner (7 GB RAM). The 1.7 GB VPS only
+# loads that image and restarts the app container.
 name: Deploy to VPS
 
 on:
@@ -10,6 +12,27 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build app image
+        run: docker build -t aira-tracker:release .
+
+      - name: Save image archive
+        run: docker save aira-tracker:release | gzip -1 > aira-tracker-image.tar.gz
+
+      - name: Copy image to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: aira-tracker-image.tar.gz
+          target: /tmp
+          overwrite: true
+          timeout: 30m
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -17,7 +40,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          command_timeout: 90m
+          command_timeout: 20m
           script_stop: true
           script: |
             set -euo pipefail
